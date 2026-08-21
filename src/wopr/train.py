@@ -18,6 +18,7 @@ Opponent mix per game (`--self-play`, `--vs-pool`, remainder vs `--anchor`):
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import random
 from pathlib import Path
@@ -34,7 +35,7 @@ from wopr.arena import Arena, Opponent
 from wopr.buffer import AlternatingRolloutBuffer
 from wopr.callback import StopAtGames, WoprCallback
 from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent
-from wopr.policy import JoshuaPolicy
+from wopr.policy import PRECISIONS, JoshuaPolicy
 from wopr.pool import POOL_PREFIX, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
@@ -67,6 +68,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--pool-window", type=int, default=None, help="sample only the newest N snapshots")
     p.add_argument("--no-events", action="store_true", help="Ops-only curriculum: Engine.new_game(events=False)")
     p.add_argument("--device", default="auto", help="auto | cpu | cuda")
+    p.add_argument("--precision", choices=list(PRECISIONS), default="bf16", help="bf16 autocast for the network (default; halves the update) or plain fp32")
     p.add_argument("--torch-threads", type=int, default=None)
     return p.parse_args(argv)
 
@@ -136,11 +138,25 @@ def build_model(args: argparse.Namespace, env: WoprVecEnv, device: str) -> PPO:
         vf_coef=args.vf_coef,
         target_kl=args.target_kl,
         rollout_buffer_class=AlternatingRolloutBuffer,
-        policy_kwargs={"joshua_config": {"hidden": args.hidden, "gnn_layers": args.gnn_layers, "card_dim": args.card_dim}},
+        policy_kwargs={
+            "joshua_config": {"hidden": args.hidden, "gnn_layers": args.gnn_layers, "card_dim": args.card_dim},
+            "precision": args.precision,
+        },
         seed=args.seed,
         device=device,
         verbose=0,
     )
+
+
+def last_update(metrics_path: Path) -> int:
+    """The update counter a resumed run continues from, read off the last
+    row of `metrics.csv`: pool snapshots are named by update number, so a
+    counter restarting at 0 would overwrite the run's earlier snapshots."""
+    if not metrics_path.exists():
+        return 0
+    with metrics_path.open(newline="") as f:
+        updates = [int(row["update"]) for row in csv.DictReader(f) if row.get("update")]
+    return max(updates, default=0)
 
 
 def wire_buffer(model: PPO, env: WoprVecEnv) -> None:
@@ -162,17 +178,22 @@ def main(argv: list[str] | None = None) -> None:
     pool = CheckpointPool(run_dir / "pool", window=args.pool_window)
 
     games_done = 0
+    updates_done = 0
     if config_path.exists():
         previous = json.loads(config_path.read_text())
         games_done = int(previous.get("games_done", 0))
         if args.games <= games_done:
             print(f"[wopr] run {args.run!r} already at {games_done} games (target {args.games}); nothing to do")
             return
-        print(f"[wopr] resuming {args.run!r} from {games_done} games to {args.games}")
+        updates_done = last_update(run_dir / "metrics.csv")
+        print(f"[wopr] resuming {args.run!r} from {games_done} games ({updates_done} updates) to {args.games}")
 
     env = build_env(args, pool, device)
     if model_path.exists():
         model = PPO.load(model_path, env=env, device=device)
+        # A resumed run takes its precision from the flag, not from the
+        # policy saved in the zip (the weights are float32 either way).
+        model.policy.precision = args.precision
     else:
         model = build_model(args, env, device)
     wire_buffer(model, env)
@@ -184,6 +205,7 @@ def main(argv: list[str] | None = None) -> None:
         target_games=args.games,
         snapshot_every=args.snapshot_every,
         games_done=games_done,
+        updates_done=updates_done,
     )
     config: dict[str, Any] = {**vars(args), "device": device, "games_done": games_done}
     config_path.write_text(json.dumps(config, indent=2))

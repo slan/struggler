@@ -51,6 +51,7 @@ class WoprCallback(BaseCallback):
         target_games: int,
         snapshot_every: int,
         games_done: int = 0,
+        updates_done: int = 0,
         verbose: int = 1,
     ) -> None:
         super().__init__(verbose)
@@ -60,7 +61,7 @@ class WoprCallback(BaseCallback):
         self.target_games = target_games
         self.snapshot_every = snapshot_every
         self.games = games_done
-        self.update = 0
+        self.update = updates_done
         self._rollout_games: list[dict[str, Any]] = []
         self._rollout_start = time.perf_counter()
         self._start = time.perf_counter()

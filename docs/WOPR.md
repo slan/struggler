@@ -216,11 +216,12 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   update is 64 games × 128 learner decisions: the rollout takes ~3–4 s
   (~2.7k learner decisions/s against the random anchor or itself, ~1.3k
   against Greedy, ~1.75k with pool snapshots in play) and the PPO update
-  — 4 epochs × 8 minibatches of 1,024, forward and backward — ~6.6 s at
-  16 threads. `metrics.csv` records both (`rollout_s`, `update_s`). The
-  update is the network's FLOPs, mostly the graph layers' linears over
-  85 nodes × 128 hidden; the legal-rows option head and a plain `matmul`
-  for the adjacency aggregation took it from 10.7 s with identical
+  — 4 epochs × 8 minibatches of 1,024, forward and backward — ~3.4 s at
+  16 threads under the default `--precision bf16` (~6.6 s in fp32).
+  `metrics.csv` records both (`rollout_s`, `update_s`). The update is
+  the network's FLOPs, mostly the graph layers' linears over 85 nodes ×
+  128 hidden; the legal-rows option head and a plain `matmul` for the
+  adjacency aggregation took the fp32 figure from 10.7 s with identical
   outputs. On the rollout side a learner step is about 40% policy
   forward at 8+ threads, the rest engine `step` and feature encoding;
   against a net opponent the opponent is asked ~8 times per learner
@@ -230,13 +231,19 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   contract (several arenas, one buffer), not in SB3's `SubprocVecEnv`,
   whose workers expect gym envs. See the August 2026 entry in
   [JOSHUA.md](JOSHUA.md).
-- **Device.** `--device auto` picks CUDA when available. On CPU,
-  `--torch-threads 16` is the measured sweet spot for the update phase
-  (8 threads is 1.5× slower, 32 no faster); torch's default of all cores
-  is fine. bf16 autocast would halve the update again but changes the
-  numerics, so it is not on. A GPU pays off for the update phase already
-  at the default model size, and for rollouts once several collector
-  processes centralise inference into large batches.
+- **Device and precision.** `--device auto` picks CUDA when available.
+  On CPU, `--torch-threads 16` is the measured sweet spot for the update
+  phase (8 threads is 1.5× slower, 32 no faster); torch's default of all
+  cores is fine. `--precision bf16` (the default) runs the network's
+  matmuls in bfloat16 under autocast for every forward, rollout and
+  update alike, so PPO's ratio compares log-probs from the same
+  arithmetic; weights, the loss and the stored values stay float32, and
+  a resumed run takes the flag, not the zip. It halves the update and
+  its first 600 games track an fp32 run's curve (explained variance,
+  entropy, KL, clip fraction) within noise; `--precision fp32` is the
+  control. A GPU pays off for the update phase already at the default
+  model size, and for rollouts once several collector processes
+  centralise inference into large batches.
 - **Reward.** Terminal only, by design. VP is the game's literal score and
   a natural dense signal if learning stalls; it is not on by default
   because shaping a two-player zero-sum game tends to teach the shaping.

@@ -20,6 +20,11 @@ from stable_baselines3.common.type_aliases import PyTorchObs, Schedule
 
 from struggler.bots.joshua.model import JoshuaConfig, JoshuaNet
 
+#: `fp32`: plain float32. `bf16`: the network's matmuls run in bfloat16
+#: under autocast (weights and the loss stay float32) -- about half the
+#: update's cost on an AVX-512 CPU, at a precision cost PPO tolerates.
+PRECISIONS = ("fp32", "bf16")
+
 
 class JoshuaPolicy(ActorCriticPolicy):
     def __init__(
@@ -29,12 +34,16 @@ class JoshuaPolicy(ActorCriticPolicy):
         lr_schedule: Schedule,
         *,
         joshua_config: Mapping[str, Any] | JoshuaConfig | None = None,
+        precision: str = "fp32",
         **kwargs: Any,
     ) -> None:
         if isinstance(joshua_config, JoshuaConfig):
             self.joshua_config = joshua_config
         else:
             self.joshua_config = JoshuaConfig.from_dict(joshua_config or {})
+        if precision not in PRECISIONS:
+            raise ValueError(f"precision must be one of {PRECISIONS}, got {precision!r}")
+        self.precision = precision
         super().__init__(observation_space, action_space, lr_schedule, **kwargs)
 
     def _build(self, lr_schedule: Schedule) -> None:
@@ -46,10 +55,17 @@ class JoshuaPolicy(ActorCriticPolicy):
     def _get_constructor_parameters(self) -> dict[str, Any]:
         data = super()._get_constructor_parameters()
         data["joshua_config"] = self.joshua_config.to_dict()
+        data["precision"] = self.precision
         return data
 
     def _distribution_and_values(self, obs: PyTorchObs) -> tuple[CategoricalDistribution, torch.Tensor]:
-        logits, values = self.net(obs)
+        # `bf16` runs the network's matmuls in bfloat16 under autocast --
+        # weights, the loss, and everything downstream stay float32. It is
+        # applied to every call, rollout and update alike, so the log-probs
+        # PPO's ratio compares were produced by the same arithmetic.
+        with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16, enabled=self.precision == "bf16"):
+            logits, values = self.net(obs)
+        logits, values = logits.float(), values.float()
         distribution = CategoricalDistribution(logits.shape[-1]).proba_distribution(action_logits=logits)
         return distribution, values.unsqueeze(-1)
 

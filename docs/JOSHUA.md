@@ -205,18 +205,20 @@ reordered it:
   1,024; scoring the option head on legal `(row, slot)` pairs instead of
   all 96 padded slots, and a plain `matmul` for the adjacency
   aggregation, took it to 6.6 s with bit-identical outputs (the v1
-  checkpoint included). bf16 autocast would halve it again; it changes
-  the numerics, so it is a deliberate experiment, not a default.
+  checkpoint included). bf16 autocast halves it again, to 3.4 s: it
+  changes the numerics, so it was checked first — 600 games against
+  v1's first 600 track within noise on every health metric — and is
+  now the default. An update that cost 17 s in v1 costs 7.
 
 ## Open questions and the road ahead
 
 In rough order of expected value per effort:
 
-1. **Throughput.** The update phase is the larger half (6.6 s per
-   update vs 3–4 s of rollout, `update_s`/`rollout_s` in `metrics.csv`),
-   and it is the network's FLOPs: bf16 autocast (2×, changes numerics),
-   fewer epochs or larger minibatches (changes the optimisation), or a
-   GPU. On the rollout side the engine and encoding are per-process
+1. **Throughput.** Update and rollout are now even (~3.4 s vs 3–4 s
+   per update, `update_s`/`rollout_s` in `metrics.csv`). What is left on
+   the update side is the network's FLOPs in bf16: fewer epochs or
+   larger minibatches (changes the optimisation), or a GPU. On the
+   rollout side the engine and encoding are per-process
    Python, so collection across processes is the lever — *below* the
    layout (several arenas feeding one buffer), not in a gym-style
    subprocess wrapper — and the net-opponent tail rounds want a

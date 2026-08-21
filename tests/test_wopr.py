@@ -23,6 +23,7 @@ from wopr.buffer import AlternatingRolloutBuffer  # noqa: E402
 from wopr.ladder import Match, elo_ratings, summarize  # noqa: E402
 from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent  # noqa: E402
 from wopr.pool import POOL_PREFIX, CheckpointPool  # noqa: E402
+from wopr.policy import JoshuaPolicy  # noqa: E402
 from wopr.vec_env import LEARNER, WoprVecEnv, observation_space  # noqa: E402
 
 SMALL = JoshuaConfig(hidden=32, gnn_layers=1, card_dim=8, option_hidden=32)
@@ -193,3 +194,30 @@ def test_net_opponent_answers_every_row_with_a_legal_index():
     assert len(choices) == len(rows)
     for row, choice in zip(rows, choices):
         assert 0 <= choice < len(row.observation.pending_decision.options)
+
+
+@pytest.mark.parametrize("precision", ["fp32", "bf16"])
+def test_policy_precision_keeps_the_ppo_interface_in_float32(precision):
+    """Under `bf16` only the network's matmuls change dtype: actions are
+    legal, log-probs and values come back float32 (the loss stays float32),
+    and the setting survives `_get_constructor_parameters` so `PPO.load`
+    rebuilds the same policy."""
+    torch.manual_seed(0)
+    policy = JoshuaPolicy(
+        observation_space(), spaces.Discrete(F.K_MAX), lambda _: 3e-4, joshua_config=SMALL, precision=precision
+    )
+    arena = Arena(4, seed=3, seat_assigner=lambda slot, episode, rng: {Side.US: LEARNER, Side.USSR: LEARNER})
+    env = WoprVecEnv(arena, lambda policy_id: None)
+    obs = {name: torch.as_tensor(array) for name, array in env.reset().items()}
+
+    actions, values, log_prob = policy(obs)
+    mask = obs["opt_mask"].bool()
+    assert mask[torch.arange(4), actions].all()
+    assert values.dtype is torch.float32 and log_prob.dtype is torch.float32
+    assert torch.isfinite(log_prob).all()
+    evaluated_values, evaluated_log_prob, entropy = policy.evaluate_actions(obs, actions)
+    assert torch.allclose(evaluated_log_prob, log_prob) and entropy.dtype is torch.float32
+    assert policy._get_constructor_parameters()["precision"] == precision
+
+    with pytest.raises(ValueError):
+        JoshuaPolicy(observation_space(), spaces.Discrete(F.K_MAX), lambda _: 3e-4, joshua_config=SMALL, precision="fp16")

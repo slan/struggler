@@ -93,5 +93,5 @@ routed to the operator is described in [BOTS.md](BOTS.md).
   learner decisions/s; multi-process collection and a shared-memory
   backend are designed for (the layout is the contract) but not built.
   Every round waits on every slot, so a net opponent is asked ~8 times
-  per learner step at small batches. The PPO update is the larger share
-  of wall time (~6.6 s vs 3–4 s per update) and runs in fp32.
+  per learner step at small batches. The PPO update (~3.4 s in bf16)
+  and the rollout (3–4 s) now cost about the same per update.
