@@ -1,0 +1,16 @@
+Sampled (stochastic), 200 games per opponent, eval seed 0
+
+v11 vs random: 0.990 over 200 | as US 0.980 | as USSR 1.000
+v11 vs first: 0.980 over 200 | as US 0.990 | as USSR 0.970
+v11 vs greedy: 0.815 over 200 | as US 0.690 | as USSR 0.940
+v11 vs v1: 0.965 over 200 | as US 0.980 | as USSR 0.950
+v11 vs v10: 0.115 over 200 | as US 0.030 | as USSR 0.200
+v11 vs v2: 0.995 over 200 | as US 1.000 | as USSR 0.990
+v11 vs v3: 0.818 over 200 | as US 0.765 | as USSR 0.870
+v11 vs v4: 0.785 over 200 | as US 0.680 | as USSR 0.890
+v11 vs v5: 0.800 over 200 | as US 0.670 | as USSR 0.930
+v11 vs v6: 0.525 over 200 | as US 0.310 | as USSR 0.740
+v11 vs v7: 0.400 over 200 | as US 0.330 | as USSR 0.470
+v11 vs v8: 0.190 over 200 | as US 0.120 | as USSR 0.260
+v11 vs v9: 0.135 over 200 | as US 0.040 | as USSR 0.230
+Elo: v10 +1462, v9 +1424, v8 +1352, v7 +1193, v11 +1173, v6 +996, v3 +858, v4 +846, v5 +839, greedy +807, v1 +585, first +490, v2 +281, random +0

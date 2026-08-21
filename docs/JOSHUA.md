@@ -136,6 +136,7 @@ Details, trajectories and checkpoints per version are in
 | v8 | v7 + 4,000 (gate 0.73 vs v7); 20,000 games, never an anchor | +1394 ± 30 | 1.00 | **0.96** (0.96 / 0.95) |
 | v9 | v8 + 4,000 games with 2 PPO epochs (the A/B winner; 24,000 games) | +1527 ± 26 | 1.00 | **0.99** (0.97 / 1.00) |
 | v10 | v9 + 8,000 games by the loop (one failed gate, then 0.63 vs v9); 32,000 games | +1499 ± 46 | 1.00 | **0.98** (0.97 / 0.98) |
+| v11 | 8,000 games from scratch, **hidden 256**, 4 epochs (the capacity A/B winner; 47 min) | +1244 ± 31 | 0.99 (0.99 / 1.00) | **0.91** (0.85 / 0.97) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -299,7 +300,15 @@ What the capacity experiment taught (hidden 256, August 2026):
   epochs): update 1.7 → 4.0 s (2.3×, under the hidden² guess of ~4 —
   the option head, the card embeddings and the fixed overheads do not
   scale), rollout 2.2 → 3.1 s (1.4×, the learner's own forward pass);
-  8,000 games in 31.5 min against 15.6. Neither run is frozen.
+  8,000 games in 31.5 min against 15.6. Neither 2-epoch run is frozen.
+- **The matched arm settles it.** Hidden 256 at 4 epochs — v5's recipe
+  and budget, the update at 8 s — beats v5 0.84 / 0.855 / 0.845, Greedy
+  0.91 and the 2-epoch arm 0.83–0.875, and takes 0.145 off v10 where v5
+  took 0.035. Frozen as v11, it sits between v6 and v7 on the 128 chain
+  (0.58 vs v6, 0.32 vs v7): 8,000 games of the wider network are worth
+  12–16,000 of the narrower one, at about twice the wall time per game.
+  Its games are shorter (mean final turn 5.7 against the 2-epoch arm's
+  7.2) — more DEFCON endings, and they win.
 
 ### Reading v9's games
 
@@ -374,17 +383,20 @@ reordered it:
 
 ## Open questions and the road ahead
 
-**Next experiment: capacity (in progress).** The chain flattened at v10
-(two of three gates failed) with the network still at ~270k
-parameters. The first pass (above) found the planned comparison — a
-fresh `--hidden 256` run to v5's 8,000 games, `wopr.eval` against v5 as
-the same-budget control — confounded by epochs, and width a clear win
-at equal recipe. The matched arm is the one the rule applies to:
-`--hidden 256 --n-epochs 4` to 8,000 games (a new size cannot continue
-a run, the checkpoint shapes differ). Ahead of v5 at equal games →
-continue it through the loop and see whether it clears the gates v10
-could not; not ahead → try a third graph layer before concluding
-capacity is not the limit. Freeze the winner only.
+**Next experiment: capacity, through the loop.** The chain flattened at
+v10 (two of three gates failed) with the network still at ~270k
+parameters, and the A/B (above) found a `--hidden 256` network well
+ahead at equal budget: v11. The question now is whether it keeps
+climbing where 128 flattened: v11 continues through the loop with
+itself as the champion (`--hidden 256 --n-epochs 4`, 4,000 games a
+generation), so every promotion is frozen and rated against the whole
+chain, v10 included. The marks to watch: the generation where it passes
+v10 (the 128 chain needed 24,000 games past v5 to get there), and
+whether the gate keeps clearing past 36,000 games. If it flattens too,
+a third graph layer is next before concluding capacity is not the
+limit. A note on epochs: 2 is the default because it matched 4 when
+continuing a trained run; a fresh run wants 4, and the 256 line is
+being continued at 4 to keep one variable at a time.
 
 In rough order of expected value per effort:
 

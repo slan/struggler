@@ -242,3 +242,33 @@ Commit `26a48c9` — run `pure`, 32,000 games trained.
 - vs v7: 0.813 (US 0.673 / USSR 0.953)
 - vs v8: 0.691 (US 0.465 / USSR 0.917)
 - vs v9: 0.629 (US 0.383 / USSR 0.875)
+
+## v11
+
+Commit `9885216` — run `h256-e4`, 8,000 games trained (255 updates, 47 min
+with 8 collector processes and 16 torch threads).
+
+- The capacity A/B winner: a fresh run with **`--hidden 256`** (858k
+  parameters; 128: 272k) at 4 PPO epochs, otherwise v5's recipe and
+  budget — 50% self-play, 50% pool, no anchor, 8,000 games. The 2-epoch
+  arm and the hidden-128 2-epoch control are not frozen; the experiment
+  is written up in [docs/JOSHUA.md](../docs/JOSHUA.md).
+- Elo vs random: **+1244 ± 31** over seeds [0, 1, 2]
+- vs random: 0.993 (US 0.990 / USSR 0.997)
+- vs first: 0.997 (US 0.997 / USSR 0.997)
+- vs greedy: **0.909** (US 0.848 / USSR 0.970)
+- vs v1: 0.962 (US 0.943 / USSR 0.980)
+- vs v2: 0.993 (US 0.990 / USSR 0.997)
+- vs v3: 0.855 (US 0.765 / USSR 0.945)
+- vs v4: 0.701 (US 0.472 / USSR 0.930)
+- vs v5: **0.847** (US 0.780 / USSR 0.913) — the same-budget control
+- vs v6: 0.584 (US 0.365 / USSR 0.803)
+- vs v7: 0.322 (US 0.152 / USSR 0.492)
+- vs v8: 0.213 (US 0.090 / USSR 0.337)
+- vs v9: 0.199 (US 0.050 / USSR 0.348)
+- vs v10: 0.145 (US 0.013 / USSR 0.277)
+- Sampled play (seed 0): 0.815 vs greedy, 0.800 vs v5, 0.115 vs v10.
+- Notes: at v5's budget it sits between v6 and v7 on the 128-hidden
+  chain — 8,000 games of the wider network are worth 12–16,000 of the
+  narrower one, at about twice the wall time per game. The USSR seat is
+  the stronger one against everything from v3 on.
