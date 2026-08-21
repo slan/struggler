@@ -215,6 +215,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         model.learn(total_timesteps=2**62, callback=[tracker, StopAtGames(tracker)], reset_num_timesteps=not model_path.exists())
     finally:
+        env.close()  # collector processes, if any
         model.save(model_path)
         config["games_done"] = tracker.games
         config_path.write_text(json.dumps(config, indent=2))

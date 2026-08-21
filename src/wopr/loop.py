@@ -1,0 +1,212 @@
+"""The self-improvement loop: train, evaluate, gate, promote, repeat.
+
+    python -m wopr.loop --run pure --champion v5 --generations 5 --generation-games 4000 --workers 8
+
+One generation continues the run for `--generation-games` games (the
+same `train.py` path: optimizer state and pool carried over), evaluates
+the latest checkpoint -- the *challenger* -- against the *champion* (the
+newest frozen baseline, or whatever `--champion` names) and against
+Greedy on fixed seeds with the parallel ladder, and applies the gate: a
+challenger that wins at least `--gate` of its games against the champion
+over every eval seed is frozen as the next `vN` (`baseline.py`, full
+protocol), its README entry appended, and becomes the champion. One that
+does not is simply trained further; the run never rolls back -- the PFSP
+pool is what guards against regression -- but a challenger that keeps
+*losing* to the champion (`--patience` generations below 0.5) stops the
+loop, since that is a regression to look at, not to train through.
+
+Training arguments after `--` go to `train.py` unchanged, which is how a
+hyperparameter experiment runs through the loop:
+
+    python -m wopr.loop --run pure --generations 2 -- --n-epochs 2
+
+`runs/<run>/loop.csv` records every generation.
+"""
+
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import re
+import statistics
+import time
+from pathlib import Path
+from typing import Any, Sequence
+
+from wopr import baseline, train
+from wopr.eval import PairJob, play_pairs
+from wopr.ladder import summarize
+
+LOOP_COLUMNS = (
+    "generation", "games", "train_s", "eval_s", "champion",
+    "vs_champion", "vs_champion_us", "vs_champion_ussr", "vs_champion_min_seed",
+    "vs_greedy", "vs_greedy_us", "vs_greedy_ussr",
+    "promoted", "version",
+)
+
+
+def latest_version() -> str | None:
+    versions = sorted(
+        (p.name for p in baseline.BASELINES_DIR.glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
+        key=lambda name: int(name[1:]),
+    )
+    return versions[-1] if versions else None
+
+
+def next_version() -> str:
+    latest = latest_version()
+    return "v1" if latest is None else f"v{int(latest[1:]) + 1}"
+
+
+def games_done(run_dir: Path) -> int:
+    config = run_dir / "config.json"
+    return int(json.loads(config.read_text()).get("games_done", 0)) if config.exists() else 0
+
+
+def evaluate_challenger(
+    challenger: Path, champion: Path | None, *, games: int, seeds: Sequence[int], workers: int | None
+) -> dict[str, Any]:
+    """Argmax play of the challenger against the champion (every seed) and
+    against Greedy (first seed): per-seed and per-seat win rates."""
+    jobs = [PairJob(f"challenger={challenger}", "greedy", games, seeds[0])]
+    if champion is not None:
+        jobs += [PairJob(f"challenger={challenger}", f"champion={champion}", games, seed) for seed in seeds]
+    results = play_pairs(jobs, workers=workers)
+
+    def rates(pair, opponent: str) -> dict[str, float]:
+        return {
+            "win_rate": summarize(pair, "challenger", opponent)["win_rate"],
+            "as_us": summarize([m for m in pair if m.a == "challenger"], "challenger", opponent)["win_rate"],
+            "as_ussr": summarize([m for m in pair if m.b == "challenger"], "challenger", opponent)["win_rate"],
+        }
+
+    report: dict[str, Any] = {"vs_greedy": rates(results[0], "greedy")}
+    if champion is not None:
+        per_seed = [rates(pair, "champion") for pair in results[1:]]
+        report["vs_champion"] = {
+            "win_rate": statistics.fmean(r["win_rate"] for r in per_seed),
+            "as_us": statistics.fmean(r["as_us"] for r in per_seed),
+            "as_ussr": statistics.fmean(r["as_ussr"] for r in per_seed),
+            "min_seed": min(r["win_rate"] for r in per_seed),
+            "per_seed": per_seed,
+        }
+    return report
+
+
+def gate_passes(report: dict[str, Any], gate: float) -> bool:
+    """Promote when every eval seed's win rate against the champion clears
+    `gate` -- the mean alone lets one lucky deck carry a generation. With
+    no champion yet, the gate is the same bar against Greedy."""
+    versus = report.get("vs_champion")
+    if versus is None:
+        return report["vs_greedy"]["win_rate"] >= gate
+    return versus["min_seed"] >= gate
+
+
+def readme_entry(version: str, summary: dict[str, Any], note: str) -> str:
+    elo = summary["elo"][version]
+    lines = [
+        f"## {version}",
+        "",
+        f"Commit `{summary['commit'][:7]}` — run `{summary['run']}`, {summary['games_trained']:,} games trained.",
+        "",
+        f"- {note}",
+        f"- Elo vs random: **{elo['mean']:+.0f} ± {elo['std']:.0f}** over seeds {summary['protocol']['seeds']}",
+    ]
+    for name, w in summary["win_rate"].items():
+        lines.append(f"- vs {name}: {w['win_rate']['mean']:.3f} (US {w['as_us']['mean']:.3f} / USSR {w['as_ussr']['mean']:.3f})")
+    return "\n".join(lines) + "\n"
+
+
+def append_readme(version: str, note: str) -> None:
+    summary = json.loads((baseline.BASELINES_DIR / version / "summary.json").read_text())
+    path = baseline.BASELINES_DIR / "README.md"
+    text = path.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + readme_entry(version, summary, note)
+    path.write_text(text, encoding="utf-8")
+
+
+def append_row(path: Path, row: dict[str, Any]) -> None:
+    new = not path.exists()
+    with path.open("a", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=LOOP_COLUMNS)
+        if new:
+            writer.writeheader()
+        writer.writerow(row)
+
+
+def main(argv: list[str] | None = None) -> None:
+    p = argparse.ArgumentParser(description="Train, evaluate, gate, promote -- repeat.")
+    p.add_argument("--run", required=True, help="run name under runs/ (continued; created if new)")
+    p.add_argument("--champion", default=None, help="baseline to beat (default: the newest vN; none means Greedy)")
+    p.add_argument("--generations", type=int, default=1)
+    p.add_argument("--generation-games", type=int, default=4000, help="games trained per generation")
+    p.add_argument("--gate", type=float, default=0.55, help="win rate against the champion, on every eval seed, that promotes")
+    p.add_argument("--patience", type=int, default=3, help="stop after this many generations below 0.5 against the champion")
+    p.add_argument("--eval-games", type=int, default=200, help="games per pair in the gate evaluation")
+    p.add_argument("--eval-seeds", type=int, nargs="+", default=[0, 1, 2])
+    p.add_argument("--workers", type=int, default=8, help="collector processes for training and pair processes for evaluation")
+    p.add_argument("train_args", nargs="*", help="arguments passed to train.py after `--`")
+    args = p.parse_args(argv)
+
+    run_dir = train.RUNS_DIR / args.run
+    champion = args.champion or latest_version()
+    if champion is not None and not (baseline.BASELINES_DIR / champion / "joshua.pt").exists():
+        raise SystemExit(f"champion {champion!r}: no baselines/{champion}/joshua.pt")
+    losing = 0
+    for generation in range(1, args.generations + 1):
+        target = games_done(run_dir) + args.generation_games
+        print(f"[loop] generation {generation}: training {args.run!r} to {target} games, champion {champion or 'greedy'}", flush=True)
+        started = time.perf_counter()
+        train.main(["--run", args.run, "--games", str(target), "--workers", str(args.workers), *args.train_args])
+        train_s = time.perf_counter() - started
+
+        started = time.perf_counter()
+        champion_path = None if champion is None else baseline.BASELINES_DIR / champion / "joshua.pt"
+        report = evaluate_challenger(
+            run_dir / "joshua.pt", champion_path, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers
+        )
+        eval_s = time.perf_counter() - started
+        versus = report.get("vs_champion")
+        greedy = report["vs_greedy"]
+        line = f"[loop] generation {generation}: vs greedy {greedy['win_rate']:.3f} (US {greedy['as_us']:.3f} / USSR {greedy['as_ussr']:.3f})"
+        if versus is not None:
+            line += (f" | vs {champion} {versus['win_rate']:.3f} (US {versus['as_us']:.3f} / USSR {versus['as_ussr']:.3f}, "
+                     f"worst seed {versus['min_seed']:.3f})")
+        print(line, flush=True)
+
+        promoted = gate_passes(report, args.gate)
+        version = ""
+        if promoted:
+            version = next_version()
+            note = (f"Loop generation {generation}: {champion or 'Greedy'} continued for {args.generation_games:,} games; "
+                    f"gate {args.gate:.2f} cleared at "
+                    + (f"{versus['min_seed']:.3f} (worst seed) against {champion}" if versus else f"{greedy['win_rate']:.3f} against Greedy")
+                    + ".")
+            print(f"[loop] promoting to {version}", flush=True)
+            baseline.main([version, "--run", args.run, "--workers", str(args.workers)])
+            append_readme(version, note)
+            champion = version
+            losing = 0
+        elif versus is not None and versus["win_rate"] < 0.5:
+            losing += 1
+        else:
+            losing = 0
+
+        append_row(run_dir / "loop.csv", {
+            "generation": generation, "games": games_done(run_dir), "train_s": round(train_s, 1), "eval_s": round(eval_s, 1),
+            "champion": champion if not promoted else version,
+            "vs_champion": None if versus is None else round(versus["win_rate"], 4),
+            "vs_champion_us": None if versus is None else round(versus["as_us"], 4),
+            "vs_champion_ussr": None if versus is None else round(versus["as_ussr"], 4),
+            "vs_champion_min_seed": None if versus is None else round(versus["min_seed"], 4),
+            "vs_greedy": round(greedy["win_rate"], 4), "vs_greedy_us": round(greedy["as_us"], 4), "vs_greedy_ussr": round(greedy["as_ussr"], 4),
+            "promoted": int(promoted), "version": version,
+        })
+        if losing >= args.patience:
+            print(f"[loop] stopping: {losing} generations below 0.5 against {champion}", flush=True)
+            return
+
+
+if __name__ == "__main__":
+    main()

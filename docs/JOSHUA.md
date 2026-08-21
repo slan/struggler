@@ -279,13 +279,13 @@ In rough order of expected value per effort:
    scheduler that does not wait on every slot each step.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
-3. **The self-improvement loop.** v5 settled the recipe — self-play
-   and the pool, no anchors — so the next piece is the outer loop:
-   train a challenger from the champion for N games, evaluate it
-   against the champion and the baseline chain on the fixed protocol
-   (pairs now run in parallel), promote it if it clears a gate, freeze
-   it, repeat. The knobs are N, the gate, and what the pool carries
-   across generations.
+3. **The self-improvement loop** (`wopr.loop`, built). v5 settled the
+   recipe — self-play and the pool, no anchors — and the loop runs it:
+   train the challenger for N games, evaluate against the champion on
+   every eval seed and against Greedy, promote past the gate, freeze,
+   repeat. The knobs are N, the gate, and the training hyperparameters
+   passed through to it — the update phase being two thirds of the
+   loop, `--n-epochs 2` is the first experiment to run through it.
 4. **A shared-memory or rewritten-engine backend.** Not mandated yet. A
    rewritten engine removes at most the engine's third of a learner step
    (~1.5× at best) while encoding and inference stay where they are;

@@ -20,8 +20,9 @@ Install with `pip install -e ".[wopr]"` (training) or `".[joshua]"`
 (inference only). The engine itself depends on neither torch nor SB3.
 
 ```
-python -m wopr.train --run first --games 2000         # train (resumes if the run exists)
+python -m wopr.train --run first --games 2000 --workers 8   # train (resumes if the run exists)
 python -m wopr.eval --games 200 first=runs/first/joshua.pt random greedy
+python -m wopr.loop --run first --generations 3 --generation-games 4000   # train, evaluate, gate, promote
 python src/main.py --ussr joshua --joshua-checkpoint runs/first/joshua.pt
 ```
 
@@ -221,6 +222,24 @@ fan out to a process pool (`--workers`, default a quarter of the CPUs;
 `baseline.py` sends all its seeds' pairs at once). Argmax results are
 unaffected by this; a `random` opponent's or a sampled net's stream is
 now fixed per pair rather than carried across pairs.
+
+### The loop (`wopr/loop.py`)
+
+`loop.py` is the outer loop the ladder and the baselines were built for:
+train, evaluate, gate, promote, repeat. One generation continues the run
+for `--generation-games` games (the same `train.py` path, optimizer and
+pool carried over), evaluates the latest checkpoint — the *challenger* —
+against the *champion* (the newest frozen `vN`, or `--champion`) on every
+`--eval-seed` and against Greedy, and applies the gate: a challenger
+whose win rate against the champion clears `--gate` **on every seed**
+(the mean alone lets one lucky deck carry a generation) is frozen as the
+next `vN` with the full protocol, gets its README entry, and becomes the
+champion. One that does not is trained further — the run never rolls
+back, the PFSP pool is what guards against regression — but `--patience`
+generations below 0.5 against the champion stop the loop: that is a
+regression to look at, not to train through. Arguments after `--` go to
+`train.py`, which is how a hyperparameter experiment runs through the
+loop; `runs/<run>/loop.csv` records every generation.
 
 ## Metrics (`wopr/callback.py`, `runs/<run>/metrics.csv`)
 

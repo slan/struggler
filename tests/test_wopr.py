@@ -310,3 +310,30 @@ def test_shared_memory_backend_plays_the_same_games_as_the_in_process_one(tmp_pa
         assert finished > 0  # first-option self-play games end fast, so resets were exercised too
     finally:
         shared.close()
+
+
+def test_loop_gate_needs_every_seed_and_versions_follow_the_chain(tmp_path, monkeypatch):
+    from wopr import baseline, loop
+
+    report = {"vs_greedy": {"win_rate": 0.7, "as_us": 0.7, "as_ussr": 0.7},
+              "vs_champion": {"win_rate": 0.6, "as_us": 0.6, "as_ussr": 0.6, "min_seed": 0.5, "per_seed": []}}
+    assert not loop.gate_passes(report, 0.55)  # a mean of 0.6 does not carry a seed at 0.5
+    report["vs_champion"]["min_seed"] = 0.56
+    assert loop.gate_passes(report, 0.55)
+    del report["vs_champion"]
+    assert loop.gate_passes(report, 0.55)  # no champion yet: the same bar against Greedy
+    assert not loop.gate_passes(report, 0.75)
+
+    monkeypatch.setattr(baseline, "BASELINES_DIR", tmp_path)
+    assert loop.latest_version() is None and loop.next_version() == "v1"
+    for name in ("v1", "v3", "v10", "v2-draft"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / "joshua.pt").write_bytes(b"")
+    assert loop.latest_version() == "v10" and loop.next_version() == "v11"  # numeric, not lexical; drafts ignored
+
+    summary = {"commit": "abcdef0123", "run": "pure", "games_trained": 12000, "protocol": {"seeds": [0, 1, 2]},
+               "elo": {"v11": {"mean": 1300.4, "std": 12.0}},
+               "win_rate": {"greedy": {"win_rate": {"mean": 0.8}, "as_us": {"mean": 0.75}, "as_ussr": {"mean": 0.85}}}}
+    entry = loop.readme_entry("v11", summary, "note")
+    assert entry.startswith("## v11\n") and "`abcdef0`" in entry and "12,000 games" in entry
+    assert "+1300 ± 12" in entry and "vs greedy: 0.800 (US 0.750 / USSR 0.850)" in entry
