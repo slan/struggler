@@ -129,6 +129,7 @@ Details, trajectories and checkpoints per version are in
 | v1 | 4,000 games, 26 min, one CPU core; 30% self-play, 30% pool, 40% random anchor; terminal reward | +378 ± 48 | 0.88 (0.79 / 0.96) | 0.18 |
 | v2 | as v1 with the 40% anchor games against `greedy`, from scratch | +61 ± 41 | 0.54 (0.43 / 0.65) | 0.23 |
 | v3 | v1 continued for 4,000 games against `greedy` (8,000 total, 28 min more in bf16) | +1077 ± 115 | 0.98 (1.00 / 0.96) | **0.59** (0.70 / 0.49) |
+| v4 | v3 continued for 4,000 more (12,000 total, 25 min more) | +1529 ± 44 | 1.00 (0.99 / 1.00) | **0.92** (0.87 / 0.96) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -198,6 +199,18 @@ What the third run taught:
   Control tier as Domination (a `VERIFY` note since the first version);
   10.1.3 makes the tier an automatic victory, fixed upstream.
 
+What the fourth run taught:
+
+- **More of the same still pays.** Another 4,000 games took the argmax
+  line from 0.59 to **0.92** against Greedy and to 0.84 against v3, with
+  entropy flat at ~0.27 of ln K and explained variance ~0.8 — no sign of
+  the plateau yet. The USSR seat, v3's weak one, is now the stronger.
+- **The yardstick is nearly used up.** At 0.92 the 40% anchor games are
+  becoming the constant +1 that v2's were a constant −1; the pool (PFSP
+  over 78 snapshots) is where the signal is. Progress is now measured
+  against the earlier versions — which is what the baseline chain was
+  for.
+
 ### Where the time went (August 2026)
 
 Two profiles, taken before building anything else on the road map,
@@ -251,14 +264,14 @@ In rough order of expected value per effort:
    scheduler that does not wait on every slot each round.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
-3. **Past Greedy.** v3 clears the heuristic; from here progress is
-   measured against the earlier versions and against Greedy per seat.
-   Next: keep going (v3 continued, or a fresh run with an anchor
-   schedule — `random` until the learner wins most of those games, then
-   Greedy — to reproduce v3's path in one run), with the USSR seat and
-   entropy (≈0.3 of ln K at the end of v3) watched. A Greedy that
-   scores more decision kinds would be a better anchor than a stronger
-   one.
+3. **Past Greedy.** v3 cleared the heuristic and v4 beats it 0.92;
+   progress is now measured against the earlier versions. The anchor
+   share is the knob: 40% of games against an opponent the learner
+   beats nine times in ten carry little signal, so shift it toward the
+   pool, or make the anchor worth beating — a Greedy that scores more
+   decision kinds, or the frozen baselines themselves as anchors. A
+   fresh run with an anchor schedule (`random` → `greedy`) would show
+   whether v3/v4's path reproduces from scratch.
 4. **A shared-memory or rewritten-engine backend.** Not mandated yet. A
    rewritten engine removes at most the engine's third of a learner step
    (~1.5× at best) while encoding and inference stay where they are;

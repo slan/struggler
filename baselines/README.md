@@ -98,3 +98,32 @@ fixed in `21f60cb`).
   swapped: US is now the stronger seat against Greedy (0.70 vs 0.49) and
   the USSR seat is the one to work on. Entropy ratio fell to ~0.3 by the
   end — decisive, worth watching for collapse in a longer run.
+
+## v4
+
+Commit `f202a0b` — run `v1-greedy` continued from v3 for 4,000 more games
+against the `greedy` anchor: 12,000 games in total, 394 updates; this
+segment took 25 min (bf16, 16 threads, arena seed 2, pool carried over).
+
+- Nothing changed but the game count. The engine it trained on includes
+  the Europe-at-Control fix (`a01e08a`): scoring Europe at the Control
+  tier now ends the game.
+- Elo vs random: **+1529 ± 44** over seeds 0/1/2; Greedy rates +1055 to
+  +1085 in the same fits, v3 +1176 to +1252.
+- vs random: 0.997 (US 0.993 / USSR 1.000)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: **0.915** (US 0.873 / USSR 0.957) — v3: 0.594
+- vs v1: 0.947 (US 0.947 / USSR 0.947)
+- vs v2: 0.997 (US 0.997 / USSR 0.997)
+- vs v3: 0.843 (US 0.812 / USSR 0.873)
+- Sampled play (seed 0): 0.840 vs greedy, 0.812 vs v3 — argmax stronger
+  again, but by less than for v3.
+- Notes: training win rate against Greedy went 0.60 → 0.77 (sampled)
+  over the segment; entropy ratio held at ~0.27 of ln K throughout (no
+  collapse), explained variance ~0.8. The USSR seat, v3's weak one, is
+  now the stronger against Greedy. Mean final turn fell from 6.9 to 5.7:
+  it wins earlier, not dies earlier (0.997 against random). Greedy is
+  close to saturated as a yardstick — at 0.92 the anchor games are
+  turning into the constant +1 that v2's were a constant −1 — so from
+  here the measure is the earlier versions, and the anchor share is
+  the knob to revisit.
