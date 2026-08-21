@@ -287,6 +287,13 @@ def _scoring_card_favorability(board: Board, side: Side, cid: str) -> float:
     region = SCORING_CARD_REGION.get(cid)
     if region is None:
         return 0.0
+    if region is Region.EUROPE:
+        # Europe has no Control value: scoring it at Control is the game
+        # (`Board.score_region` refuses to guess and raises). Either side
+        # holding the tier makes the card worth a win -- or a loss -- now.
+        for holder in (Side.US, Side.USSR):
+            if board.region_tier(holder, region) is ScoringTier.CONTROL:
+                return float(RULES["vp_to_win"]) if holder is side else -float(RULES["vp_to_win"])
     net = board.score_region(region)  # positive favors US
     return net if side is Side.US else -net
 

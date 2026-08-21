@@ -12,7 +12,7 @@ from hypothesis import strategies as st
 
 from struggler.bots.greedy import GreedyPlayer, GreedyWeights, _swing, board_value
 from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
-from struggler.engine import Action, Decision, DecisionKind, Engine, Side
+from struggler.engine import Action, Decision, DecisionKind, Engine, Region, ScoringTier, Side
 from struggler.engine.board import Board
 from struggler.runner import play_game
 
@@ -125,3 +125,34 @@ def test_swing_equals_the_board_value_difference_of_a_full_recount(influence, in
         board.influence[country][key] += delta
     after = board_value(weights, board, side)
     assert swing == after - before
+
+
+@pytest.mark.parametrize("holder", [Side.US, Side.USSR])
+def test_greedy_treats_europe_scoring_at_control_as_the_game(holder):
+    """Europe has no Control scoring value (`Board.score_region` raises
+    rather than guess), and a learned opponent reached exactly that board
+    against Greedy. Whoever holds the tier should play the card at once;
+    the other side should hold anything else instead."""
+    engine = Engine.new_game(seed=1)
+    for cid in engine.board.countries_in(Region.EUROPE):
+        if engine.board.countries[cid].battleground or cid in ("Austria", "Finland"):
+            influence = engine.board.influence[cid]
+            influence[holder.value] = influence[holder.opponent.value] + engine.board.countries[cid].stability
+    assert engine.board.region_tier(holder, Region.EUROPE) is ScoringTier.CONTROL
+    assert engine.board.controls_all_of_europe() is None  # Control tier, not every country
+
+    for side in (Side.US, Side.USSR):
+        observation = engine.observe(side)
+        decision = Decision(
+            id=999,
+            actor=side,
+            kind=DecisionKind.ACTION_ROUND_PLAY,
+            options=(
+                Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Duck_and_Cover"}),
+                Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Europe_Scoring"}),
+            ),
+        )
+        observation = dataclasses.replace(observation, pending_decision=decision)
+        action = GreedyPlayer().choose_action(observation, [])
+        expected = "Europe_Scoring" if side is holder else "Duck_and_Cover"
+        assert action.payload["card"] == expected

@@ -474,7 +474,10 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   expected VP, computed from `SPACE_RACE_BOXES`' roll odds, against the
   Ops-point value forfeited) — the concrete form of "send bad cards to the
   Space Race." A scoring card's headline/play value is its `score_region()`
-  net VP, signed favorably or unfavorably for the acting side.
+  net VP, signed favorably or unfavorably for the acting side — except
+  Europe at Control, which has no scoring value (`score_region` raises
+  rather than guess) and is counted as the full winning margin for
+  whoever holds the tier; the LLM bot's board report does the same.
 
 Only the core board decision kinds get real heuristics; every
 event-specific kind falls back to the first legal option. That scope, and

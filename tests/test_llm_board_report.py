@@ -66,6 +66,22 @@ def test_region_status_signs_net_vp_for_the_asking_side():
     assert us_view.own_tier is ussr_view.opp_tier
 
 
+def test_region_status_values_europe_at_control_as_the_game():
+    """`Board.score_region` refuses to value Europe at Control; the report
+    must still render that board, and render it as decisive."""
+    engine = Engine.new_game(seed=1)
+    for cid in engine.board.countries_in(Region.EUROPE):
+        if engine.board.countries[cid].battleground or cid in ("Austria", "Finland"):
+            influence = engine.board.influence[cid]
+            influence["USSR"] = influence["US"] + engine.board.countries[cid].stability
+    assert engine.board.region_tier(Side.USSR, Region.EUROPE) is ScoringTier.CONTROL
+
+    for_ussr = region_status(engine.board, Side.USSR, Region.EUROPE)
+    for_us = region_status(engine.board, Side.US, Region.EUROPE)
+    assert for_ussr.own_tier is ScoringTier.CONTROL
+    assert for_ussr.net_vp_for_side == 20 and for_us.net_vp_for_side == -20
+
+
 def test_region_status_separates_controlled_battlegrounds():
     engine = Engine.new_game(seed=1)
     observation = _observation(engine)

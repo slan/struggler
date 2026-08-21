@@ -96,8 +96,19 @@ class RegionStatus:
     free_bg: tuple[str, ...]  # Battlegrounds nobody Controls
 
 
+def _net_vp_us(board: Board, region: Region) -> int:
+    """`Board.score_region`, except for Europe at Control, which it refuses
+    to value (there is no Control number; scoring it is the game): count
+    that as the full winning margin for whoever holds the tier."""
+    if region is Region.EUROPE:
+        for holder in (Side.US, Side.USSR):
+            if board.region_tier(holder, region) is ScoringTier.CONTROL:
+                return RULES["vp_to_win"] if holder is Side.US else -RULES["vp_to_win"]
+    return board.score_region(region)
+
+
 def region_status(board: Board, side: Side, region: Region) -> RegionStatus:
-    net_us = board.score_region(region)  # positive favors US
+    net_us = _net_vp_us(board, region)  # positive favors US
     countries = board.countries_in(region)
     own = tuple(c for c in countries if board.control(c) is side)
     opp = tuple(c for c in countries if board.control(c) is side.opponent)
