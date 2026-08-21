@@ -32,7 +32,7 @@ from wopr.pool import POOL_PREFIX, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
 CSV_COLUMNS = (
-    "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s",
+    "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s", "rollout_s", "update_s",
     "win_rate", "win_rate_us", "win_rate_ussr", "draw_rate", "win_rate_vs_pool", "win_rate_vs_anchor",
     "ep_len_mean", "turn_mean",
     "entropy", "k_valid", "entropy_ratio", "k_eff",
@@ -102,9 +102,14 @@ class WoprCallback(BaseCallback):
             games_in_rollout=len(self._rollout_games),
             elapsed_s=round(time.perf_counter() - self._start, 1),
             steps_per_s=round(self.model.n_steps * self.env.num_envs / rollout_s, 1),
+            rollout_s=round(rollout_s, 1),
             pool_size=len(self.pool),
         )
         self._pending_row = row
+        # The PPO update runs between here and the row's flush; `_flush`
+        # measures it as `update_s`. Training has been update-bound
+        # (docs/JOSHUA.md), so it is logged alongside the rollout rate.
+        self._rollout_end = time.perf_counter()
         save_checkpoint(self.model.policy.net, self.run_dir / "joshua.pt", extra={"games": self.games, "update": self.update})
         if self.snapshot_every > 0 and self.update % self.snapshot_every == 0:
             self.pool.add(f"u{self.update:05d}", self.model.policy.net, extra={"games": self.games, "update": self.update})
@@ -203,6 +208,7 @@ class WoprCallback(BaseCallback):
             return
         logged = self.model.logger.name_to_value
         row.update(
+            update_s=round(time.perf_counter() - self._rollout_end, 1),
             approx_kl=_round(logged.get("train/approx_kl")),
             clip_fraction=_round(logged.get("train/clip_fraction")),
             explained_variance=_round(logged.get("train/explained_variance")),
@@ -220,7 +226,7 @@ class WoprCallback(BaseCallback):
                 f"| len {row.get('ep_len_mean')} turn {row.get('turn_mean')} "
                 f"| H {row.get('entropy')} K {row.get('k_valid')} H/lnK {row.get('entropy_ratio')} "
                 f"| kl {row.get('approx_kl')} clip {row.get('clip_fraction')} ev {row.get('explained_variance')} "
-                f"| {row['steps_per_s']} st/s",
+                f"| {row['steps_per_s']} st/s | rollout {row['rollout_s']}s update {row.get('update_s')}s",
                 flush=True,
             )
         self._pending_row = None

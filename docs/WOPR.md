@@ -107,7 +107,12 @@ new state out of Python objects and inside the layout.
   `[state latent, option features, node latent of its country, embedding
   of its card]`, masked, softmaxed. The decision kind lives in `globals`,
   the option's meaning in its own row, so a coup target, a headline card,
-  and an event branch are all "just options".
+  and an event branch are all "just options". `forward` is `encode`
+  (node and state latents) followed by `score_options`, which runs the
+  head on the `(row, slot)` pairs the mask selects rather than on all
+  `K_MAX` padded slots — about ten of 96 are legal — and fills the rest
+  with the mask value. Same logits, a tenth of the head's work;
+  `tests/test_joshua_player.py` pins it against the dense computation.
 
 The final option layer is initialised near zero so the untrained policy
 is near-uniform over legal options and early rollouts explore.
@@ -207,20 +212,31 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
 - **Ops-only first.** `--no-events` runs `Engine.new_game(events=False)`:
   influence, coups, realignments, DEFCON, scoring, space race, no card
   events. A pool trained there carries into the full game.
-- **Throughput.** One process runs 64 games in lockstep at roughly 2.7k
-  learner decisions/s on one core against the random anchor or itself,
-  ~1.3k against Greedy, ~1.75k once pool snapshots join (each snapshot is
-  answered by its own forward pass per round). A full game is ~550–600
-  decisions for both sides. A learner step splits roughly a third each
-  between engine `step`, the policy forward pass, and feature encoding
-  (`encode_into`), with `observe` under a tenth — see the August 2026
-  entry in [JOSHUA.md](JOSHUA.md). Multi-process collection is the next
-  step and belongs *below* the layout contract (several arenas, one
-  buffer), not in SB3's `SubprocVecEnv`, whose workers expect gym envs.
-- **Device.** `--device auto` picks CUDA when available. At the default
-  model size the CPU is not the bottleneck; a GPU pays off when the
-  network grows or rollouts are collected by several processes and
-  inference is centralised into large batches.
+- **Throughput.** Training is *update-bound*, not rollout-bound. One
+  update is 64 games × 128 learner decisions: the rollout takes ~3–4 s
+  (~2.7k learner decisions/s against the random anchor or itself, ~1.3k
+  against Greedy, ~1.75k with pool snapshots in play) and the PPO update
+  — 4 epochs × 8 minibatches of 1,024, forward and backward — ~6.6 s at
+  16 threads. `metrics.csv` records both (`rollout_s`, `update_s`). The
+  update is the network's FLOPs, mostly the graph layers' linears over
+  85 nodes × 128 hidden; the legal-rows option head and a plain `matmul`
+  for the adjacency aggregation took it from 10.7 s with identical
+  outputs. On the rollout side a learner step is about 40% policy
+  forward at 8+ threads, the rest engine `step` and feature encoding;
+  against a net opponent the opponent is asked ~8 times per learner
+  step at a mean batch of 8 (the tail rounds, where few slots still
+  wait on it), which is where its 40% goes — not the number of
+  snapshots. Multi-process collection belongs *below* the layout
+  contract (several arenas, one buffer), not in SB3's `SubprocVecEnv`,
+  whose workers expect gym envs. See the August 2026 entry in
+  [JOSHUA.md](JOSHUA.md).
+- **Device.** `--device auto` picks CUDA when available. On CPU,
+  `--torch-threads 16` is the measured sweet spot for the update phase
+  (8 threads is 1.5× slower, 32 no faster); torch's default of all cores
+  is fine. bf16 autocast would halve the update again but changes the
+  numerics, so it is not on. A GPU pays off for the update phase already
+  at the default model size, and for rollouts once several collector
+  processes centralise inference into large batches.
 - **Reward.** Terminal only, by design. VP is the game's literal score and
   a natural dense signal if learning stalls; it is not on by default
   because shaping a two-player zero-sum game tends to teach the shaping.

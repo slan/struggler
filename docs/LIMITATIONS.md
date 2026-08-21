@@ -89,9 +89,9 @@ routed to the operator is described in [BOTS.md](BOTS.md).
   new engine choice word degrades Joshua's play on that decision rather
   than crashing; an effect flag outside `TURN_EFFECTS`/`GAME_EFFECTS`
   does raise (the suite greps the engine source for both).
-- **WOPR collects rollouts in one process.** Roughly 2.7k learner
-  decisions/s, a third each engine, policy forward pass, and feature
-  encoding; multi-process collection and a shared-memory backend are
-  designed for (the layout is the contract) but not built. Pool
-  opponents are answered one snapshot at a time, not batched across
-  snapshots.
+- **WOPR collects rollouts in one process, in lockstep.** Roughly 2.7k
+  learner decisions/s; multi-process collection and a shared-memory
+  backend are designed for (the layout is the contract) but not built.
+  Every round waits on every slot, so a net opponent is asked ~8 times
+  per learner step at small batches. The PPO update is the larger share
+  of wall time (~6.6 s vs 3–4 s per update) and runs in fp32.

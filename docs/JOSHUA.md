@@ -173,27 +173,37 @@ reordered it:
   flip. Same choices on 3,133 recorded decisions; Greedy-vs-Greedy went
   from 0.46 to 10 games/s (22×), and `--anchor greedy` trains at ~1.3k
   learner decisions/s.
-- **What a learner step costs now** (self-play, 64 envs, one core, under
-  the profiler): engine `step` ≈ 31%, policy forward ≈ 32%, feature
-  encoding ≈ 24%, `observe` ≈ 6%. Training runs at ~2.7k learner
-  decisions/s against the random anchor and drops to ~1.75k once pool
-  snapshots enter the mix — every pool snapshot in play is its own small
-  forward pass per round.
+- **What a learner step costs now** (self-play, 64 envs): the policy
+  forward pass is ~40% of it at 8+ threads (7 ms for a batch of 64 — a
+  graph network over 85 nodes is ~0.8 GFLOP per batch), the rest engine
+  `step` and feature encoding. Rollouts run at ~2.7k learner decisions/s
+  against the random anchor, ~1.3k against Greedy, ~1.75k with pool
+  snapshots in play: a net opponent is asked ~8 times per learner step
+  at a mean batch of 8, because the lockstep rounds tail off with a few
+  slots still waiting on it.
+- **Training was update-bound all along.** v1's own `metrics.csv` says
+  62% of its 26 minutes were PPO updates — 10.7 s per update against
+  ~6.5 s of rollout — and the engine work above only touched the
+  smaller share. The update is 32 forward+backward passes at batch
+  1,024; scoring the option head on legal `(row, slot)` pairs instead of
+  all 96 padded slots, and a plain `matmul` for the adjacency
+  aggregation, took it to 6.6 s with bit-identical outputs (the v1
+  checkpoint included). bf16 autocast would halve it again; it changes
+  the numerics, so it is a deliberate experiment, not a default.
 
 ## Open questions and the road ahead
 
 In rough order of expected value per effort:
 
-1. **Throughput.** One process runs ~2.7k learner decisions per second,
-   split roughly a third each between the engine, the policy forward
-   pass, and feature encoding. Two thirds of that is per-process Python,
-   so collection across processes is the lever: it belongs *below* the
+1. **Throughput.** The update phase is the larger half (6.6 s per
+   update vs 3–4 s of rollout, `update_s`/`rollout_s` in `metrics.csv`),
+   and it is the network's FLOPs: bf16 autocast (2×, changes numerics),
+   fewer epochs or larger minibatches (changes the optimisation), or a
+   GPU. On the rollout side the engine and encoding are per-process
+   Python, so collection across processes is the lever — *below* the
    layout (several arenas feeding one buffer), not in a gym-style
-   subprocess wrapper. Cheaper still: pool opponents are answered one
-   snapshot at a time — batching every net opponent into one forward
-   pass per round recovers most of the drop from 2.7k to 1.75k. The GPU
-   only matters after this; with 10–16 collectors and centralised
-   inference it will.
+   subprocess wrapper — and the net-opponent tail rounds want a
+   scheduler that does not wait on every slot each round.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
 3. **Greedy as a curriculum opponent.** Fast enough now (above). The

@@ -33,6 +33,39 @@ def test_forward_masks_illegal_options_and_returns_one_value_per_row():
     assert (logits[0, n_options:] == torch.finfo(logits.dtype).min).all()
 
 
+def test_option_head_on_legal_rows_matches_scoring_every_padded_slot():
+    """`score_options` runs the shared head only on the `(row, slot)` pairs
+    the mask selects. It must produce the same logits as scoring every
+    padded slot and masking afterwards -- the straightforward definition --
+    on a real batch whose rows have different numbers of legal options."""
+    net = _net()
+    buffers = F.allocate(3)
+    for i, seed in enumerate((5, 6, 7)):
+        engine = Engine.new_game(seed=seed)
+        for _ in range(i * 4):  # a few opening placements, so the rows differ
+            engine.step(engine.pending_decision.options[0])
+        F.encode_into(engine.observe(engine.pending_decision.actor), buffers, i)
+    obs = to_tensors(buffers)
+    mask = obs["opt_mask"].bool()
+    assert len(set(mask.sum(1).tolist())) > 1  # rows genuinely differ in legal-option count
+
+    with torch.no_grad():
+        nodes, latent = net.encode(obs)
+        h = nodes.shape[-1]
+        padded = torch.cat([nodes, nodes.new_zeros(3, 1, h)], dim=1)
+        option_nodes = torch.gather(padded, 1, obs["opt_country"].unsqueeze(-1).expand(-1, -1, h))
+        dense_in = torch.cat(
+            [latent.unsqueeze(1).expand(-1, F.K_MAX, -1), obs["opt_feats"], option_nodes, net.card_embedding(obs["opt_card"])],
+            dim=-1,
+        )
+        dense = net.option(dense_in).squeeze(-1).masked_fill(~mask, torch.finfo(torch.float32).min)
+        sparse = net.score_options(obs, nodes, latent)
+
+    assert torch.allclose(sparse[mask], dense[mask], atol=1e-6)
+    assert (sparse[~mask] == torch.finfo(torch.float32).min).all()
+    assert torch.equal(net(obs)[0], sparse)
+
+
 def test_joshua_plays_a_full_game_legally_and_deterministically():
     def run() -> Engine:
         engine = Engine.new_game(seed=7)

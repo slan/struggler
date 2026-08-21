@@ -100,13 +100,18 @@ class JoshuaNet(nn.Module):
 
     def forward(self, obs: Mapping[str, Tensor]) -> tuple[Tensor, Tensor]:
         """Returns `(masked option logits [B, K_MAX], value [B])`."""
+        nodes, latent = self.encode(obs)
+        return self.score_options(obs, nodes, latent), self.value(latent).squeeze(-1)
+
+    def encode(self, obs: Mapping[str, Tensor]) -> tuple[Tensor, Tensor]:
+        """Node latents `[B, N_COUNTRIES, hidden]` and the state latent `[B, hidden]`."""
         board = obs["board"]
         batch = board.shape[0]
         h = self.config.hidden
 
         nodes = torch.relu(self.node_in(board))
         for self_layer, neighbour_layer in zip(self.node_self, self.node_neighbours):
-            aggregated = torch.einsum("nm,bmh->bnh", self.adjacency, nodes)
+            aggregated = torch.matmul(self.adjacency, nodes)  # [N, N] @ [B, N, h], broadcast over B
             nodes = torch.relu(self_layer(nodes) + neighbour_layer(aggregated))
 
         globals_latent = torch.relu(self.globals_in(obs["globals"]))
@@ -126,19 +131,34 @@ class JoshuaNet(nn.Module):
         focus = self.card_embedding(obs["focus"]).reshape(batch, -1)
 
         latent = self.state(torch.cat([pooled, globals_latent, cards, focus], dim=-1))
+        return nodes, latent
 
-        option_feats = obs["opt_feats"]
-        k = option_feats.shape[1]
-        padded_nodes = torch.cat([nodes, nodes.new_zeros(batch, 1, h)], dim=1)
-        option_nodes = torch.gather(padded_nodes, 1, obs["opt_country"].unsqueeze(-1).expand(-1, -1, h))
-        option_cards = self.card_embedding(obs["opt_card"])
-        option_in = torch.cat(
-            [latent.unsqueeze(1).expand(-1, k, -1), option_feats, option_nodes, option_cards], dim=-1
-        )
-        logits = self.option(option_in).squeeze(-1)
+    def score_options(self, obs: Mapping[str, Tensor], nodes: Tensor, latent: Tensor) -> Tensor:
+        """Masked option logits `[B, K_MAX]`: the shared head over
+        `[state latent, option features, node latent of the option's country,
+        embedding of the option's card]`, scored for the legal options only.
+
+        `K_MAX` is sized for the largest legal set ("every country") but a
+        typical decision has about ten legal options, so the head runs on the
+        `(row, slot)` pairs the mask selects rather than on every padded slot
+        -- the same numbers for a tenth of the work, which matters because
+        PPO's update phase, not the rollout, is where training time goes."""
         mask = obs["opt_mask"].to(torch.bool)
-        logits = logits.masked_fill(~mask, torch.finfo(logits.dtype).min)
-        return logits, self.value(latent).squeeze(-1)
+        rows, slots = mask.nonzero(as_tuple=True)
+        # Index N_COUNTRIES is the "no country" sentinel: a zero node latent.
+        padded_nodes = torch.cat([nodes, nodes.new_zeros(nodes.shape[0], 1, nodes.shape[-1])], dim=1)
+        option_in = torch.cat(
+            [
+                latent[rows],
+                obs["opt_feats"][rows, slots],
+                padded_nodes[rows, obs["opt_country"][rows, slots]],
+                self.card_embedding(obs["opt_card"][rows, slots]),
+            ],
+            dim=-1,
+        )
+        scores = self.option(option_in).squeeze(-1)
+        logits = scores.new_full(mask.shape, torch.finfo(scores.dtype).min)
+        return logits.index_put((rows, slots), scores)
 
 
 def to_tensors(buffers: Mapping[str, np.ndarray], device: torch.device | str = "cpu") -> dict[str, Tensor]:
