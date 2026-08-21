@@ -349,6 +349,27 @@ reordered it:
   once the rollout is collected by eight processes over shared memory
   (3.7 s → 1.7 s), after which the update is two thirds of the loop.
 
+### An outside yardstick: Playdek's AI (August 2026)
+
+Every number above is Joshua against opponents from this repository —
+itself, Greedy, Random — which says how far the chain has come and
+nothing about how far it has to go. The Steam edition of the game ships
+a real AI, and it is reachable without the game: its Unity app is a
+front end over one native DLL that holds the rules, the card database
+and the AI, with a C API that `wopr.playdek` now drives from Python
+(the recovered contract is in [WOPR.md](WOPR.md#playdeks-ai-as-an-opponent-woprplaydek)).
+The first headless games ran a scripted seat — first legal option every
+time — against it: the hard AI won on VP in 2½ minutes, the easy one in
+4½, each decision of the AI a few seconds of its own threads. That
+settles the loop; what is missing is the bridge that puts Joshua in the
+local seat. It is the engine's physical mode with a program at the
+operator's console: the struggler engine mirrors the Playdek game as
+referee, the DLL's events become the operator's answers for the AI's
+moves and rolls, Joshua's action becomes a `SelectGameOption`. Each
+action is also a free cross-check of the two engines' states — every
+desync is a bridge bug or a rules divergence, and either is worth
+knowing.
+
 ## Open questions and the road ahead
 
 **Next experiment: capacity.** The chain flattened at v10 (two of three
@@ -411,6 +432,12 @@ In rough order of expected value per effort:
    discards does not. A "discarded this turn" card location is the
    cheap half; sequence features are the other. Behind capacity and
    search in expected value.
+7. **The Playdek bridge.** `wopr.playdek` plays the Steam edition's AI
+   headless; the `PlaydekOperator` that seats Joshua in that game
+   through physical mode is the remaining piece, and then an eval that
+   reports win rate and VP margin per difficulty and per seat next to
+   the ladder. Independent of the capacity A/B, and the first number
+   that means something outside this repository.
 
 ## Reproducing
 

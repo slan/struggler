@@ -317,6 +317,89 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   a natural dense signal if learning stalls; it is not on by default
   because shaping a two-player zero-sum game tends to teach the shaping.
 
+## Playdek's AI as an opponent (`wopr/playdek/`)
+
+Joshua's opponents so far all come from this repository. The Steam
+edition of Twilight Struggle (Playdek) ships a real AI, and it turns out
+to be reachable headless: the Unity app is only a front end, and the
+rules engine, the card database (Lua, statically linked) and the AI all
+live in one native library, `TwilightStruggle_Data/Plugins/x86_64/TwilightLib.dll`,
+behind a flat C API of 117 exports. `wopr.playdek` loads that DLL with
+`ctypes` from the user's own install — nothing of the game is copied
+into this repository — and drives it one decision at a time:
+
+```
+pd = Playdek()                                    # loads the DLL, Initialize() once per process
+game = pd.new_game(local_side=Side.USSR, ai_difficulty=AIDifficulty.HARD, seed=1)
+while (prompt := game.pump()) is not None:        # runs the DLL until we must decide
+    game.choose(prompt.options[0].index)          # answer by option index
+game.result                                       # GameResult(winner_id, win_type, score)
+```
+
+`python -m wopr.playdek.smoke --games 2 --policy random` plays scripted
+games and tallies every prompt and selection hint it saw. The install is
+found by `ffi.find_install()` (`$STRUGGLER_PLAYDEK_DIR`, else the usual
+Steam library roots); `tests/test_playdek.py` skips its live checks
+without it. Windows only, like the DLL.
+
+### What the DLL's API looks like
+
+Nothing here is documented by Playdek. The signatures and struct layouts
+were recovered from the app's IL2CPP metadata (the C# `[DllImport]`
+declarations and the structs they marshal) and then settled against the
+live DLL — `ffi.py` is the binding, `game.py` the loop. The facts that
+cost something to learn, so they are not learned twice:
+
+- **`Initialize(data_path, processorCount)`** loads the Lua database:
+  `data_path` is the flat `StreamingAssets/Lua` directory (the DLL strips
+  the `twilight/database/` prefix its own Lua files use). `processorCount`
+  sizes the AI's thread pool.
+- **`StartGame(GameParameters*, 2, AppPlayerData[2], seed)`.** The
+  native `AppPlayerData` is **52 bytes**: the C# struct's `ushort[]`
+  fields marshal *by value* (two entries each) and the name *inline*
+  (`char[32]`) — declared as pointers, `StartGame` crashes. Seats are
+  found by `id`; `playerType` **0 is the local seat** whose decisions go
+  to the options listener (1 is the second human of a hotseat game, 2 the
+  AI), and an AI seat takes `aiDifficultyLevel` **0 (easy) or 2 (hard)**
+  — what the app's "Create Game" screen sets; 1 is not a level and
+  crashes. `chooseSidesMethod` 0/1 seats the first player as USSR/US.
+- **`SetGameOptionsListener(cb)`**: `cb(playerID, prompt, n, GameOption*)`
+  is invoked *on the calling thread, inside `UpdateGame`*, when the local
+  seat must choose. `GameOption` is a **64-byte** record — `optionIndex`,
+  `selectionID` (the card or country id of the Lua database), a
+  `selectionHint` (`ffi.SelectionHint`: what kind of thing is being
+  selected), `isHidden`, and the label inline. The list stays valid until
+  answered with `SelectGameOption(index)` on a later call; answering from
+  inside the callback deadlocks.
+- **`UpdateGame(buffer, size)`** fills the buffer with `{int32 type;
+  int32 payload[]}` records and returns their count; payload sizes are
+  the `GameEvent.*` structs of the metadata (`ffi._PAYLOADS`). A whole
+  action is confirmed with **`CommitTemporaryMoveBuffer()`** when
+  `COMMIT_PLAYER_DECISION` arrives — the app's "Commit" button, without
+  which the game waits forever. The AI thinks on its own threads: empty
+  updates while `GetGamePlayerAIState(id).isAIThinking` is set just mean
+  "not yet"; `pump` sleeps a millisecond between them.
+- **State getters** (`GetGamePlayerHandState`, `GetGamePlayerAIState`,
+  `GetGameCurrentScore`, `GetPendingDefconLevel`, ...) take the seat's
+  `id`, fill a caller buffer and return the bytes written.
+- Time: the hard AI takes a few seconds per decision; a whole game
+  against a scripted opponent took 2½ minutes (hard) and 4½ (easy, it
+  lasted longer). The process is mostly idle while the AI thinks, so
+  several games can run in parallel processes — the DLL is a process-wide
+  singleton with one current game.
+
+### What this is for
+
+The bridge to Joshua is the engine's physical mode (`docs/BOTS.md`): the
+struggler engine mirrors the Playdek game as referee, Joshua sees only its
+`Observation`, and a `PlaydekOperator` replaces the human operator —
+translating the DLL's events (the AI's card plays, placements, rolls) into
+the operator's answers and Joshua's `Action` into `SelectGameOption` by
+`selectionID`/`selectionHint`. Every action is a chance to compare the two
+engines' states; a desync is either a bridge bug or a rules divergence
+worth a line in `LIMITATIONS.md`. That bridge is the next step; the loop
+above is the part that works today.
+
 ## What Joshua cannot do yet
 
 See [LIMITATIONS.md](LIMITATIONS.md#bots).
