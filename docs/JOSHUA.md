@@ -260,6 +260,37 @@ What the epochs experiment taught:
   — road-map item 2, in a new form, and the first thing to look at in
   the games themselves.
 
+### Reading v9's games
+
+Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
+logs, aggregated by action kind):
+
+- **The USSR's edge is the early war, and it is the real one.** USSR
+  wins 25 of 40. In those games the USSR leads from turn 1 and jumps to
+  −9.6 VP by the end of turn 3, then holds. In the US's 15 wins the US
+  is level early, survives turns 3–5 at about −3, and wins the *late*
+  war: +14 on final scoring. Twenty-one games go the full ten turns;
+  DEFCON 1 ended three. The VP game is mature; the asymmetry is when
+  it is decided.
+- **Turn 1 is a coup blitz.** The USSR coups 63 times in turn 1 across
+  the forty games (the US 42), on Iran above all, then Brazil, Angola,
+  Argentina, Venezuela, Libya, South Africa, Nigeria — the Battlegrounds
+  DEFCON 5 leaves open — and settles to ~20 coups a turn against the
+  US's ~10. Its headlines are VP: Nuclear Test Ban (+3 at DEFCON 5, in
+  39 of 40 games), Red Scare/Purge, the Indo-Pakistani and Arab-Israeli
+  wars, OPEC, Cuban Missile Crisis. The US headlines Olympic Games,
+  East European Unrest, Duck and Cover.
+- **The rest looks like Twilight Struggle.** ~10% of cards played for
+  the event, ~4% to the Space Race; the USSR spreads through Poland,
+  Pakistan, Brazil, Argentina, India, Venezuela, the US through France,
+  Brazil, Venezuela, Libya, Italy, Egypt; Asia, Europe and Middle East
+  Scoring are the cards that matter, for both.
+
+The weak spot is therefore narrow: the US's turns 1–3 against the
+coup-and-VP blitz, not US play in general. That is what a seat-weighted
+sample or a per-seat gate should be aimed at — and, before either, what
+a US-seat value trace of a lost game should show.
+
 ### Where the time went (August 2026)
 
 Two profiles, taken before building anything else on the road map,
@@ -313,10 +344,14 @@ In rough order of expected value per effort:
    games get longer, the fact that the loop's cost is in decisions, not
    games.
 2. **The US seat.** Back, in a new form: from v8 on the USSR seat wins
-   nearly every game between strong policies. Read the games first (is
-   it an early-war line, DEFCON, a scoring pattern?), then consider
-   seat-weighted sampling or a per-seat gate; a loop that only measures
-   pooled win rate would promote a USSR specialist.
+   most games between strong policies, and the games say why (above):
+   the early-war coup-and-VP blitz, which the US survives in its wins
+   and loses to in turns 1–3 otherwise. Options, in order: a per-seat
+   gate in the loop (promote only a challenger that also improves as
+   US — a pooled win rate would promote a USSR specialist), seat-weighted
+   sampling so the US perspective gets more rows, and a VP handicap for
+   the USSR seat in training games — what tournament play does with a
+   bid — so the learner sees balanced games.
 3. **The self-improvement loop** (`wopr.loop`, built). v5 settled the
    recipe — self-play and the pool, no anchors — and the loop runs it:
    train the challenger for N games, evaluate against the champion on
