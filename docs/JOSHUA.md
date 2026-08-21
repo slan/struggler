@@ -127,6 +127,7 @@ Details, trajectories and checkpoints per version are in
 | Version | Setup | Elo vs random | vs random (US / USSR) | vs greedy |
 | --- | --- | --- | --- | --- |
 | v1 | 4,000 games, 26 min, one CPU core; 30% self-play, 30% pool, 40% random anchor; terminal reward | +378 ± 48 | 0.88 (0.79 / 0.96) | 0.18 |
+| v2 | as v1 with the 40% anchor games against `greedy`, from scratch | +61 ± 41 | 0.54 (0.43 / 0.65) | 0.23 |
 
 (200 games per opponent per seed, three eval seeds, argmax play. On the
 same protocol Greedy rates +628 ± 53 over random, and `first` −52 ± 42 —
@@ -154,6 +155,22 @@ What the first run taught:
   its influence step) — a mandate #1 violation random play reaches too
   rarely for the property tests to see. Fixed in the engine; the stronger
   the players, the more of the rules they exercise.
+
+What the second run taught:
+
+- **The yardstick is not a teacher.** Trained from scratch with 40% of
+  its games against Greedy, v2 won 19% of those by the end (v1 won 76%
+  of its games against `random`), so with a terminal reward nearly half
+  of every update's outcomes were the same −1. It did not learn to beat
+  Greedy (0.23 vs v1's 0.18 — noise) and plays everyone else worse than
+  v1: +61 Elo vs random against v1's +378. Whatever it learned came from
+  the self-play and pool games. The anchor has to be graded — `random`
+  first, Greedy once the learner wins some of those games — or the run
+  has to start from a policy that already does (v1).
+- **Argmax and sampled play can disagree a lot.** v2's sampled policy
+  beats random 0.76 and v1 0.47; its argmax line manages 0.54 and 0.24.
+  v1's sampled play was slightly weaker than its argmax. Eval both,
+  always — the ladder reports them separately for this reason.
 
 ### Where the time went (August 2026)
 
@@ -206,9 +223,14 @@ In rough order of expected value per effort:
    scheduler that does not wait on every slot each round.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
-3. **Greedy as a curriculum opponent.** Fast enough now (above). The
-   open question is the curriculum itself: v1 loses to it five times in
-   six, so `--anchor greedy` is the next run, watched per seat.
+3. **Greedy as a curriculum opponent — graded, not from scratch.** v2
+   answered the naive version: 40% Greedy games from the first update
+   teaches nothing (above). Next is either an anchor schedule
+   (`random` until the learner wins most of those games, then Greedy —
+   the pool's PFSP weighting already does this among snapshots, the
+   anchor should follow the same logic) or continuing v1 against Greedy.
+   The VP-shaped reward is the documented fallback if neither moves the
+   Greedy number.
 4. **A shared-memory or rewritten-engine backend.** Not mandated yet. A
    rewritten engine removes at most the engine's third of a learner step
    (~1.5× at best) while encoding and inference stay where they are;
