@@ -117,7 +117,7 @@ new state out of Python objects and inside the layout.
 The final option layer is initialised near zero so the untrained policy
 is near-uniform over legal options and early rollouts explore.
 
-## The arena (`wopr/arena.py`, `wopr/vec_env.py`)
+## The arena (`wopr/arena.py`, `wopr/backend.py`, `wopr/vec_env.py`)
 
 `Arena(n_games, seed, seat_assigner)` owns N engines. Each game's two
 seats are assigned *policy ids* (strings) when it starts; the arena only
@@ -126,13 +126,38 @@ groups pending decisions by id (`pending()`) and applies option indices
 pre-rolled option is not a choice. `play_out(arena, {id: policy})` runs
 everything to completion in batched rounds; it is what evaluation uses.
 
-`WoprVecEnv` adapts the arena to SB3's `VecEnv`: one env per slot. After
-the learner's action the env fast-forwards through chance and through
-every decision belonging to a *non-learner* seat (answered in batch by
-the registered opponents) and stops at the learner's next decision —
-which, in self-play, may belong to the other side. Each row's reward is
-the game outcome **for that row's mover** (+1/−1/0) on the row after
-which the game ended.
+A **backend** (`wopr/backend.py`) steps the games and fills the layout
+buffers: given one option index per slot, bring every slot to its next
+learner decision and write its row. After the learner's action it
+fast-forwards through chance and through every decision belonging to a
+*non-learner* seat (answered in batch by the registered opponents) and
+stops at the learner's next decision — which, in self-play, may belong to
+the other side. Each row's reward is the game outcome **for that row's
+mover** (+1/−1/0) on the row after which the game ended, returned as an
+`EpisodeRecord`. Two backends answer the same question:
+
+- `InProcessBackend`: N engines in this process — the reference.
+- `SharedMemoryBackend` (`--workers k`): k collector processes, each an
+  `InProcessBackend` over a contiguous slice of the slots, writing
+  straight into shared memory. **The layout is the transport**: every
+  layout array is one shared slab `[n_slots, ...]`, a worker owns its
+  rows, the main process reads the whole slab after the step. Actions,
+  rewards, dones, the mover of each next row and the record of a game
+  that ended this step are fixed-shape shared arrays too; nothing is
+  pickled on the step path, and the only signal per step is one
+  semaphore release per worker each way. Seats are decided in the main
+  process — the seat assigner sees the pool and the anchor schedule
+  there — and handed over one game ahead in a shared table a worker
+  reads when a slot resets. Game seeds are `(run seed, global slot,
+  episode)` in both backends, so a deterministic configuration plays the
+  same games through either, step for step; the suite pins it. Each
+  collector resolves its own opponents (`StandardOpponents.for_worker`:
+  same policies, its own RNG streams) and runs pool-net inference over
+  its own slots, so that batching is kept inside the worker.
+
+`WoprVecEnv` adapts a backend to SB3's `VecEnv`: one env per slot,
+`infos[i]["episode"]` from the records, no `terminal_observation` (SB3
+reads it only to bootstrap truncated episodes; games here end for real).
 
 ### Alternating-perspective GAE (`wopr/buffer.py`)
 
@@ -200,7 +225,8 @@ now fixed per pair rather than carried across pairs.
 ## Metrics (`wopr/callback.py`, `runs/<run>/metrics.csv`)
 
 Per update: games, win rates (overall, per seat, vs pool, vs anchor),
-the current anchor, rollout and update seconds, draw rate, episode length and mean final turn, policy health —
+the current anchor, rollout and update seconds (and, with collectors,
+the seconds spent waiting on them), draw rate, episode length and mean final turn, policy health —
 `entropy`, `k_valid` (mean legal options), `entropy_ratio = H / ln K`
 (≈1: not choosing yet; ≪0.3 with many options: collapsed), `k_eff = e^H`
 — and SB3's `approx_kl`, `clip_fraction`, `explained_variance`, losses.
@@ -228,24 +254,22 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
 - **Ops-only first.** `--no-events` runs `Engine.new_game(events=False)`:
   influence, coups, realignments, DEFCON, scoring, space race, no card
   events. A pool trained there carries into the full game.
-- **Throughput.** Training is *update-bound*, not rollout-bound. One
-  update is 64 games × 128 learner decisions: the rollout takes ~3–4 s
-  (~2.7k learner decisions/s against the random anchor or itself, ~1.3k
-  against Greedy, ~1.75k with pool snapshots in play) and the PPO update
-  — 4 epochs × 8 minibatches of 1,024, forward and backward — ~3.4 s at
-  16 threads under the default `--precision bf16` (~6.6 s in fp32).
-  `metrics.csv` records both (`rollout_s`, `update_s`). The update is
-  the network's FLOPs, mostly the graph layers' linears over 85 nodes ×
-  128 hidden; the legal-rows option head and a plain `matmul` for the
-  adjacency aggregation took the fp32 figure from 10.7 s with identical
-  outputs. On the rollout side a learner step is about 40% policy
-  forward at 8+ threads, the rest engine `step` and feature encoding;
-  against a net opponent the opponent is asked ~8 times per learner
-  step at a mean batch of 8 (the tail rounds, where few slots still
-  wait on it), which is where its 40% goes — not the number of
-  snapshots. Multi-process collection belongs *below* the layout
-  contract (several arenas, one buffer), not in SB3's `SubprocVecEnv`,
-  whose workers expect gym envs. See the August 2026 entry in
+- **Throughput.** One update is 64 games × 128 learner decisions. With
+  `--workers 8` the rollout takes ~1.7 s on the self-play + pool recipe
+  (~5.1k learner decisions/s; ~3.7 s and 2.3k in one process), of which
+  ~0.9 s is waiting on the collectors (`wait_s` in `metrics.csv`) and
+  most of the rest the learner's own forward pass, which is linear in
+  rows and does not parallelise away. The PPO update — 4 epochs × 8
+  minibatches of 1,024, forward and backward — takes ~3.6 s at 16
+  threads under the default `--precision bf16` (~6.6 s in fp32) and is
+  now the larger share: it is the network's FLOPs, mostly the graph
+  layers' linears over 85 nodes × 128 hidden (the legal-rows option head
+  and a plain `matmul` for the adjacency aggregation took the fp32
+  figure from 10.7 s with identical outputs). In one process a learner
+  step is ~40% policy forward at 8+ threads, the rest engine `step` and
+  feature encoding; against a net opponent the opponent is asked ~8
+  times per learner step at a mean batch of 8 (the tail rounds, where
+  few slots still wait on it). See the August 2026 entry in
   [JOSHUA.md](JOSHUA.md).
 - **Device and precision.** `--device auto` picks CUDA when available.
   On CPU, `--torch-threads 16` is the measured sweet spot for the update

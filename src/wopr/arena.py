@@ -73,7 +73,13 @@ class Arena:
         seat_assigner: SeatAssigner = self_play,
         events: bool = True,
         include_optional: bool = True,
+        slot_offset: int = 0,
+        total_slots: int | None = None,
     ) -> None:
+        """`slot_offset`/`total_slots` make this arena a slice of a larger
+        one: its slots are numbered from `slot_offset` for seeding and for
+        the seat assigner, so k arenas of n/k slots play exactly the games
+        one arena of n slots would (the shared-memory backend)."""
         if n_games < 1:
             raise ValueError("n_games must be >= 1")
         self.n_games = n_games
@@ -82,17 +88,22 @@ class Arena:
         self._seat_assigner = seat_assigner
         self._events = events
         self._include_optional = include_optional
+        self._slot_offset = slot_offset
+        self._total_slots = n_games if total_slots is None else total_slots
+        if slot_offset < 0 or slot_offset + n_games > self._total_slots:
+            raise ValueError(f"slots [{slot_offset}, {slot_offset + n_games}) exceed total_slots={self._total_slots}")
         self._slots: list[_Slot] = [self._new_slot(i, 0) for i in range(n_games)]
 
     # -- lifecycle -----------------------------------------------------------
 
     def _new_slot(self, slot: int, episode: int) -> _Slot:
-        # Distinct, reproducible engine seed per (slot, episode); the seat
-        # assigner's randomness comes from the arena's own rng.
-        game_seed = self._seed * 1_000_003 + episode * self.n_games + slot
+        # Distinct, reproducible engine seed per (global slot, episode); the
+        # seat assigner's randomness comes from the arena's own rng.
+        global_slot = self._slot_offset + slot
+        game_seed = self._seed * 1_000_003 + episode * self._total_slots + global_slot
         engine = Engine.new_game(seed=game_seed, events=self._events, include_optional=self._include_optional)
         self._resolve_chance(engine)
-        seats = dict(self._seat_assigner(slot, episode, self._rng))
+        seats = dict(self._seat_assigner(global_slot, episode, self._rng))
         if set(seats) != {Side.US, Side.USSR}:
             raise ValueError(f"seat assigner must assign exactly US and USSR, got {sorted(s.value for s in seats)}")
         return _Slot(engine=engine, seats=seats, episode=episode, seed=game_seed)

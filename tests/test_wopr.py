@@ -21,9 +21,10 @@ from struggler.bots.joshua.model import JoshuaConfig, JoshuaNet  # noqa: E402
 from struggler.bots.naive import FirstLegalPlayer  # noqa: E402
 from struggler.engine import Side  # noqa: E402
 from wopr.arena import Arena, play_out, self_play  # noqa: E402
+from wopr.backend import ArenaSpec, InProcessBackend, SharedMemoryBackend  # noqa: E402
 from wopr.buffer import AlternatingRolloutBuffer  # noqa: E402
 from wopr.ladder import Match, elo_ratings, summarize  # noqa: E402
-from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent  # noqa: E402
+from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent, StandardOpponents  # noqa: E402
 from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool  # noqa: E402
 from wopr.callback import CSV_COLUMNS, ensure_columns  # noqa: E402
 from wopr.eval import PairJob, play_pairs, run_pair  # noqa: E402
@@ -90,7 +91,7 @@ def test_vec_env_self_play_rows_carry_the_mover_and_reward_only_at_game_end():
                 assert episode["seats"] == {"US": LEARNER, "USSR": LEARNER}
                 expected = 0.0 if episode["winner"] is None else (1.0 if episode["winner"] == episode["mover"] else -1.0)
                 assert rewards[slot] == expected
-                assert set(info["terminal_observation"]) == set(F.LAYOUT)
+                assert "terminal_observation" not in info  # games always end for real: nothing to bootstrap
     assert movers_seen == {0.0, 1.0}, "both seats must reach the learner in self-play"
     assert finished > 0, "first-legal self-play games end quickly (DEFCON) -- none finished?"
     assert env.current_am_us().shape == (4,)
@@ -279,3 +280,33 @@ def test_eval_pairs_are_independent_jobs_and_run_in_a_process_pool():
     assert {m.a for m in alone} == {"random", "first"}  # half the games on each seat
     assert serial[0] == alone and serial[2] == alone
     assert pooled == serial
+
+
+def test_shared_memory_backend_plays_the_same_games_as_the_in_process_one(tmp_path):
+    """k collectors over shared memory must be indistinguishable from one
+    process: same rows, rewards, dones and episode records step for step.
+    Self-play against a fixed first-option policy is fully deterministic
+    (no opponent RNG), so the comparison is exact."""
+    n_slots, steps = 6, 300
+    opponents = StandardOpponents(str(tmp_path), seed=1)
+    local = InProcessBackend(Arena(n_slots, seed=9, seat_assigner=self_play), opponents)
+    shared = SharedMemoryBackend(ArenaSpec(n_slots, 9), self_play, opponents, workers=3)
+    try:
+        local.reset()
+        shared.reset()
+        for name in F.LAYOUT:
+            assert np.array_equal(local.buffers[name], shared.buffers[name]), name
+        finished = 0
+        for _ in range(steps):
+            actions = np.zeros(n_slots, dtype=np.int64)  # the first legal option, always
+            r1, d1, rec1 = local.step(actions)
+            r2, d2, rec2 = shared.step(actions)
+            assert np.array_equal(r1, r2) and np.array_equal(d1, d2)
+            assert np.array_equal(local.am_us(), shared.am_us())
+            assert rec1 == rec2
+            finished += int(d1.sum())
+            for name in F.LAYOUT:
+                assert np.array_equal(local.buffers[name], shared.buffers[name]), name
+        assert finished > 0  # first-option self-play games end fast, so resets were exercised too
+    finally:
+        shared.close()

@@ -89,9 +89,9 @@ routed to the operator is described in [BOTS.md](BOTS.md).
   new engine choice word degrades Joshua's play on that decision rather
   than crashing; an effect flag outside `TURN_EFFECTS`/`GAME_EFFECTS`
   does raise (the suite greps the engine source for both).
-- **WOPR collects rollouts in one process, in lockstep.** Roughly 2.7k
-  learner decisions/s; multi-process collection and a shared-memory
-  backend are designed for (the layout is the contract) but not built.
-  Every round waits on every slot, so a net opponent is asked ~8 times
-  per learner step at small batches. The PPO update (~3.4 s in bf16)
-  and the rollout (3–4 s) now cost about the same per update.
+- **WOPR steps its collectors in lockstep.** With `--workers k` the
+  games are stepped by k processes over shared memory, but every step
+  still waits on every slot, so a net opponent is asked ~8 times per
+  learner step at small batches and the slowest collector sets the
+  pace. The PPO update (~3.6 s in bf16) is now twice the rollout
+  (~1.7 s); the loop is bound by the network's FLOPs.

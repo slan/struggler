@@ -32,7 +32,7 @@ from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
 CSV_COLUMNS = (
-    "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s", "rollout_s", "update_s",
+    "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s", "rollout_s", "update_s", "wait_s",
     "win_rate", "win_rate_us", "win_rate_ussr", "draw_rate", "win_rate_vs_pool", "win_rate_vs_anchor",
     "ep_len_mean", "turn_mean",
     "entropy", "k_valid", "entropy_ratio", "k_eff",
@@ -125,6 +125,8 @@ class WoprCallback(BaseCallback):
             elapsed_s=round(time.perf_counter() - self._start, 1),
             steps_per_s=round(self.model.n_steps * self.env.num_envs / rollout_s, 1),
             rollout_s=round(rollout_s, 1),
+            # Shared-memory backend: seconds the rollout spent waiting on its collectors.
+            wait_s=round(take_wait(), 2) if (take_wait := getattr(self.env.backend, "take_wait", None)) else None,
             pool_size=len(self.pool),
             anchor=None if self.anchor_schedule is None else self.anchor_schedule.current,
         )

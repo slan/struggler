@@ -12,7 +12,11 @@ Three flavours:
 
 from __future__ import annotations
 
+import dataclasses
 import random
+import zlib
+from dataclasses import dataclass
+from pathlib import Path
 from typing import Sequence
 
 import numpy as np
@@ -88,3 +92,38 @@ class NetOpponent:
 
 def masked_argmax(logits: np.ndarray, mask: np.ndarray) -> int:
     return int(np.argmax(np.where(mask.astype(bool), logits, -np.inf)))
+
+
+@dataclass(frozen=True)
+class StandardOpponents:
+    """The opponent resolver `train.py` seats: `random`, `greedy`, `first`,
+    and `pool:<name>` snapshots read from `pool_dir`. Plain data, so a
+    collector process can be handed one; each resolves its opponents
+    itself, seeded by `(seed, salt, policy id)` -- the same stream for the
+    same policy in the same process, distinct across `salt`s."""
+
+    pool_dir: str
+    seed: int
+    device: str = "cpu"
+    salt: int = 0
+
+    def for_worker(self, index: int) -> "StandardOpponents":
+        """The resolver a collector process should use: same policies, its own streams."""
+        return dataclasses.replace(self, salt=index + 1)
+
+    def __call__(self, policy_id: str):
+        from struggler.bots.greedy import GreedyPlayer
+        from struggler.bots.naive import FirstLegalPlayer
+        from wopr.pool import POOL_PREFIX
+
+        opponent_seed = self.seed * 7919 + self.salt * 104_729 + zlib.crc32(policy_id.encode()) % 7919
+        if policy_id == "random":
+            return RandomOpponent(opponent_seed)
+        if policy_id == "greedy":
+            return PlayerOpponent(GreedyPlayer())
+        if policy_id == "first":
+            return PlayerOpponent(FirstLegalPlayer())
+        if policy_id.startswith(POOL_PREFIX):
+            path = Path(self.pool_dir) / f"{policy_id[len(POOL_PREFIX):]}.pt"
+            return NetOpponent.from_checkpoint(str(path), seed=opponent_seed, device=self.device)
+        raise KeyError(f"unknown opponent {policy_id!r}")

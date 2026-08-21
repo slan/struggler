@@ -28,15 +28,14 @@ import numpy as np
 import torch
 from stable_baselines3 import PPO
 
-from struggler.bots.greedy import GreedyPlayer
-from struggler.bots.naive import FirstLegalPlayer
 from struggler.engine import Side
-from wopr.arena import Arena, Opponent
+from wopr.arena import Arena
+from wopr.backend import ArenaSpec, Backend, InProcessBackend, SharedMemoryBackend
 from wopr.buffer import AlternatingRolloutBuffer
 from wopr.callback import StopAtGames, WoprCallback
-from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent
+from wopr.opponents import StandardOpponents
 from wopr.policy import PRECISIONS, JoshuaPolicy
-from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool
+from wopr.pool import AnchorSchedule, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
 RUNS_DIR = Path("runs")
@@ -76,6 +75,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--device", default="auto", help="auto | cpu | cuda")
     p.add_argument("--precision", choices=list(PRECISIONS), default="bf16", help="bf16 autocast for the network (default; halves the update) or plain fp32")
     p.add_argument("--torch-threads", type=int, default=None)
+    p.add_argument("--workers", type=int, default=1, help="collector processes stepping the games (1: in this process)")
+    p.add_argument("--worker-threads", type=int, default=2, help="torch threads per collector (pool-net inference)")
     return p.parse_args(argv)
 
 
@@ -105,25 +106,6 @@ def make_seat_assigner(self_play: float, vs_pool: float, anchor: AnchorSchedule,
     return assign
 
 
-def make_opponent_resolver(pool: CheckpointPool, seed: int, device: str):
-    counter = {"n": 0}
-
-    def resolve(policy_id: str) -> Opponent:
-        counter["n"] += 1
-        opponent_seed = seed * 7919 + counter["n"]
-        if policy_id == "random":
-            return RandomOpponent(opponent_seed)
-        if policy_id == "greedy":
-            return PlayerOpponent(GreedyPlayer())
-        if policy_id == "first":
-            return PlayerOpponent(FirstLegalPlayer())
-        if policy_id.startswith(POOL_PREFIX):
-            return NetOpponent.from_checkpoint(str(pool.path(policy_id[len(POOL_PREFIX):])), seed=opponent_seed, device=device)
-        raise KeyError(f"unknown opponent {policy_id!r}")
-
-    return resolve
-
-
 def resolve_device(name: str) -> str:
     if name == "auto":
         return "cuda" if torch.cuda.is_available() else "cpu"
@@ -131,13 +113,14 @@ def resolve_device(name: str) -> str:
 
 
 def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSchedule, device: str) -> WoprVecEnv:
-    arena = Arena(
-        args.n_envs,
-        seed=args.seed,
-        seat_assigner=make_seat_assigner(args.self_play, args.vs_pool, anchor, pool),
-        events=not args.no_events,
-    )
-    return WoprVecEnv(arena, make_opponent_resolver(pool, args.seed, device))
+    seats = make_seat_assigner(args.self_play, args.vs_pool, anchor, pool)
+    opponents = StandardOpponents(str(pool.directory), args.seed, device)
+    if args.workers > 1:
+        spec = ArenaSpec(args.n_envs, args.seed, events=not args.no_events)
+        backend: Backend = SharedMemoryBackend(spec, seats, opponents, workers=args.workers, worker_threads=args.worker_threads)
+    else:
+        backend = InProcessBackend(Arena(args.n_envs, seed=args.seed, seat_assigner=seats, events=not args.no_events), opponents)
+    return WoprVecEnv(backend)
 
 
 def build_model(args: argparse.Namespace, env: WoprVecEnv, device: str) -> PPO:

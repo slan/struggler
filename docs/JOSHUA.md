@@ -261,21 +261,22 @@ reordered it:
   checkpoint included). bf16 autocast halves it again, to 3.4 s: it
   changes the numerics, so it was checked first — 600 games against
   v1's first 600 track within noise on every health metric — and is
-  now the default. An update that cost 17 s in v1 costs 7.
+  now the default. An update that cost 17 s in v1 costs 7 — and 5.4
+  once the rollout is collected by eight processes over shared memory
+  (3.7 s → 1.7 s), after which the update is two thirds of the loop.
 
 ## Open questions and the road ahead
 
 In rough order of expected value per effort:
 
-1. **Throughput.** Update and rollout are now even (~3.4 s vs 3–4 s
-   per update, `update_s`/`rollout_s` in `metrics.csv`). What is left on
-   the update side is the network's FLOPs in bf16: fewer epochs or
-   larger minibatches (changes the optimisation), or a GPU. On the
-   rollout side the engine and encoding are per-process
-   Python, so collection across processes is the lever — *below* the
-   layout (several arenas feeding one buffer), not in a gym-style
-   subprocess wrapper — and the net-opponent tail rounds want a
-   scheduler that does not wait on every slot each round.
+1. **Throughput.** Collection is parallel now (`--workers 8`: rollout
+   3.7 s → 1.7 s per update, the shared-memory backend in WOPR.md), and
+   the PPO update at ~3.6 s is two thirds of the loop. What is left
+   there is the network's FLOPs in bf16: fewer epochs or larger
+   minibatches (changes the optimisation — an experiment for the loop),
+   a smaller network, or a GPU. On the rollout side the floor is the
+   learner's own forward pass, linear in rows; beyond that only a
+   scheduler that does not wait on every slot each step.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
 3. **The self-improvement loop.** v5 settled the recipe — self-play

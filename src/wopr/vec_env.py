@@ -1,8 +1,8 @@
-"""`WoprVecEnv`: the arena as a Stable-Baselines3 `VecEnv`.
+"""`WoprVecEnv`: a WOPR backend as a Stable-Baselines3 `VecEnv`.
 
-One SB3 "env" = one arena slot. The twist, compared to a single-agent
-env, is *who the row belongs to*: after the learner's action in a slot,
-the arena fast-forwards through CHANCE frames and through every decision
+One SB3 "env" = one slot. The twist, compared to a single-agent env, is
+*who the row belongs to*: after the learner's action in a slot, the
+backend fast-forwards through CHANCE frames and through every decision
 that belongs to a non-learner seat (answered in batch by the registered
 opponents) and stops at the next decision the learner must make -- which,
 in a self-play game where both seats are the learner, may be the *other*
@@ -11,27 +11,28 @@ and the reward of a row is the game's outcome *for that row's mover*:
 +1 win, -1 loss, 0 draw, on the row after which the game ended.
 `buffer.AlternatingRolloutBuffer` turns that into correct advantages.
 
-Episodes auto-reset. `infos[i]["episode"]` follows SB3's Monitor
+The stepping itself is a `backend.Backend` -- in-process engines, or k
+collector processes over shared memory -- and this class only adapts it
+to SB3: episodes auto-reset, `infos[i]["episode"]` follows SB3's Monitor
 convention (`r`, `l`) so `rollout/ep_rew_mean` works unchanged, plus
-`winner`, `seats`, `mover`, `turn`, `vp` for the WOPR callback.
+`winner`, `seats`, `mover`, `turn`, `vp`, `seed` for the WOPR callback.
+No `terminal_observation`: SB3 reads it only to bootstrap truncated
+episodes, and games here always end for real.
 """
 
 from __future__ import annotations
 
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Sequence
 
 import numpy as np
 from gymnasium import spaces
 from stable_baselines3.common.vec_env import VecEnv
 
 from struggler.bots.joshua import features as F
-from struggler.engine import Side
-from wopr.arena import Arena, Opponent, PendingRow
+from wopr.arena import Arena
+from wopr.backend import LEARNER, Backend, InProcessBackend, OpponentResolver
 
-LEARNER = "learner"
-
-#: Resolves a non-learner policy id to something that can answer rows.
-OpponentResolver = Callable[[str], Opponent]
+__all__ = ["LEARNER", "OpponentResolver", "WoprVecEnv", "observation_space"]
 
 
 def observation_space() -> spaces.Dict:
@@ -51,25 +52,22 @@ def observation_space() -> spaces.Dict:
 class WoprVecEnv(VecEnv):
     render_mode = None
 
-    def __init__(self, arena: Arena, opponents: OpponentResolver, *, learner: str = LEARNER) -> None:
-        super().__init__(arena.n_games, observation_space(), spaces.Discrete(F.K_MAX))
-        self.arena = arena
-        self._resolve = opponents
-        self._opponents: dict[str, Opponent] = {}
-        self._learner = learner
-        self._buffers = F.allocate(arena.n_games)
-        self._rows: list[PendingRow | None] = [None] * arena.n_games
+    def __init__(self, backend: Backend | Arena, opponents: OpponentResolver | None = None, *, learner: str = LEARNER) -> None:
+        """Either a `Backend`, or an `Arena` plus an opponent resolver for the
+        in-process one."""
+        if isinstance(backend, Arena):
+            if opponents is None:
+                raise ValueError("an Arena needs an opponent resolver")
+            backend = InProcessBackend(backend, opponents, learner=learner)
+        self.backend = backend
+        super().__init__(backend.n_slots, observation_space(), spaces.Discrete(F.K_MAX))
         self._actions: np.ndarray | None = None
-        self._episode_steps = np.zeros(arena.n_games, dtype=np.int64)
-        self._results: list[dict[str, Any]] = []
 
     # -- VecEnv API --------------------------------------------------------------
 
     def reset(self) -> dict[str, np.ndarray]:
-        self.arena.reset_all()
-        self._episode_steps[:] = 0
-        self._advance(range(self.num_envs), rewards=None, dones=None, infos=None)
-        return self._encode_all()
+        self.backend.reset()
+        return self._observations()
 
     def step_async(self, actions: np.ndarray) -> None:
         self._actions = np.asarray(actions)
@@ -77,22 +75,16 @@ class WoprVecEnv(VecEnv):
     def step_wait(self) -> tuple[dict[str, np.ndarray], np.ndarray, np.ndarray, list[dict[str, Any]]]:
         if self._actions is None:
             raise RuntimeError("step_wait called before step_async")
-        rewards = np.zeros(self.num_envs, dtype=np.float32)
-        dones = np.zeros(self.num_envs, dtype=bool)
-        infos: list[dict[str, Any]] = [{} for _ in range(self.num_envs)]
-        # Snapshot the movers before stepping: a row's reward is from the
-        # perspective of whoever acted on it, which `_advance` needs after
-        # the arena has moved on.
-        movers = [row.side for row in self._rows]
-        for slot, action in enumerate(self._actions):
-            self.arena.apply(slot, int(action))
-            self._episode_steps[slot] += 1
+        rewards, dones, records = self.backend.step(self._actions)
         self._actions = None
-        self._advance(range(self.num_envs), rewards=rewards, dones=dones, infos=infos, movers=movers)
-        return self._encode_all(), rewards, dones, infos
+        infos: list[dict[str, Any]] = [{} for _ in range(self.num_envs)]
+        for slot, record in enumerate(records):
+            if record is not None:
+                infos[slot]["episode"] = record.summary()
+        return self._observations(), rewards, dones, infos
 
     def close(self) -> None:
-        return None
+        self.backend.close()
 
     def get_attr(self, attr_name: str, indices=None) -> list[Any]:
         return [getattr(self, attr_name) for _ in self._indices(indices)]
@@ -120,78 +112,11 @@ class WoprVecEnv(VecEnv):
     def current_am_us(self) -> np.ndarray:
         """1.0 where the learner's *next* row is played as US -- the buffer's
         bootstrap needs the mover of the observation after the last stored step."""
-        return np.array([1.0 if row.side is Side.US else 0.0 for row in self._rows], dtype=np.float32)
-
-    def drain_results(self) -> list[dict[str, Any]]:
-        results, self._results = self._results, []
-        return results
+        return self.backend.am_us()
 
     # -- internals -------------------------------------------------------------------
 
-    def _opponent(self, policy_id: str) -> Opponent:
-        opponent = self._opponents.get(policy_id)
-        if opponent is None:
-            opponent = self._opponents[policy_id] = self._resolve(policy_id)
-        return opponent
-
-    def _advance(self, slots, *, rewards, dones, infos, movers: Sequence[Side] | None = None) -> None:
-        """Bring every slot in `slots` to a learner decision, answering other
-        seats' decisions with their opponents and closing finished games."""
-        active = list(slots)
-        while active:
-            still_active: list[int] = []
-            by_policy: dict[str, list[PendingRow]] = {}
-            for slot in active:
-                if self.arena.is_terminal(slot):
-                    if rewards is not None:
-                        self._finish(slot, movers[slot], rewards, dones, infos)
-                    else:
-                        self.arena.reset(slot)  # a game over at reset time: extremely unlikely, but legal
-                    still_active.append(slot)
-                    continue
-                policy_id = self.arena.policy_for(slot)
-                if policy_id == self._learner:
-                    self._rows[slot] = self.arena.row(slot)
-                    continue
-                by_policy.setdefault(policy_id, []).append(self.arena.row(slot))
-                still_active.append(slot)
-            for policy_id, rows in by_policy.items():
-                choices = self._opponent(policy_id).choose(rows)
-                if len(choices) != len(rows):
-                    raise ValueError(f"opponent {policy_id!r} answered {len(choices)} of {len(rows)} rows")
-                for row, choice in zip(rows, choices):
-                    self.arena.apply(row.slot, int(choice))
-            active = still_active
-
-    def _finish(self, slot: int, mover: Side, rewards, dones, infos) -> None:
-        result = self.arena.result(slot)
-        if result.winner is None:
-            reward = 0.0
-        else:
-            reward = 1.0 if result.winner is mover else -1.0
-        rewards[slot] = reward
-        dones[slot] = True
-        # SB3 reads `terminal_observation` only to bootstrap truncated
-        # episodes; games here always end for real, so the last encoded row
-        # is enough.
-        infos[slot]["terminal_observation"] = {name: array[slot].copy() for name, array in self._buffers.items()}
-        summary = {
-            "r": reward,
-            "l": int(self._episode_steps[slot]),
-            "winner": None if result.winner is None else result.winner.value,
-            "seats": {side.value: policy for side, policy in result.seats.items()},
-            "mover": mover.value,
-            "turn": result.turn,
-            "vp": result.vp,
-            "seed": result.seed,
-        }
-        infos[slot]["episode"] = summary
-        self._results.append(summary)
-        self._episode_steps[slot] = 0
-        self.arena.reset(slot)
-
-    def _encode_all(self) -> dict[str, np.ndarray]:
-        for slot, row in enumerate(self._rows):
-            F.encode_into(row.observation, self._buffers, slot)
-        # SB3 keeps references to what we return; hand it copies.
-        return {name: array.copy() for name, array in self._buffers.items()}
+    def _observations(self) -> dict[str, np.ndarray]:
+        # SB3 keeps what we return until after the next step, and the backend
+        # overwrites its rows in place: hand it copies.
+        return {name: array.copy() for name, array in self.backend.buffers.items()}
