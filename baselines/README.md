@@ -157,3 +157,51 @@ Greedy and random are evaluators here, never opponents.
   Entropy ratio ended at 0.28 of ln K, explained variance 0.8, mean
   final turn 6.6 — the same shape as the anchored runs. The USSR seat
   trails (0.33 against v3 as USSR, 0.65 as US).
+
+## v6
+
+Commit `789cfb9` — run `pure`, 12,000 games trained.
+
+- Loop generation 1: v5 continued for 4,000 games; gate 0.55 cleared at 0.820 (worst seed) against v5.
+- Elo vs random: **+1425 ± 83** over seeds [0, 1, 2]
+- vs random: 0.995 (US 0.993 / USSR 0.997)
+- vs first: 0.998 (US 0.997 / USSR 1.000)
+- vs greedy: 0.907 (US 0.875 / USSR 0.940)
+- vs v1: 0.975 (US 0.987 / USSR 0.963)
+- vs v2: 0.997 (US 1.000 / USSR 0.993)
+- vs v3: 0.853 (US 0.877 / USSR 0.828)
+- vs v4: 0.576 (US 0.520 / USSR 0.632)
+- vs v5: 0.837 (US 0.830 / USSR 0.843)
+
+## v7
+
+Commit `789cfb9` — run `pure`, 16,000 games trained.
+
+- Loop generation 2: v6 continued for 4,000 games; gate 0.55 cleared at 0.680 (worst seed) against v6.
+- Elo vs random: **+1407 ± 28** over seeds [0, 1, 2]
+- vs random: 0.993 (US 0.997 / USSR 0.990)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.924 (US 0.883 / USSR 0.965)
+- vs v1: 0.972 (US 0.980 / USSR 0.963)
+- vs v2: 0.993 (US 0.997 / USSR 0.990)
+- vs v3: 0.929 (US 0.967 / USSR 0.892)
+- vs v4: 0.725 (US 0.707 / USSR 0.743)
+- vs v5: 0.892 (US 0.920 / USSR 0.865)
+- vs v6: 0.700 (US 0.630 / USSR 0.770)
+
+## v8
+
+Commit `789cfb9` — run `pure`, 20,000 games trained.
+
+- Loop generation 3: v7 continued for 4,000 games; gate 0.55 cleared at 0.720 (worst seed) against v7.
+- Elo vs random: **+1394 ± 30** over seeds [0, 1, 2]
+- vs random: 0.990 (US 1.000 / USSR 0.980)
+- vs first: 0.992 (US 1.000 / USSR 0.983)
+- vs greedy: 0.962 (US 0.967 / USSR 0.957)
+- vs v1: 0.968 (US 0.960 / USSR 0.977)
+- vs v2: 0.990 (US 0.987 / USSR 0.993)
+- vs v3: 0.937 (US 0.930 / USSR 0.943)
+- vs v4: 0.880 (US 0.837 / USSR 0.923)
+- vs v5: 0.910 (US 0.903 / USSR 0.917)
+- vs v6: 0.828 (US 0.750 / USSR 0.907)
+- vs v7: 0.733 (US 0.613 / USSR 0.853)

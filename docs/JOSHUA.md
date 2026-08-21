@@ -131,6 +131,9 @@ Details, trajectories and checkpoints per version are in
 | v3 | v1 continued for 4,000 games against `greedy` (8,000 total, 28 min more in bf16) | +1077 ± 115 | 0.98 (1.00 / 0.96) | **0.59** (0.70 / 0.49) |
 | v4 | v3 continued for 4,000 more (12,000 total, 25 min more) | +1529 ± 44 | 1.00 (0.99 / 1.00) | **0.92** (0.87 / 0.96) |
 | v5 | 8,000 games, **no anchor**: 50% self-play, 50% pool, from scratch | +1156 ± 30 | 0.99 (0.99 / 0.98) | **0.66** (0.73 / 0.59) |
+| v6 | v5 + 4,000 games by the loop (gate 0.84 vs v5) | +1425 ± 83 | 1.00 (0.99 / 1.00) | 0.91 (0.88 / 0.94) |
+| v7 | v6 + 4,000 (gate 0.70 vs v6) | +1407 ± 28 | 1.00 | 0.92 |
+| v8 | v7 + 4,000 (gate 0.73 vs v7); 20,000 games, never an anchor | +1394 ± 30 | 1.00 | **0.96** (0.96 / 0.95) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -224,6 +227,23 @@ What the fifth run taught:
   v5 (8k, no anchor) line up on one curve: strength tracks the number
   of games played, whoever they were against. Throughput is the road
   map.
+
+What the loop taught (v6–v8):
+
+- **It runs itself.** Three generations of `wopr.loop` from v5 — train
+  4,000 games, gate against the champion on every eval seed, freeze —
+  promoted three times unattended: 0.84 vs v5, 0.70 vs v6, 0.73 vs v7,
+  each generation about 18 minutes of training and 3 of evaluation.
+  v8, 20,000 games of nothing but self-play and its own pool, beats
+  Greedy 0.96 and v4 — the Greedy-anchored line's best — 0.88.
+- **Elo against `random` has stopped measuring.** Every version from v6
+  on wins 99%+ of those games, so the fitted scale flattens at ~+1400;
+  the chain itself (each version against every earlier one) is the
+  yardstick now, as the baseline protocol intended. Rate new versions
+  by their win rate against the previous two or three.
+- **Generations get longer as play improves.** Games now run ~340
+  learner decisions (v5: ~240), so 4,000 games are 176 updates rather
+  than 100 — the loop's cost is in decisions, not games.
 
 ### Where the time went (August 2026)
 
