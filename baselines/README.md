@@ -223,3 +223,22 @@ Commit `d2f51f8` — run `pure-e2`, 24,000 games trained.
 - vs v6: 0.867 (US 0.783 / USSR 0.950)
 - vs v7: 0.782 (US 0.640 / USSR 0.923)
 - vs v8: 0.635 (US 0.432 / USSR 0.838)
+
+## v10
+
+Commit `26a48c9` — run `pure`, 32,000 games trained.
+
+- Loop generation 2: v9 continued for 4,000 games; gate 0.55 cleared at 0.600 (worst seed) against v9.
+- Elo vs random: **+1499 ± 46** over seeds [0, 1, 2]
+- vs random: 0.997 (US 1.000 / USSR 0.993)
+- vs first: 0.997 (US 1.000 / USSR 0.993)
+- vs greedy: 0.977 (US 0.970 / USSR 0.983)
+- vs v1: 0.968 (US 0.943 / USSR 0.993)
+- vs v2: 0.997 (US 0.997 / USSR 0.997)
+- vs v3: 0.977 (US 0.963 / USSR 0.990)
+- vs v4: 0.902 (US 0.827 / USSR 0.977)
+- vs v5: 0.960 (US 0.943 / USSR 0.977)
+- vs v6: 0.852 (US 0.767 / USSR 0.937)
+- vs v7: 0.813 (US 0.673 / USSR 0.953)
+- vs v8: 0.691 (US 0.465 / USSR 0.917)
+- vs v9: 0.629 (US 0.383 / USSR 0.875)

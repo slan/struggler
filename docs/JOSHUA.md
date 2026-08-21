@@ -135,6 +135,7 @@ Details, trajectories and checkpoints per version are in
 | v7 | v6 + 4,000 (gate 0.70 vs v6) | +1407 ± 28 | 1.00 | 0.92 |
 | v8 | v7 + 4,000 (gate 0.73 vs v7); 20,000 games, never an anchor | +1394 ± 30 | 1.00 | **0.96** (0.96 / 0.95) |
 | v9 | v8 + 4,000 games with 2 PPO epochs (the A/B winner; 24,000 games) | +1527 ± 26 | 1.00 | **0.99** (0.97 / 1.00) |
+| v10 | v9 + 8,000 games by the loop (one failed gate, then 0.63 vs v9); 32,000 games | +1499 ± 46 | 1.00 | **0.98** (0.97 / 0.98) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -260,6 +261,23 @@ What the epochs experiment taught:
   — road-map item 2, in a new form, and the first thing to look at in
   the games themselves.
 
+What the loop taught (v9 → v10, 3 generations):
+
+- **The gate is starting to bite.** Of three generations from v9, one
+  cleared it (0.63 vs v9 → v10) and two did not (0.54 vs v9 at worst
+  seed 0.495; 0.53 vs v10). 36,000 games in, the chain is flattening
+  at this network size — the first plateau since v1's DEFCON one. The
+  levers left are the network (hidden 256, a third graph layer), what
+  it sees (history, item 6), and search on top (item 5).
+- **A per-seat gate would measure nothing new.** In a two-policy
+  match-up, "the challenger is better as US" is the same statement as
+  "its pooled win rate is above 0.5": challenger-as-US beats
+  champion-as-US exactly when challenger-as-US + challenger-as-USSR
+  exceeds 1. The pooled rate is already the seat-balanced measure. What
+  the 0.28 / 0.88 split shows is the USSR edge between near-equal
+  policies — about 75/25 — a property of the game as these policies
+  play it, not of the gate.
+
 ### Reading v9's games
 
 Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
@@ -346,12 +364,13 @@ In rough order of expected value per effort:
 2. **The US seat.** Back, in a new form: from v8 on the USSR seat wins
    most games between strong policies, and the games say why (above):
    the early-war coup-and-VP blitz, which the US survives in its wins
-   and loses to in turns 1–3 otherwise. Options, in order: a per-seat
-   gate in the loop (promote only a challenger that also improves as
-   US — a pooled win rate would promote a USSR specialist), seat-weighted
-   sampling so the US perspective gets more rows, and a VP handicap for
-   the USSR seat in training games — what tournament play does with a
-   bid — so the learner sees balanced games.
+   and loses to in turns 1–3 otherwise. A per-seat gate adds nothing
+   (above: the pooled rate already balances the seats). What would: a
+   VP handicap for the USSR seat in training games — what tournament
+   play does with a bid — so games are decided by play rather than by
+   seat, and the US perspective's rows carry more than "you drew the
+   short side"; and, for evaluation, reporting the USSR edge between
+   equal policies as a number of its own.
 3. **The self-improvement loop** (`wopr.loop`, built). v5 settled the
    recipe — self-play and the pool, no anchors — and the loop runs it:
    train the challenger for N games, evaluate against the champion on
