@@ -278,6 +278,29 @@ What the loop taught (v9 → v10, 3 generations):
   policies — about 75/25 — a property of the game as these policies
   play it, not of the gate.
 
+What the capacity experiment taught (hidden 256, August 2026):
+
+- **Equal games is not equal training.** The A/B as planned — a fresh
+  `--hidden 256` run (858k parameters; 128: 272k) to v5's 8,000 games —
+  lost to v5 on every seed (0.41 / 0.44 / 0.44) and to Greedy (0.32–0.34
+  against v5's 0.62–0.69). But v5 trained at 4 PPO epochs and the run at
+  the 2-epoch default, and the same-recipe control — hidden 128, 2
+  epochs, 8,000 games — loses to v5 0.06 / 0.06 / 0.08 and ends far less
+  converged (entropy ratio 0.53, explained variance 0.71; v5: 0.30 /
+  0.82). The epochs A/B was a continuation from a trained policy; from
+  scratch, 2 epochs over 8,000 games is half the optimisation. The
+  control, not v5, is what the arm has to be compared with — and a
+  fresh run wants 4 epochs.
+- **Width is a large win at the same recipe.** 256 beats the 128 control
+  0.81 / 0.86 / 0.86, and its seat pattern is new: against v5 it wins as
+  US (0.58–0.64) and loses as USSR (0.23–0.29), the mirror of everything
+  since v8.
+- **What it costs, like for like** (8 workers, 16 threads, bf16, 2
+  epochs): update 1.7 → 4.0 s (2.3×, under the hidden² guess of ~4 —
+  the option head, the card embeddings and the fixed overheads do not
+  scale), rollout 2.2 → 3.1 s (1.4×, the learner's own forward pass);
+  8,000 games in 31.5 min against 15.6. Neither run is frozen.
+
 ### Reading v9's games
 
 Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
@@ -351,19 +374,17 @@ reordered it:
 
 ## Open questions and the road ahead
 
-**Next experiment: capacity.** The chain flattened at v10 (two of three
-gates failed) with the network still at ~270k parameters. A/B through
-the loop, as with the epochs: a fresh pure-recipe run (50% self-play /
-50% pool, `--workers 8`) with `--hidden 256` — a new size cannot
-continue a run, the checkpoint shapes differ — to 8,000 games, the
-budget v5 was trained on, then `wopr.eval` against v5 (the same-budget
-control), v10 and Greedy, and `update_s` side by side (the graph
-layers' linears grow with hidden², so expect the update to roughly
-triple; bf16 and 2 epochs are what make that affordable). If it is
-ahead of v5 at equal games, continue it through the loop and see
-whether it clears the gates v10 could not; if not, try a third graph
-layer before concluding capacity is not the limit. Freeze the winner
-only.
+**Next experiment: capacity (in progress).** The chain flattened at v10
+(two of three gates failed) with the network still at ~270k
+parameters. The first pass (above) found the planned comparison — a
+fresh `--hidden 256` run to v5's 8,000 games, `wopr.eval` against v5 as
+the same-budget control — confounded by epochs, and width a clear win
+at equal recipe. The matched arm is the one the rule applies to:
+`--hidden 256 --n-epochs 4` to 8,000 games (a new size cannot continue
+a run, the checkpoint shapes differ). Ahead of v5 at equal games →
+continue it through the loop and see whether it clears the gates v10
+could not; not ahead → try a third graph layer before concluding
+capacity is not the limit. Freeze the winner only.
 
 In rough order of expected value per effort:
 
