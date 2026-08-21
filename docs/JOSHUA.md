@@ -128,11 +128,14 @@ Details, trajectories and checkpoints per version are in
 | --- | --- | --- | --- | --- |
 | v1 | 4,000 games, 26 min, one CPU core; 30% self-play, 30% pool, 40% random anchor; terminal reward | +378 ± 48 | 0.88 (0.79 / 0.96) | 0.18 |
 | v2 | as v1 with the 40% anchor games against `greedy`, from scratch | +61 ± 41 | 0.54 (0.43 / 0.65) | 0.23 |
+| v3 | v1 continued for 4,000 games against `greedy` (8,000 total, 28 min more in bf16) | +1077 ± 115 | 0.98 (1.00 / 0.96) | **0.59** (0.70 / 0.49) |
 
-(200 games per opponent per seed, three eval seeds, argmax play. On the
-same protocol Greedy rates +628 ± 53 over random, and `first` −52 ± 42 —
-always picking the first legal option is about as good as picking at
-random.)
+(200 games per opponent per seed, three eval seeds, argmax play. Elo is
+fitted per version against every earlier one, so the scale stretches as
+the field widens: in v1's fit Greedy rated +628 ± 53 over random and
+`first` −52 ± 42 — always picking the first legal option is about as
+good as picking at random; in v3's fits Greedy rates +999 to +1227 and
+v3 sits 8–12 points above it in each.)
 
 What the first run taught:
 
@@ -171,6 +174,28 @@ What the second run taught:
   beats random 0.76 and v1 0.47; its argmax line manages 0.54 and 0.24.
   v1's sampled play was slightly weaker than its argmax. Eval both,
   always — the ladder reports them separately for this reason.
+
+What the third run taught:
+
+- **The yardstick *is* a teacher, once you can reach it.** Continuing v1
+  — a policy that already beat random — against Greedy for 4,000 games
+  took the training win rate against it from 0.13 to 0.60, and the
+  argmax line to **0.59** in evaluation, above Greedy in every Elo fit.
+  Same mix, same anchor, same games as v2; the only difference was
+  starting from something that won a share of those games, so the
+  terminal reward carried information. v2 and v3 together are the case
+  for grading the anchor.
+- **The seats swapped.** v1 and v2 lagged as US; v3 beats Greedy 0.70 as
+  US and 0.49 as USSR. The early-war USSR game against a heuristic that
+  coups every turn is now the weak spot.
+- **Games got longer.** Mean final turn 5.0 → 6.9 over the continuation:
+  the DEFCON plateau from v1 is behind it.
+- **The arena keeps finding rules edges.** 1,300 games in, a learner
+  took every European Battleground while Greedy held Europe Scoring and
+  hit `Board.score_region`'s refusal to value Europe at Control. The bots
+  now treat that tier as the game; the engine's own reading of it
+  (Control short of every country is scored as Domination, marked
+  VERIFY in `_score_region_net`) is an open rules question.
 
 ### Where the time went (August 2026)
 
@@ -225,14 +250,14 @@ In rough order of expected value per effort:
    scheduler that does not wait on every slot each round.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
-3. **Greedy as a curriculum opponent — graded, not from scratch.** v2
-   answered the naive version: 40% Greedy games from the first update
-   teaches nothing (above). Next is either an anchor schedule
-   (`random` until the learner wins most of those games, then Greedy —
-   the pool's PFSP weighting already does this among snapshots, the
-   anchor should follow the same logic) or continuing v1 against Greedy.
-   The VP-shaped reward is the documented fallback if neither moves the
-   Greedy number.
+3. **Past Greedy.** v3 clears the heuristic; from here progress is
+   measured against the earlier versions and against Greedy per seat.
+   Next: keep going (v3 continued, or a fresh run with an anchor
+   schedule — `random` until the learner wins most of those games, then
+   Greedy — to reproduce v3's path in one run), with the USSR seat and
+   entropy (≈0.3 of ln K at the end of v3) watched. A Greedy that
+   scores more decision kinds would be a better anchor than a stronger
+   one.
 4. **A shared-memory or rewritten-engine backend.** Not mandated yet. A
    rewritten engine removes at most the engine's third of a learner step
    (~1.5× at best) while encoding and inference stay where they are;

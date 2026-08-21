@@ -67,3 +67,34 @@ Commit `502c58e` — run `greedy-anchor`, 4,000 games trained (96 updates,
   on its own: the anchor has to be graded (random → greedy), or the
   start has to be a policy that already wins some of those games.
   Per-seat, the USSR seat is again the stronger one everywhere.
+
+## v3
+
+Commit `f251d6f` — run `v1-greedy`: v1's run directory (checkpoint,
+optimizer, pool) continued for 4,000 more games against the `greedy`
+anchor, 8,000 games in total (241 updates; the continuation took 28 min
+in bf16 with 16 threads, interrupted once by the Europe-at-Control crash
+fixed in `21f60cb`).
+
+- The graded version of v2's idea: same 30% self-play / 30% pool / 40%
+  anchor mix, but starting from a policy that already beat random nine
+  times in ten. Arena seed 1 for the continuation, so it did not replay
+  v1's decks; pool snapshots continue from `u00095`.
+- Elo vs random: **+1077 ± 115** over seeds 0/1/2. Greedy rates +999 /
+  +972 / +1227 in the same three fits — v3 sits 8 to 12 points above it
+  in each. (The scale is stretched relative to v1's table because v3
+  wins 98% against `random`; compare within a fit, not across versions'
+  READMEs.)
+- vs random: 0.980 (US 0.997 / USSR 0.963)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: **0.594** (US 0.703 / USSR 0.485) — v1: 0.180, v2: 0.232
+- vs v1: 0.874 (US 0.948 / USSR 0.800)
+- vs v2: 0.972 (US 0.963 / USSR 0.980)
+- Sampled play (seed 0): 0.965 vs random, 0.450 vs greedy, 0.920 vs v1
+  — argmax is the stronger line again, as with v1.
+- Notes: the first version to beat the hand-written heuristic. During
+  the continuation the training win rate against Greedy went 0.13 → 0.60
+  and mean final turn 5.0 → 6.9 (fewer DEFCON endings). The seats have
+  swapped: US is now the stronger seat against Greedy (0.70 vs 0.49) and
+  the USSR seat is the one to work on. Entropy ratio fell to ~0.3 by the
+  end — decisive, worth watching for collapse in a longer run.
