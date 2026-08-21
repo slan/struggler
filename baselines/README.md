@@ -205,3 +205,21 @@ Commit `789cfb9` — run `pure`, 20,000 games trained.
 - vs v5: 0.910 (US 0.903 / USSR 0.917)
 - vs v6: 0.828 (US 0.750 / USSR 0.907)
 - vs v7: 0.733 (US 0.613 / USSR 0.853)
+
+## v9
+
+Commit `d2f51f8` — run `pure-e2`, 24,000 games trained.
+
+- The epochs experiment: v8 continued for 4,000 games with `--n-epochs 2` (now the default), gated 0.635 against v8 (worst seed 0.62) versus the 4-epoch control's 0.573, at 28% less wall time; the control arm is not frozen.
+- Elo vs random: **+1527 ± 26** over seeds [0, 1, 2]
+- vs random: 0.998 (US 0.997 / USSR 1.000)
+- vs first: 0.997 (US 1.000 / USSR 0.993)
+- vs greedy: 0.987 (US 0.973 / USSR 1.000)
+- vs v1: 0.973 (US 0.953 / USSR 0.993)
+- vs v2: 0.995 (US 0.990 / USSR 1.000)
+- vs v3: 0.970 (US 0.947 / USSR 0.993)
+- vs v4: 0.892 (US 0.837 / USSR 0.947)
+- vs v5: 0.950 (US 0.920 / USSR 0.980)
+- vs v6: 0.867 (US 0.783 / USSR 0.950)
+- vs v7: 0.782 (US 0.640 / USSR 0.923)
+- vs v8: 0.635 (US 0.432 / USSR 0.838)

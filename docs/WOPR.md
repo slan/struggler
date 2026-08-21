@@ -282,10 +282,10 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   (~5.1k learner decisions/s; ~3.7 s and 2.3k in one process), of which
   ~0.9 s is waiting on the collectors (`wait_s` in `metrics.csv`) and
   most of the rest the learner's own forward pass, which is linear in
-  rows and does not parallelise away. The PPO update — 4 epochs × 8
-  minibatches of 1,024, forward and backward — takes ~3.6 s at 16
-  threads under the default `--precision bf16` (~6.6 s in fp32) and is
-  now the larger share: it is the network's FLOPs, mostly the graph
+  rows and does not parallelise away. The PPO update — `--n-epochs 2`
+  × 8 minibatches of 1,024, forward and backward — takes ~2.0 s at 16
+  threads under the default `--precision bf16` (4 epochs: ~3.8 s; fp32:
+  ~6.6 s) and is about even with the rollout again: it is the network's FLOPs, mostly the graph
   layers' linears over 85 nodes × 128 hidden (the legal-rows option head
   and a plain `matmul` for the adjacency aggregation took the fp32
   figure from 10.7 s with identical outputs). In one process a learner
@@ -294,6 +294,12 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   times per learner step at a mean batch of 8 (the tail rounds, where
   few slots still wait on it). See the August 2026 entry in
   [JOSHUA.md](JOSHUA.md).
+- **Epochs.** `--n-epochs` defaults to 2. Measured through the loop
+  from v8, one generation each way against the same champion: 2 epochs
+  gated 0.635 vs 4 epochs' 0.573, beat Greedy 0.995 vs 0.960, tied head
+  to head (0.455), with healthy KL and explained variance in both — at
+  28% less wall time per generation. Pass `--n-epochs 4` for the old
+  recipe.
 - **Device and precision.** `--device auto` picks CUDA when available.
   On CPU, `--torch-threads 16` is the measured sweet spot for the update
   phase (8 threads is 1.5× slower, 32 no faster); torch's default of all

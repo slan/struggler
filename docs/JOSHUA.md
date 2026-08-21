@@ -134,6 +134,7 @@ Details, trajectories and checkpoints per version are in
 | v6 | v5 + 4,000 games by the loop (gate 0.84 vs v5) | +1425 ± 83 | 1.00 (0.99 / 1.00) | 0.91 (0.88 / 0.94) |
 | v7 | v6 + 4,000 (gate 0.70 vs v6) | +1407 ± 28 | 1.00 | 0.92 |
 | v8 | v7 + 4,000 (gate 0.73 vs v7); 20,000 games, never an anchor | +1394 ± 30 | 1.00 | **0.96** (0.96 / 0.95) |
+| v9 | v8 + 4,000 games with 2 PPO epochs (the A/B winner; 24,000 games) | +1527 ± 26 | 1.00 | **0.99** (0.97 / 1.00) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -245,6 +246,20 @@ What the loop taught (v6–v8):
   learner decisions (v5: ~240), so 4,000 games are 176 updates rather
   than 100 — the loop's cost is in decisions, not games.
 
+What the epochs experiment taught:
+
+- **Half the epochs, none of the strength.** Through the loop from v8,
+  one generation each way gated against v8: 2 PPO epochs won the gate
+  0.635 (4 epochs: 0.573), beat Greedy 0.995 (0.960), tied the 4-epoch
+  arm head to head, and took 28% less wall time. Now the default; the
+  update is ~2 s and about even with the rollout again.
+- **The USSR seat has become the seat.** Both arms beat v8 overwhelmingly
+  as USSR (0.84–0.89) and lost as US (0.26–0.43); head to head the two
+  arms split 0.12 / 0.79 by seat. Whoever holds the USSR seat wins. The
+  policies have found USSR lines the US defence has not caught up with
+  — road-map item 2, in a new form, and the first thing to look at in
+  the games themselves.
+
 ### Where the time went (August 2026)
 
 Two profiles, taken before building anything else on the road map,
@@ -289,16 +304,19 @@ reordered it:
 
 In rough order of expected value per effort:
 
-1. **Throughput.** Collection is parallel now (`--workers 8`: rollout
-   3.7 s → 1.7 s per update, the shared-memory backend in WOPR.md), and
-   the PPO update at ~3.6 s is two thirds of the loop. What is left
-   there is the network's FLOPs in bf16: fewer epochs or larger
-   minibatches (changes the optimisation — an experiment for the loop),
-   a smaller network, or a GPU. On the rollout side the floor is the
-   learner's own forward pass, linear in rows; beyond that only a
-   scheduler that does not wait on every slot each step.
-2. **The US seat.** Weight pool and self-play games toward the US seat,
-   or simply more games; watch the per-seat split.
+1. **Throughput.** Collection is parallel (`--workers 8`, the
+   shared-memory backend in WOPR.md) and the update runs 2 epochs in
+   bf16: ~2.0 s update, ~2.5 s rollout per update, a generation of
+   4,000 games in ~14 minutes. What is left is the learner's own
+   forward pass on the rollout side (linear in rows) and the network's
+   FLOPs on the update side — a smaller network or a GPU — and, as
+   games get longer, the fact that the loop's cost is in decisions, not
+   games.
+2. **The US seat.** Back, in a new form: from v8 on the USSR seat wins
+   nearly every game between strong policies. Read the games first (is
+   it an early-war line, DEFCON, a scoring pattern?), then consider
+   seat-weighted sampling or a per-seat gate; a loop that only measures
+   pooled win rate would promote a USSR specialist.
 3. **The self-improvement loop** (`wopr.loop`, built). v5 settled the
    recipe — self-play and the pool, no anchors — and the loop runs it:
    train the challenger for N games, evaluate against the champion on

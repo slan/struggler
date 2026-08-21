@@ -49,7 +49,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--n-envs", type=int, default=64, help="games in flight")
     p.add_argument("--n-steps", type=int, default=128, help="learner decisions per env per update")
     p.add_argument("--batch-size", type=int, default=1024)
-    p.add_argument("--n-epochs", type=int, default=4)
+    p.add_argument("--n-epochs", type=int, default=2, help="PPO epochs per update (2: as strong as 4 in an A/B, update half the cost)")
     p.add_argument("--lr", type=float, default=3e-4)
     p.add_argument("--gamma", type=float, default=0.999)
     p.add_argument("--gae-lambda", type=float, default=0.95)

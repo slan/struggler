@@ -346,7 +346,7 @@ def test_resumed_run_takes_its_ppo_hyperparameters_from_the_flags(tmp_path):
     from stable_baselines3 import PPO
     from wopr import train
 
-    first = train.parse_args(["--run", "x", "--games", "1", "--n-envs", "2", "--n-steps", "4", "--batch-size", "8"])
+    first = train.parse_args(["--run", "x", "--games", "1", "--n-envs", "2", "--n-steps", "4", "--batch-size", "8", "--n-epochs", "4"])
     env = WoprVecEnv(Arena(2, seed=1, seat_assigner=self_play), lambda policy_id: None)
     model = train.build_model(first, env, "cpu")
     assert model.n_epochs == 4
