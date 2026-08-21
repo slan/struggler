@@ -89,9 +89,9 @@ routed to the operator is described in [BOTS.md](BOTS.md).
   new engine choice word degrades Joshua's play on that decision rather
   than crashing; an effect flag outside `TURN_EFFECTS`/`GAME_EFFECTS`
   does raise (the suite greps the engine source for both).
-- **WOPR collects rollouts in one process.** The arena is engine-bound at
-  roughly 1.3-1.8k learner decisions/s; multi-process collection and a
-  shared-memory backend are designed for (the layout is the contract)
-  but not built.
-- **`GreedyPlayer` is slow as an arena opponent** (~0.6 games/s): it
-  recomputes `board_value()` over every country for every option.
+- **WOPR collects rollouts in one process.** Roughly 2.7k learner
+  decisions/s, a third each engine, policy forward pass, and feature
+  encoding; multi-process collection and a shared-memory backend are
+  designed for (the layout is the contract) but not built. Pool
+  opponents are answered one snapshot at a time, not batched across
+  snapshots.

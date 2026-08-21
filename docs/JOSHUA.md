@@ -155,23 +155,56 @@ What the first run taught:
   rarely for the property tests to see. Fixed in the engine; the stronger
   the players, the more of the rules they exercise.
 
+### Where the time went (August 2026)
+
+Two profiles, taken before building anything else on the road map,
+reordered it:
+
+- **The engine was not engine-bound, it was `deepcopy`-bound.** 78% of a
+  Random-vs-Random game was `copy.deepcopy` inside `observe()`: three
+  generic, memoised copies of small flat dicts per decision. An explicit
+  two-level copy (`Board.snapshot_influence`) is the same snapshot;
+  engine-only throughput went from ~6k to ~15k decisions/s.
+- **Greedy recounted the map for every option.** `board_value` walked
+  all 85 countries and twelve region tiers per candidate — 93% of its
+  time, thirty times the engine's. The value depends only on who
+  Controls what, so a one-country change is now scored from that
+  country's own terms (`_swing`), exactly zero when Control does not
+  flip. Same choices on 3,133 recorded decisions; Greedy-vs-Greedy went
+  from 0.46 to 10 games/s (22×), and `--anchor greedy` trains at ~1.3k
+  learner decisions/s.
+- **What a learner step costs now** (self-play, 64 envs, one core, under
+  the profiler): engine `step` ≈ 31%, policy forward ≈ 32%, feature
+  encoding ≈ 24%, `observe` ≈ 6%. Training runs at ~2.7k learner
+  decisions/s against the random anchor and drops to ~1.75k once pool
+  snapshots enter the mix — every pool snapshot in play is its own small
+  forward pass per round.
+
 ## Open questions and the road ahead
 
 In rough order of expected value per effort:
 
-1. **Throughput.** One process runs ~1.2–1.8k learner decisions per
-   second, engine-bound. Collection across processes belongs *below* the
+1. **Throughput.** One process runs ~2.7k learner decisions per second,
+   split roughly a third each between the engine, the policy forward
+   pass, and feature encoding. Two thirds of that is per-process Python,
+   so collection across processes is the lever: it belongs *below* the
    layout (several arenas feeding one buffer), not in a gym-style
-   subprocess wrapper. The GPU only matters after this: at the current
-   model size the update phase is cheap and rollout batches are small;
-   with 10–16 collectors and centralised inference it will not be.
+   subprocess wrapper. Cheaper still: pool opponents are answered one
+   snapshot at a time — batching every net opponent into one forward
+   pass per round recovers most of the drop from 2.7k to 1.75k. The GPU
+   only matters after this; with 10–16 collectors and centralised
+   inference it will.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
-3. **Greedy as an anchor and a curriculum opponent.** It is slow (≈ 0.6
-   games/s — it recomputes its board value per option) and needs a pass
-   before it is usable at scale.
-4. **A shared-memory or rewritten-engine backend.** The layout is the
-   contract; the Python arena is one implementation of it.
+3. **Greedy as a curriculum opponent.** Fast enough now (above). The
+   open question is the curriculum itself: v1 loses to it five times in
+   six, so `--anchor greedy` is the next run, watched per seat.
+4. **A shared-memory or rewritten-engine backend.** Not mandated yet. A
+   rewritten engine removes at most the engine's third of a learner step
+   (~1.5× at best) while encoding and inference stay where they are;
+   multi-process collection scales all three. Revisit once collectors
+   are multi-process and the per-process engine+encoding share is what
+   remains — the layout is the contract, so the swap stays local.
 5. **Search on top.** `serialize()/deserialize()` make one-ply expectimax
    over the learned value cheap — with the caveat that a cloned engine
    carries its RNG state, so determinised search must re-seed the clone.

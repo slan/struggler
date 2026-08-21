@@ -207,11 +207,16 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
 - **Ops-only first.** `--no-events` runs `Engine.new_game(events=False)`:
   influence, coups, realignments, DEFCON, scoring, space race, no card
   events. A pool trained there carries into the full game.
-- **Throughput.** One process runs 64 games in lockstep at roughly 1.3–1.8k
-  learner decisions/s on one core, engine-bound (a full game is ~550–600
-  decisions for both sides). Multi-process collection is the next step
-  and belongs *below* the layout contract (several arenas, one buffer),
-  not in SB3's `SubprocVecEnv`, whose workers expect gym envs.
+- **Throughput.** One process runs 64 games in lockstep at roughly 2.7k
+  learner decisions/s on one core against the random anchor or itself,
+  ~1.3k against Greedy, ~1.75k once pool snapshots join (each snapshot is
+  answered by its own forward pass per round). A full game is ~550–600
+  decisions for both sides. A learner step splits roughly a third each
+  between engine `step`, the policy forward pass, and feature encoding
+  (`encode_into`), with `observe` under a tenth — see the August 2026
+  entry in [JOSHUA.md](JOSHUA.md). Multi-process collection is the next
+  step and belongs *below* the layout contract (several arenas, one
+  buffer), not in SB3's `SubprocVecEnv`, whose workers expect gym envs.
 - **Device.** `--device auto` picks CUDA when available. At the default
   model size the CPU is not the bottleneck; a GPU pays off when the
   network grows or rollouts are collected by several processes and

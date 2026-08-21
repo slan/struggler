@@ -443,9 +443,8 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   and `tests/test_greedy.py` pins `_swing` to its full-recount
   difference; the hot path never calls it. That is the difference
   between a bot that recounted 85 countries per option (≈ 0.5 games/s,
-  thirty times slower than the engine) and one that plays ≈ 10
-  Greedy-vs-Greedy games/s — fast enough to serve as an opponent at
-  scale.
+  thirty times slower than the engine) and one the arena can seat at
+  scale (≈ 10 Greedy-vs-Greedy games/s, see [WOPR.md](WOPR.md)).
 - **Coup / Realignment targets**: the outcome is a die roll, so the score
   is the *expectation* (average roll = 3.5) of the same `board_value`
   swing, not a real simulated outcome — realignment's dice cancel neatly in
