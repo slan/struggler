@@ -127,3 +127,33 @@ segment took 25 min (bf16, 16 threads, arena seed 2, pool carried over).
   turning into the constant +1 that v2's were a constant −1 — so from
   here the measure is the earlier versions, and the anchor share is
   the knob to revisit.
+
+## v5
+
+Commit `bedcbc8` — run `pure`: a fresh run of 8,000 games (268 updates,
+44 min while sharing the machine with a second run) with **no anchor at
+all** — 50% self-play, 50% PFSP pool, and nothing else. The thesis run:
+Greedy and random are evaluators here, never opponents.
+
+- Elo vs random: **+1156 ± 30** over seeds 0/1/2; Greedy rates +971 to
+  +1140 in the same fits, v3 +1122 to +1350, v4 +1322 to +1426.
+- vs random: 0.987 (US 0.993 / USSR 0.980)
+- vs first: 0.998 (US 0.997 / USSR 1.000)
+- vs greedy: **0.661** (US 0.733 / USSR 0.588) — never seen in training
+- vs v1: 0.953 (US 0.963 / USSR 0.943)
+- vs v2: 0.987 (US 0.983 / USSR 0.990)
+- vs v3: 0.489 (US 0.652 / USSR 0.327) — same game count; v3 spent half
+  of its games against anchors
+- vs v4: 0.225 (US 0.220 / USSR 0.230)
+- Sampled play (seed 0): 0.598 vs greedy, 0.485 vs v3, 0.343 vs v4.
+- Comparison, not frozen: `sched`, a fresh 8,000-game run with the v1
+  mix and a scheduled anchor (`--anchor random,greedy`, promoted at
+  3,437 games once the learner won 75% of its last 100 random games).
+  Single-seed argmax against the same field: 0.557 vs greedy, 0.350 vs
+  v3, 0.080 vs v4, and 0.312 against v5 head to head. The anchor bought
+  nothing the pool did not already provide.
+- Notes: training never saw an external opponent, yet the argmax line
+  beats the hand-written heuristic two games in three and matches v3.
+  Entropy ratio ended at 0.28 of ln K, explained variance 0.8, mean
+  final turn 6.6 — the same shape as the anchored runs. The USSR seat
+  trails (0.33 against v3 as USSR, 0.65 as US).

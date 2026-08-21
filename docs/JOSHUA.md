@@ -130,6 +130,7 @@ Details, trajectories and checkpoints per version are in
 | v2 | as v1 with the 40% anchor games against `greedy`, from scratch | +61 ± 41 | 0.54 (0.43 / 0.65) | 0.23 |
 | v3 | v1 continued for 4,000 games against `greedy` (8,000 total, 28 min more in bf16) | +1077 ± 115 | 0.98 (1.00 / 0.96) | **0.59** (0.70 / 0.49) |
 | v4 | v3 continued for 4,000 more (12,000 total, 25 min more) | +1529 ± 44 | 1.00 (0.99 / 1.00) | **0.92** (0.87 / 0.96) |
+| v5 | 8,000 games, **no anchor**: 50% self-play, 50% pool, from scratch | +1156 ± 30 | 0.99 (0.99 / 0.98) | **0.66** (0.73 / 0.59) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -211,6 +212,19 @@ What the fourth run taught:
   against the earlier versions — which is what the baseline chain was
   for.
 
+What the fifth run taught:
+
+- **The thesis holds.** Nothing but self-play and a pool of its own past
+  selves, 8,000 games from scratch: the argmax line beats Greedy 0.66
+  and ties v3, which had the same games with half of them against
+  anchors. A scheduled anchor run (`random` → `greedy`, same budget)
+  came out *weaker* than the pure one (0.56 vs Greedy, 0.31 against v5
+  head to head). Anchors were scaffolding; the pool is the curriculum.
+- **Games, not opponents, are the currency.** v3 (8k) → v4 (12k) and
+  v5 (8k, no anchor) line up on one curve: strength tracks the number
+  of games played, whoever they were against. Throughput is the road
+  map.
+
 ### Where the time went (August 2026)
 
 Two profiles, taken before building anything else on the road map,
@@ -264,14 +278,13 @@ In rough order of expected value per effort:
    scheduler that does not wait on every slot each round.
 2. **The US seat.** Weight pool and self-play games toward the US seat,
    or simply more games; watch the per-seat split.
-3. **Past Greedy.** v3 cleared the heuristic and v4 beats it 0.92;
-   progress is now measured against the earlier versions. The anchor
-   share is the knob: 40% of games against an opponent the learner
-   beats nine times in ten carry little signal, so shift it toward the
-   pool, or make the anchor worth beating — a Greedy that scores more
-   decision kinds, or the frozen baselines themselves as anchors. A
-   fresh run with an anchor schedule (`random` → `greedy`) would show
-   whether v3/v4's path reproduces from scratch.
+3. **The self-improvement loop.** v5 settled the recipe — self-play
+   and the pool, no anchors — so the next piece is the outer loop:
+   train a challenger from the champion for N games, evaluate it
+   against the champion and the baseline chain on the fixed protocol
+   (pairs now run in parallel), promote it if it clears a gate, freeze
+   it, repeat. The knobs are N, the gate, and what the pool carries
+   across generations.
 4. **A shared-memory or rewritten-engine backend.** Not mandated yet. A
    rewritten engine removes at most the engine's third of a learner step
    (~1.5× at best) while encoding and inference stay where they are;
