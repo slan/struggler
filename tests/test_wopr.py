@@ -26,6 +26,7 @@ from wopr.ladder import Match, elo_ratings, summarize  # noqa: E402
 from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent  # noqa: E402
 from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool  # noqa: E402
 from wopr.callback import CSV_COLUMNS, ensure_columns  # noqa: E402
+from wopr.eval import PairJob, play_pairs, run_pair  # noqa: E402
 from wopr.policy import JoshuaPolicy  # noqa: E402
 from wopr.vec_env import LEARNER, WoprVecEnv, observation_space  # noqa: E402
 
@@ -263,3 +264,18 @@ def test_anchor_schedule_promotes_on_a_windowed_win_rate_and_keeps_the_last():
 
     with pytest.raises(ValueError):
         AnchorSchedule([], promote_at=0.75)
+
+
+def test_eval_pairs_are_independent_jobs_and_run_in_a_process_pool():
+    """A pair's result depends only on its own job -- the same job played
+    alone, in-process, or in a pool beside other pairs gives the same
+    matches -- which is what lets the ladder fan pairs out to processes."""
+    jobs = [PairJob("random", "first", 4, seed=7), PairJob("first", "random", 4, seed=8), PairJob("random", "first", 4, seed=7)]
+    alone = run_pair(jobs[0])
+    serial = play_pairs(jobs, workers=1)
+    pooled = play_pairs(jobs, workers=2)
+
+    assert len(alone) == 4 and all(isinstance(m, Match) for m in alone)
+    assert {m.a for m in alone} == {"random", "first"}  # half the games on each seat
+    assert serial[0] == alone and serial[2] == alone
+    assert pooled == serial

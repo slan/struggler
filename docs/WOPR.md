@@ -189,6 +189,14 @@ games with each seat assignment, reports **per-seat** win rates (the game
 is asymmetric; a pooled number hides a policy that only learned one
 side), and fits Elo with `random` anchored at 0 when present.
 
+Every pair is an independent job (`eval.PairJob`): it builds its own two
+policies, seeded from the eval seed and the policy names, so its result
+does not depend on which other pairs ran or in what order, and the jobs
+fan out to a process pool (`--workers`, default a quarter of the CPUs;
+`baseline.py` sends all its seeds' pairs at once). Argmax results are
+unaffected by this; a `random` opponent's or a sampled net's stream is
+now fixed per pair rather than carried across pairs.
+
 ## Metrics (`wopr/callback.py`, `runs/<run>/metrics.csv`)
 
 Per update: games, win rates (overall, per seat, vs pool, vs anchor),

@@ -27,10 +27,9 @@ import statistics
 import subprocess
 import time
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
-from wopr.arena import Opponent
-from wopr.eval import parse_policy, play_pair
+from wopr.eval import PairJob, play_pairs
 from wopr.ladder import Match, elo_ratings, summarize
 
 BASELINES_DIR = Path("baselines")
@@ -54,28 +53,26 @@ def earlier_baselines(version: str) -> list[tuple[str, Path]]:
     return found
 
 
-def evaluate(
-    version: str,
-    opponents: Mapping[str, str],
-    *,
-    games: int,
-    seed: int,
-    deterministic: bool,
-    device: str,
-    events: bool,
-) -> tuple[list[Match], dict[str, dict[str, float]], dict[str, float]]:
-    """Star protocol: `version` vs each opponent. Returns the raw matches,
-    per-opponent summaries (overall / as US / as USSR), and Elo with
-    `random` anchored at 0 (if present)."""
-    policies: dict[str, Opponent] = {}
-    for i, (name, spec) in enumerate(opponents.items()):
-        policies[name] = parse_policy(spec, seed=seed * 101 + i, device=device, deterministic=deterministic)[1]
+def star_jobs(
+    version: str, opponents: Mapping[str, str], *, games: int, seed: int, deterministic: bool, device: str, events: bool
+) -> list[PairJob]:
+    """Star protocol: `version` against each other opponent, one job per pair."""
+    return [
+        PairJob(opponents[version], spec, games, seed, events=events, deterministic=deterministic, device=device)
+        for name, spec in opponents.items()
+        if name != version
+    ]
+
+
+def tabulate(
+    version: str, jobs: Sequence[PairJob], results: Sequence[list[Match]], *, anchored: bool
+) -> tuple[dict[str, dict[str, float]], dict[str, float]]:
+    """Per-opponent summaries (overall / as US / as USSR) and Elo with
+    `random` anchored at 0 when it played."""
     matches: list[Match] = []
     table: dict[str, dict[str, float]] = {}
-    for name in opponents:
-        if name == version:
-            continue
-        pair = play_pair(version, name, policies, games=games, seed=seed, events=events)
+    for job, pair in zip(jobs, results):
+        name = job.b
         matches.extend(pair)
         table[name] = {
             "win_rate": summarize(pair, version, name)["win_rate"],
@@ -83,8 +80,7 @@ def evaluate(
             "as_ussr": summarize([m for m in pair if m.b == version], version, name)["win_rate"],
             "games": summarize(pair, version, name)["games"],
         }
-    anchors = {"random": 0.0} if "random" in opponents else None
-    return matches, table, elo_ratings(matches, anchors=anchors)
+    return table, elo_ratings(matches, anchors={"random": 0.0} if anchored else None)
 
 
 def render(version: str, table: Mapping[str, Mapping[str, float]], ratings: Mapping[str, float], *, header: str) -> str:
@@ -109,6 +105,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--device", default="cpu")
     p.add_argument("--no-events", action="store_true")
     p.add_argument("--force", action="store_true", help="overwrite an existing baseline folder")
+    p.add_argument("--workers", type=int, default=None, help="pair-playing processes (default: CPUs / 4)")
     args = p.parse_args(argv)
 
     src = RUNS_DIR / args.run
@@ -126,32 +123,39 @@ def main(argv: list[str] | None = None) -> None:
     opponents.update({name: name for name in args.anchors})
     opponents.update({name: f"{name}={path}" for name, path in earlier_baselines(args.version)})
 
-    per_seed = []
-    for seed in args.seeds:
-        started = time.perf_counter()
-        _, table, ratings = evaluate(
-            args.version, opponents, games=args.games, seed=seed, deterministic=True,
-            device=args.device, events=not args.no_events,
-        )
-        text = render(args.version, table, ratings,
-                      header=f"Deterministic (argmax), {args.games} games per opponent, eval seed {seed}, "
-                             f"{time.perf_counter() - started:.0f} s")
-        (dst / f"eval_seed_{seed}.txt").write_text(text)
-        print(text, flush=True)
-        per_seed.append({"seed": seed, "table": table, "elo": ratings})
-
-    sampled = None
+    # Every (seed, argmax/sampled) pass is a star of independent pairs; all
+    # of them go to one process pool at once.
+    passes: list[tuple[int, bool]] = [(seed, True) for seed in args.seeds]
     if not args.no_sampled:
-        seed = args.seeds[0]
-        _, table, ratings = evaluate(
-            args.version, opponents, games=args.games, seed=seed, deterministic=False,
-            device=args.device, events=not args.no_events,
-        )
-        text = render(args.version, table, ratings,
-                      header=f"Sampled (stochastic), {args.games} games per opponent, eval seed {seed}")
-        (dst / f"eval_sampled_seed_{seed}.txt").write_text(text)
+        passes.append((args.seeds[0], False))
+    jobs_per_pass = [
+        star_jobs(args.version, opponents, games=args.games, seed=seed, deterministic=deterministic,
+                  device=args.device, events=not args.no_events)
+        for seed, deterministic in passes
+    ]
+    started = time.perf_counter()
+    results = play_pairs([job for jobs in jobs_per_pass for job in jobs], workers=args.workers)
+    elapsed = time.perf_counter() - started
+    anchored = "random" in opponents
+
+    per_seed = []
+    sampled = None
+    offset = 0
+    for (seed, deterministic), jobs in zip(passes, jobs_per_pass):
+        table, ratings = tabulate(args.version, jobs, results[offset:offset + len(jobs)], anchored=anchored)
+        offset += len(jobs)
+        if deterministic:
+            header = f"Deterministic (argmax), {args.games} games per opponent, eval seed {seed}"
+            path = dst / f"eval_seed_{seed}.txt"
+            per_seed.append({"seed": seed, "table": table, "elo": ratings})
+        else:
+            header = f"Sampled (stochastic), {args.games} games per opponent, eval seed {seed}"
+            path = dst / f"eval_sampled_seed_{seed}.txt"
+            sampled = {"seed": seed, "table": table, "elo": ratings}
+        text = render(args.version, table, ratings, header=header)
+        path.write_text(text)
         print(text, flush=True)
-        sampled = {"seed": seed, "table": table, "elo": ratings}
+    print(f"{len(results)} pairs in {elapsed:.0f} s", flush=True)
 
     config = json.loads((dst / "config.json").read_text())
     opponents_seen = [n for n in opponents if n != args.version]
