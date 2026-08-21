@@ -387,9 +387,16 @@ In rough order of expected value per effort:
 5. **Search on top.** `serialize()/deserialize()` make one-ply expectimax
    over the learned value cheap — with the caveat that a cloned engine
    carries its RNG state, so determinised search must re-seed the clone.
-6. **History.** Joshua sees `Observation` only. What the event log adds
-   — when each region was last scored, what the opponent has been
-   playing for Ops — is a later feature, not a first one.
+6. **History — mostly already there.** `Observation` carries the discard
+   and removed piles in full and the layout encodes every card's
+   location, so *what* has happened — events fired, scoring cards
+   played since the reshuffle, the opponent's Ops plays this turn — is
+   in the state. What is not is *order and recency*: a region scored on
+   turn 2 and one scored this turn look the same, and a sequence of
+   opponent plays says things about the hidden hand that the set of
+   discards does not. A "discarded this turn" card location is the
+   cheap half; sequence features are the other. Behind capacity and
+   search in expected value.
 
 ## Reproducing
 
