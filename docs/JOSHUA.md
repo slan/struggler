@@ -193,9 +193,10 @@ What the third run taught:
 - **The arena keeps finding rules edges.** 1,300 games in, a learner
   took every European Battleground while Greedy held Europe Scoring and
   hit `Board.score_region`'s refusal to value Europe at Control. The bots
-  now treat that tier as the game; the engine's own reading of it
-  (Control short of every country is scored as Domination, marked
-  VERIFY in `_score_region_net`) is an open rules question.
+  now treat that tier as the game -- and so does the engine: it had
+  required every country in Europe for the win and scored the actual
+  Control tier as Domination (a `VERIFY` note since the first version);
+  10.1.3 makes the tier an automatic victory, fixed upstream.
 
 ### Where the time went (August 2026)
 

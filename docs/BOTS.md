@@ -476,8 +476,9 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
   Space Race." A scoring card's headline/play value is its `score_region()`
   net VP, signed favorably or unfavorably for the acting side — except
   Europe at Control, which has no scoring value (`score_region` raises
-  rather than guess) and is counted as the full winning margin for
-  whoever holds the tier; the LLM bot's board report does the same.
+  rather than guess; scoring it is an automatic victory, 10.1.3) and is
+  counted as the full winning margin for whoever holds the tier; the LLM
+  bot's board report does the same.
 
 Only the core board decision kinds get real heuristics; every
 event-specific kind falls back to the first legal option. That scope, and
