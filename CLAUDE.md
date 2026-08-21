@@ -23,7 +23,10 @@ the tests.
 - **Python**: 3.12+.
 - **Tests**: `pytest`, plus `hypothesis` for property-based tests. Run the
   full suite before committing; it takes well under a minute.
-- **Environment**: conda (`environment.yml`), or `pip install -e ".[test]"`.
+- **Environment**: managed with `uv` — `uv sync` (add `--extra llm` etc.
+  for optional features), run things with `uv run ...`. `uv.lock` is
+  committed; regenerate it (`uv lock`) in the same commit as any
+  dependency change. Plain `pip install -e ".[test]"` still works.
 - **License**: MIT.
 - **Language**: all code, comments, docstrings, and commit messages in
   English.

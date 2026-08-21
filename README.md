@@ -10,16 +10,17 @@ To understand the full story, read the article [Giving AI the atom bomb buttons]
 
 ## Install
 
-Python 3.12+.
-
-The easiest way is to use a [conda environment](https://www.anaconda.com/docs/getting-started/miniconda/install/windows-gui-install).
+Python 3.12+. The project is managed with [uv](https://docs.astral.sh/uv/):
 
 ```sh
-conda env create -f environment.yml
-conda activate struggler
-pip install -e ".[test]"
-pip install -e ".[llm]"  # optional if you plan to use the llm
+uv sync              # creates .venv with the engine + test tools
+uv sync --extra llm  # optional: also the LLM bot's provider SDKs
+uv run pytest
+uv run python src/main.py --us greedy --ussr random
 ```
+
+Without uv, a plain virtualenv works too: `pip install -e ".[test]"`
+(and `".[llm]"` for the LLM bot).
 
 ### Configure an LLM bot
 
@@ -112,7 +113,7 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for any known limitations.
 ## Tests
 
 ```sh
-pytest
+uv run pytest
 ```
 
 ## License

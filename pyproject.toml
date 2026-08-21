@@ -16,6 +16,12 @@ llm-anthropic = ["anthropic>=0.68"]
 llm-openai = ["openai>=1.0"]
 llm = ["anthropic>=0.68", "openai>=1.0"]
 
+# `uv sync` installs the project plus this group; `uv sync --extra llm`
+# adds an optional feature. The `test` extra above is the same set for
+# plain-pip users.
+[dependency-groups]
+dev = ["pytest", "hypothesis"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
