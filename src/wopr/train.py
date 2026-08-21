@@ -36,7 +36,7 @@ from wopr.buffer import AlternatingRolloutBuffer
 from wopr.callback import StopAtGames, WoprCallback
 from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent
 from wopr.policy import PRECISIONS, JoshuaPolicy
-from wopr.pool import POOL_PREFIX, CheckpointPool
+from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
 RUNS_DIR = Path("runs")
@@ -63,7 +63,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--card-dim", type=int, default=32)
     p.add_argument("--self-play", type=float, default=0.5, help="fraction of games learner vs learner")
     p.add_argument("--vs-pool", type=float, default=0.4, help="fraction of games learner vs a pool snapshot")
-    p.add_argument("--anchor", choices=["random", "greedy"], default="random", help="opponent for the remaining games")
+    p.add_argument(
+        "--anchor", default="random",
+        help="opponent for the remaining games: random, greedy, or a schedule such as random,greedy "
+        "(promoted in order once the learner's win rate over --anchor-window anchor games reaches --anchor-promote)",
+    )
+    p.add_argument("--anchor-promote", type=float, default=0.75, help="win rate that promotes a scheduled anchor to the next")
+    p.add_argument("--anchor-window", type=int, default=100, help="anchor games the promotion win rate is measured over")
     p.add_argument("--snapshot-every", type=int, default=10, help="updates between pool snapshots (0: never)")
     p.add_argument("--pool-window", type=int, default=None, help="sample only the newest N snapshots")
     p.add_argument("--no-events", action="store_true", help="Ops-only curriculum: Engine.new_game(events=False)")
@@ -73,7 +79,18 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
-def make_seat_assigner(self_play: float, vs_pool: float, anchor: str, pool: CheckpointPool):
+ANCHORS = ("random", "greedy", "first")
+
+
+def make_anchor_schedule(args: argparse.Namespace) -> AnchorSchedule:
+    anchors = tuple(name.strip() for name in args.anchor.split(","))
+    unknown = [name for name in anchors if name not in ANCHORS]
+    if unknown:
+        raise ValueError(f"--anchor: unknown opponent(s) {unknown}; choose from {ANCHORS}")
+    return AnchorSchedule(anchors, promote_at=args.anchor_promote, window=args.anchor_window)
+
+
+def make_seat_assigner(self_play: float, vs_pool: float, anchor: AnchorSchedule, pool: CheckpointPool):
     if not 0.0 <= self_play <= 1.0 or not 0.0 <= vs_pool <= 1.0 or self_play + vs_pool > 1.0:
         raise ValueError("--self-play and --vs-pool must be fractions summing to at most 1")
 
@@ -81,7 +98,7 @@ def make_seat_assigner(self_play: float, vs_pool: float, anchor: str, pool: Chec
         draw = rng.random()
         if draw < self_play or (draw < self_play + vs_pool and len(pool) == 0):
             return {Side.US: LEARNER, Side.USSR: LEARNER}
-        opponent = pool.sample(rng) if draw < self_play + vs_pool else anchor
+        opponent = pool.sample(rng) if draw < self_play + vs_pool else anchor.current
         learner_side = rng.choice((Side.US, Side.USSR))
         return {learner_side: LEARNER, learner_side.opponent: opponent}
 
@@ -113,11 +130,11 @@ def resolve_device(name: str) -> str:
     return name
 
 
-def build_env(args: argparse.Namespace, pool: CheckpointPool, device: str) -> WoprVecEnv:
+def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSchedule, device: str) -> WoprVecEnv:
     arena = Arena(
         args.n_envs,
         seed=args.seed,
-        seat_assigner=make_seat_assigner(args.self_play, args.vs_pool, args.anchor, pool),
+        seat_assigner=make_seat_assigner(args.self_play, args.vs_pool, anchor, pool),
         events=not args.no_events,
     )
     return WoprVecEnv(arena, make_opponent_resolver(pool, args.seed, device))
@@ -188,7 +205,8 @@ def main(argv: list[str] | None = None) -> None:
         updates_done = last_update(run_dir / "metrics.csv")
         print(f"[wopr] resuming {args.run!r} from {games_done} games ({updates_done} updates) to {args.games}")
 
-    env = build_env(args, pool, device)
+    anchor = make_anchor_schedule(args)
+    env = build_env(args, pool, anchor, device)
     if model_path.exists():
         model = PPO.load(model_path, env=env, device=device)
         # A resumed run takes its precision from the flag, not from the
@@ -206,6 +224,7 @@ def main(argv: list[str] | None = None) -> None:
         snapshot_every=args.snapshot_every,
         games_done=games_done,
         updates_done=updates_done,
+        anchor_schedule=anchor,
     )
     config: dict[str, Any] = {**vars(args), "device": device, "games_done": games_done}
     config_path.write_text(json.dumps(config, indent=2))

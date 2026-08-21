@@ -161,8 +161,16 @@ sampling by default so it cannot be exploited line by line).
 
 `train.py` draws each game's seating from `--self-play` (both seats the
 learner), `--vs-pool` (learner on a random seat against a pool snapshot),
-and the remainder against `--anchor` (`random` or `greedy`). While the
-pool is empty, pool games are self-play.
+and the remainder against `--anchor`: `random`, `greedy`, `first`, or a
+schedule such as `random,greedy` (`pool.AnchorSchedule`), which walks the
+list in order and promotes once the learner's win rate over the last
+`--anchor-window` anchor games reaches `--anchor-promote`; the last
+anchor is kept for good, and `metrics.csv` records the current one. A
+terminal reward against an opponent the learner never beats is a
+constant, and so is one against an opponent it always beats
+(JOSHUA.md, v2 and v4). Fractions summing to 1 leave no anchor games at
+all: pure self-play against the pool. While the pool is empty, pool
+games are self-play.
 
 ### The pool (`wopr/pool.py`)
 
@@ -184,7 +192,7 @@ side), and fits Elo with `random` anchored at 0 when present.
 ## Metrics (`wopr/callback.py`, `runs/<run>/metrics.csv`)
 
 Per update: games, win rates (overall, per seat, vs pool, vs anchor),
-draw rate, episode length and mean final turn, policy health —
+the current anchor, rollout and update seconds, draw rate, episode length and mean final turn, policy health —
 `entropy`, `k_valid` (mean legal options), `entropy_ratio = H / ln K`
 (≈1: not choosing yet; ≪0.3 with many options: collapsed), `k_eff = e^H`
 — and SB3's `approx_kl`, `clip_fraction`, `explained_variance`, losses.

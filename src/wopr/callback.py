@@ -28,7 +28,7 @@ import torch
 from stable_baselines3.common.callbacks import BaseCallback
 
 from struggler.bots.joshua.model import save_checkpoint
-from wopr.pool import POOL_PREFIX, CheckpointPool
+from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
 CSV_COLUMNS = (
@@ -37,7 +37,7 @@ CSV_COLUMNS = (
     "ep_len_mean", "turn_mean",
     "entropy", "k_valid", "entropy_ratio", "k_eff",
     "approx_kl", "clip_fraction", "explained_variance", "policy_loss", "value_loss", "entropy_loss",
-    "pool_size",
+    "pool_size", "anchor",
 )
 
 
@@ -72,12 +72,14 @@ class WoprCallback(BaseCallback):
         snapshot_every: int,
         games_done: int = 0,
         updates_done: int = 0,
+        anchor_schedule: AnchorSchedule | None = None,
         verbose: int = 1,
     ) -> None:
         super().__init__(verbose)
         self.run_dir = run_dir
         self.env = env
         self.pool = pool
+        self.anchor_schedule = anchor_schedule
         self.target_games = target_games
         self.snapshot_every = snapshot_every
         self.games = games_done
@@ -107,6 +109,7 @@ class WoprCallback(BaseCallback):
             self.games += 1
             self._rollout_games.append(episode)
             self._record_pool(episode)
+            self._record_anchor(episode)
         return True
 
     def _on_rollout_end(self) -> None:
@@ -123,6 +126,7 @@ class WoprCallback(BaseCallback):
             steps_per_s=round(self.model.n_steps * self.env.num_envs / rollout_s, 1),
             rollout_s=round(rollout_s, 1),
             pool_size=len(self.pool),
+            anchor=None if self.anchor_schedule is None else self.anchor_schedule.current,
         )
         self._pending_row = row
         # The PPO update runs between here and the row's flush; `_flush`
@@ -143,6 +147,18 @@ class WoprCallback(BaseCallback):
         super().on_rollout_start()
 
     # -- metrics -----------------------------------------------------------------------
+
+    def _record_anchor(self, episode: dict[str, Any]) -> None:
+        schedule = self.anchor_schedule
+        if schedule is None:
+            return
+        seats = episode["seats"]
+        for side, policy_id in seats.items():
+            if schedule.is_anchor(policy_id):
+                learner_side = next(s for s, p in seats.items() if p == LEARNER)
+                promoted = schedule.record(episode["winner"] == learner_side)
+                if promoted is not None and self.verbose:
+                    print(f"[wopr] anchor promoted to {promoted!r} after {self.games} games", flush=True)
 
     def _record_pool(self, episode: dict[str, Any]) -> None:
         seats = episode["seats"]

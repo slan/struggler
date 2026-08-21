@@ -24,7 +24,7 @@ from wopr.arena import Arena, play_out, self_play  # noqa: E402
 from wopr.buffer import AlternatingRolloutBuffer  # noqa: E402
 from wopr.ladder import Match, elo_ratings, summarize  # noqa: E402
 from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent  # noqa: E402
-from wopr.pool import POOL_PREFIX, CheckpointPool  # noqa: E402
+from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool  # noqa: E402
 from wopr.callback import CSV_COLUMNS, ensure_columns  # noqa: E402
 from wopr.policy import JoshuaPolicy  # noqa: E402
 from wopr.vec_env import LEARNER, WoprVecEnv, observation_space  # noqa: E402
@@ -245,3 +245,21 @@ def test_metrics_csv_from_an_older_run_is_rewritten_under_the_current_columns(tm
 
     ensure_columns(path)  # idempotent on a current file
     assert path.read_text().count("\n") == 3
+
+
+def test_anchor_schedule_promotes_on_a_windowed_win_rate_and_keeps_the_last():
+    schedule = AnchorSchedule(["random", "greedy"], promote_at=0.75, window=4)
+    assert schedule.current == "random" and schedule.is_anchor("greedy") and not schedule.is_anchor("pool:u00005")
+    # Three wins in three games: above the threshold, but the window is not full yet.
+    assert [schedule.record(True) for _ in range(3)] == [None, None, None]
+    assert schedule.current == "random"
+    # The fourth game fills the window at exactly 3/4 = promote_at: promoted.
+    assert schedule.record(False) == "greedy"
+    assert schedule.current == "greedy"
+    # The last anchor is kept no matter how often the learner wins.
+    for _ in range(10):
+        assert schedule.record(True) is None
+    assert schedule.current == "greedy"
+
+    with pytest.raises(ValueError):
+        AnchorSchedule([], promote_at=0.75)

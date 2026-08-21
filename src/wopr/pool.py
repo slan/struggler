@@ -12,8 +12,9 @@ from __future__ import annotations
 
 import json
 import random
+from collections import deque
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from struggler.bots.joshua.model import JoshuaNet, save_checkpoint
 
@@ -77,3 +78,45 @@ class CheckpointPool:
         tmp = self._stats_path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"names": self.names, "stats": self.stats}, indent=2))
         tmp.replace(self._stats_path)
+
+
+class AnchorSchedule:
+    """The anchor opponent as a curriculum: `anchors` are walked in order,
+    and the current one is promoted to the next once the learner's win
+    rate over its last `window` anchor games reaches `promote_at`.
+
+    v2 and v3 are the case for it (docs/JOSHUA.md): a terminal reward
+    against an opponent the learner never beats is a constant, and so is
+    one against an opponent it always beats. The last anchor is kept for
+    good; a single anchor is a fixed one, as before."""
+
+    def __init__(self, anchors: Sequence[str], *, promote_at: float = 0.75, window: int = 100) -> None:
+        if not anchors:
+            raise ValueError("an anchor schedule needs at least one anchor")
+        if not 0.0 < promote_at <= 1.0:
+            raise ValueError("promote_at must be in (0, 1]")
+        if window < 1:
+            raise ValueError("window must be >= 1")
+        self.anchors = tuple(anchors)
+        self.promote_at = promote_at
+        self.window = window
+        self.index = 0
+        self._recent: deque[bool] = deque(maxlen=window)
+
+    @property
+    def current(self) -> str:
+        return self.anchors[self.index]
+
+    def is_anchor(self, policy_id: str) -> bool:
+        return policy_id in self.anchors
+
+    def record(self, learner_won: bool) -> str | None:
+        """Count one anchor game; returns the new anchor's name on promotion."""
+        self._recent.append(learner_won)
+        if self.index + 1 >= len(self.anchors) or len(self._recent) < self.window:
+            return None
+        if sum(self._recent) / len(self._recent) < self.promote_at:
+            return None
+        self.index += 1
+        self._recent.clear()
+        return self.current
