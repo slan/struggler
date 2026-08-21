@@ -238,8 +238,12 @@ champion. One that does not is trained further — the run never rolls
 back, the PFSP pool is what guards against regression — but `--patience`
 generations below 0.5 against the champion stop the loop: that is a
 regression to look at, not to train through. Arguments after `--` go to
-`train.py`, which is how a hyperparameter experiment runs through the
-loop; `runs/<run>/loop.csv` records every generation.
+`train.py` — and a resumed segment takes its PPO hyperparameters from
+those flags, not from the zip (`n_steps` excepted: it sizes the buffer)
+— which is how a hyperparameter experiment runs through the loop;
+`--no-promote` gates and logs without freezing, so two arms can be
+measured against the same champion. `runs/<run>/loop.csv` records every
+generation.
 
 ## Metrics (`wopr/callback.py`, `runs/<run>/metrics.csv`)
 

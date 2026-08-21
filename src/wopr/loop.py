@@ -20,6 +20,8 @@ hyperparameter experiment runs through the loop:
 
     python -m wopr.loop --run pure --generations 2 -- --n-epochs 2
 
+`--no-promote` evaluates and logs the gate without freezing anything, so
+two arms of an experiment can be gated against the same champion.
 `runs/<run>/loop.csv` records every generation.
 """
 
@@ -146,6 +148,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--eval-games", type=int, default=200, help="games per pair in the gate evaluation")
     p.add_argument("--eval-seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--workers", type=int, default=8, help="collector processes for training and pair processes for evaluation")
+    p.add_argument("--no-promote", action="store_true", help="evaluate and log the gate, freeze nothing: an experiment, not a generation")
     p.add_argument("train_args", nargs="*", help="arguments passed to train.py after `--`")
     args = p.parse_args(argv)
 
@@ -177,7 +180,9 @@ def main(argv: list[str] | None = None) -> None:
 
         promoted = gate_passes(report, args.gate)
         version = ""
-        if promoted:
+        if promoted and args.no_promote:
+            print(f"[loop] gate cleared; not promoting (--no-promote)", flush=True)
+        elif promoted:
             version = next_version()
             note = (f"Loop generation {generation}: {champion or 'Greedy'} continued for {args.generation_games:,} games; "
                     f"gate {args.gate:.2f} cleared at "
@@ -195,7 +200,7 @@ def main(argv: list[str] | None = None) -> None:
 
         append_row(run_dir / "loop.csv", {
             "generation": generation, "games": games_done(run_dir), "train_s": round(train_s, 1), "eval_s": round(eval_s, 1),
-            "champion": champion if not promoted else version,
+            "champion": version or champion,
             "vs_champion": None if versus is None else round(versus["win_rate"], 4),
             "vs_champion_us": None if versus is None else round(versus["as_us"], 4),
             "vs_champion_ussr": None if versus is None else round(versus["as_ussr"], 4),

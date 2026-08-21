@@ -159,6 +159,21 @@ def last_update(metrics_path: Path) -> int:
     return max(updates, default=0)
 
 
+def resume_overrides(args: argparse.Namespace) -> dict[str, Any]:
+    """The saved values `PPO.load` must replace with this segment's flags."""
+    return {
+        "n_epochs": args.n_epochs,
+        "batch_size": args.batch_size,
+        "learning_rate": args.lr,
+        "clip_range": args.clip_range,
+        "ent_coef": args.ent_coef,
+        "vf_coef": args.vf_coef,
+        "target_kl": args.target_kl,
+        "gamma": args.gamma,
+        "gae_lambda": args.gae_lambda,
+    }
+
+
 def wire_buffer(model: PPO, env: WoprVecEnv) -> None:
     buffer = model.rollout_buffer
     if not isinstance(buffer, AlternatingRolloutBuffer):
@@ -191,9 +206,10 @@ def main(argv: list[str] | None = None) -> None:
     anchor = make_anchor_schedule(args)
     env = build_env(args, pool, anchor, device)
     if model_path.exists():
-        model = PPO.load(model_path, env=env, device=device)
-        # A resumed run takes its precision from the flag, not from the
-        # policy saved in the zip (the weights are float32 either way).
+        # A resumed run takes its PPO hyperparameters and its precision from
+        # the flags, not from the zip: the flags are this segment's spec and
+        # `config.json` records them. (`n_steps` stays: it sizes the buffer.)
+        model = PPO.load(model_path, env=env, device=device, custom_objects=resume_overrides(args))
         model.policy.precision = args.precision
     else:
         model = build_model(args, env, device)

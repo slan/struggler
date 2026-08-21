@@ -337,3 +337,23 @@ def test_loop_gate_needs_every_seed_and_versions_follow_the_chain(tmp_path, monk
     entry = loop.readme_entry("v11", summary, "note")
     assert entry.startswith("## v11\n") and "`abcdef0`" in entry and "12,000 games" in entry
     assert "+1300 ± 12" in entry and "vs greedy: 0.800 (US 0.750 / USSR 0.850)" in entry
+
+
+def test_resumed_run_takes_its_ppo_hyperparameters_from_the_flags(tmp_path):
+    """`PPO.load` restores what the zip saved; a resumed segment must run on
+    the flags it was given (the config records them), or `-- --n-epochs 2`
+    through the loop would silently train with the old value."""
+    from stable_baselines3 import PPO
+    from wopr import train
+
+    first = train.parse_args(["--run", "x", "--games", "1", "--n-envs", "2", "--n-steps", "4", "--batch-size", "8"])
+    env = WoprVecEnv(Arena(2, seed=1, seat_assigner=self_play), lambda policy_id: None)
+    model = train.build_model(first, env, "cpu")
+    assert model.n_epochs == 4
+    model.save(tmp_path / "ppo.zip")
+
+    second = train.parse_args(["--run", "x", "--games", "1", "--n-epochs", "2", "--lr", "1e-4", "--clip-range", "0.1", "--ent-coef", "0.05"])
+    resumed = PPO.load(tmp_path / "ppo.zip", env=env, device="cpu", custom_objects=train.resume_overrides(second))
+    assert resumed.n_epochs == 2 and resumed.ent_coef == 0.05
+    assert resumed.lr_schedule(1.0) == 1e-4 and resumed.clip_range(1.0) == 0.1
+    assert resumed.n_steps == 4  # sized the buffer; not a flag a resume can change
