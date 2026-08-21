@@ -351,6 +351,20 @@ reordered it:
 
 ## Open questions and the road ahead
 
+**Next experiment: capacity.** The chain flattened at v10 (two of three
+gates failed) with the network still at ~270k parameters. A/B through
+the loop, as with the epochs: a fresh pure-recipe run (50% self-play /
+50% pool, `--workers 8`) with `--hidden 256` — a new size cannot
+continue a run, the checkpoint shapes differ — to 8,000 games, the
+budget v5 was trained on, then `wopr.eval` against v5 (the same-budget
+control), v10 and Greedy, and `update_s` side by side (the graph
+layers' linears grow with hidden², so expect the update to roughly
+triple; bf16 and 2 epochs are what make that affordable). If it is
+ahead of v5 at equal games, continue it through the loop and see
+whether it clears the gates v10 could not; if not, try a third graph
+layer before concluding capacity is not the limit. Freeze the winner
+only.
+
 In rough order of expected value per effort:
 
 1. **Throughput.** Collection is parallel (`--workers 8`, the
