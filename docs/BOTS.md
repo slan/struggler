@@ -435,7 +435,17 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
 - **Influence placement**: score = the `board_value` swing from adding
   that one point (a real, cheap simulation on a scratch `Board` — not a
   multi-turn lookahead, just "what does this single atomic action change
-  right now").
+  right now"). Every such swing is a one-country change, and
+  `board_value` depends only on who Controls each country, so `_swing()`
+  computes it from the terms that country can move — its own Control
+  bonus and its region's tiers — and returns exactly zero when Control
+  does not change hands. `board_value()` stays the readable definition
+  and `tests/test_greedy.py` pins `_swing` to its full-recount
+  difference; the hot path never calls it. That is the difference
+  between a bot that recounted 85 countries per option (≈ 0.5 games/s,
+  thirty times slower than the engine) and one that plays ≈ 10
+  Greedy-vs-Greedy games/s — fast enough to serve as an opponent at
+  scale.
 - **Coup / Realignment targets**: the outcome is a die roll, so the score
   is the *expectation* (average roll = 3.5) of the same `board_value`
   swing, not a real simulated outcome — realignment's dice cancel neatly in

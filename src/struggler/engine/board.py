@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import copy
 from dataclasses import dataclass
 
 from struggler.engine.data_loader import load_json
@@ -265,8 +264,17 @@ class Board:
 
     # -- serialization ------------------------------------------------------
 
+    def snapshot_influence(self) -> dict[str, dict[str, int]]:
+        """A fresh copy of the influence table that shares nothing with the
+        board. The table is two levels of plain dicts holding ints (mandate
+        #5), so an explicit per-country copy is exact and is what
+        `Engine.observe` / the 6.1.1 start-of-round snapshot take on every
+        decision; `copy.deepcopy`'s generic memoised walk over the same 85
+        entries cost more than the rest of a `step()`."""
+        return {cid: dict(values) for cid, values in self.influence.items()}
+
     def serialize(self) -> dict:
-        return {"influence": copy.deepcopy(self.influence)}
+        return {"influence": self.snapshot_influence()}
 
     def load_influence(self, data: dict) -> None:
         for cid, values in data["influence"].items():

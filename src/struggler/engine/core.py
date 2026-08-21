@@ -160,7 +160,7 @@ class Engine:
             vp=self.vp,
             turn=self.turn,
             action_round=self.action_round,
-            influence=copy.deepcopy(self.board.influence),
+            influence=self.board.snapshot_influence(),
             pending_decision=self.pending_decision,
             # Own hand in full; the opponent's hand only as a count (mandate
             # #4). The draw pile is a count too — its order never leaks.
@@ -176,9 +176,11 @@ class Engine:
             military_ops=dict(self.military_ops),
             # Public event modifiers only (e.g. NATO, Containment) — the
             # in-progress secret headline pick lives on `self._headline`
-            # and is never surfaced here.
-            turn_effects=copy.deepcopy(self.turn_effects),
-            game_effects=copy.deepcopy(self.game_effects),
+            # and is never surfaced here. Both tables hold only flat
+            # JSON primitives (mandate #5; `serialize` copies them the same
+            # way), so a shallow copy is a complete snapshot.
+            turn_effects=dict(self.turn_effects),
+            game_effects=dict(self.game_effects),
         )
 
     @property
@@ -2092,7 +2094,7 @@ class Engine:
             # First point of a fresh Operations spend: freeze the board as it
             # stands right now -- this *is* "the start of the Action Round"
             # for every subsequent point in this same spend (6.1.1).
-            self._ops_round_snapshot = copy.deepcopy(self.board.influence)
+            self._ops_round_snapshot = self.board.snapshot_influence()
         options = self._place_influence_options(side, ops_remaining)
         if not options:
             self._ops_round_snapshot = None
@@ -2129,7 +2131,7 @@ class Engine:
             self._ops_round_snapshot = None
             return
         if self._ops_round_snapshot is None:
-            self._ops_round_snapshot = copy.deepcopy(self.board.influence)
+            self._ops_round_snapshot = self.board.snapshot_influence()
         options = self._bonus_influence_options(side, base, spent, non_bonus, bonus)
         if not options:
             self._ops_round_snapshot = None

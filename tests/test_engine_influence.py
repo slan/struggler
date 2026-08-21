@@ -99,3 +99,24 @@ def test_observe_reflects_influence_and_pending_decision():
 
     with pytest.raises(ValueError):
         engine.observe(Side.CHANCE)
+
+
+def test_observe_returns_a_snapshot_that_later_engine_changes_do_not_touch():
+    """An `Observation` is a copy of the public state at the moment it was
+    taken, not a view onto the engine: a player (or a stored rollout row)
+    holding one must not see the board move under it."""
+    engine = Engine(seed=1)
+    engine.begin_influence_operations(Side.USSR, 1)
+    obs = engine.observe(Side.USSR)
+    poland_before = dict(obs.influence["Poland"])
+    assert "containment" not in obs.turn_effects and "nato" not in obs.game_effects
+
+    engine.board.influence["Poland"]["USSR"] += 3
+    engine.turn_effects["containment"] = True
+    engine.game_effects["nato"] = True
+    engine.space_race["US"] = 2
+
+    assert obs.influence["Poland"] == poland_before
+    assert "containment" not in obs.turn_effects
+    assert "nato" not in obs.game_effects
+    assert obs.space_race["US"] == 0
