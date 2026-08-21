@@ -13,6 +13,14 @@ This is the intended bridge to a future RL agent (see docs/BOTS.md's
 roadmap): a linear model over the same features, with learned instead of
 hand-set weights, is a drop-in replacement for `GreedyWeights`.
 
+`board_value()` is the readable definition; the hot path never calls it.
+Every per-action score is a one-country change, and `_swing()` computes
+the value difference from just the terms that country can move (its own
+Control bonus, its region's tiers) -- zero when Control does not change
+hands. Same numbers, a few `Board.control` calls per option instead of a
+recount of the whole map; it is what makes Greedy usable as an arena
+opponent at scale (docs/WOPR.md).
+
 Coverage: full heuristics for every core board decision kind -- where to
 place Influence, which country to Coup or Realign against, which Ops type
 to spend on, which card to headline or play, and Ops vs Event vs Space Race
@@ -44,7 +52,7 @@ branch order:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Sequence
+from typing import Callable, Mapping, Sequence
 
 from struggler.engine import (
     Action,
@@ -131,14 +139,47 @@ def board_value(weights: GreedyWeights, board: Board, side: Side) -> float:
     return value
 
 
+def _local_value(weights: GreedyWeights, board: Board, side: Side, country: str, controller: Side | None) -> float:
+    """The terms of `board_value` that depend on `country`'s Influence: its
+    region's two tier terms, plus its own Control bonus (given `controller`)."""
+    info = board.countries[country]
+    value = _TIER_VALUE[board.region_tier(side, info.region)] * weights.region_tier
+    value -= _TIER_VALUE[board.region_tier(side.opponent, info.region)] * weights.region_tier
+    if controller is not None:
+        per_country = weights.battleground_control if info.battleground else weights.country_control
+        value += per_country if controller is side else -per_country
+    return value
+
+
+def _swing(weights: GreedyWeights, board: Board, side: Side, country: str, deltas: Mapping[str, int]) -> float:
+    """`board_value` change for `side` from adding `deltas` (`{"US": +1}`,
+    `{"USSR": -2, "US": +1}`, ...) to `country`'s Influence, leaving `board`
+    exactly as found.
+
+    Computed locally rather than by recounting the map: `board_value` is a
+    function of which side Controls each country, so one country's Influence
+    can only move that country's own Control bonus and its region's tier
+    terms -- and when Control does not change hands, nothing moves at all.
+    Equal to `board_value(after) - board_value(before)`
+    (`tests/test_greedy.py` pins it); a full recount per option is what
+    used to make this bot thirty times slower than the engine."""
+    influence = board.influence[country]
+    before = board.control(country)
+    for key, delta in deltas.items():
+        influence[key] += delta
+    after = board.control(country)
+    after_value = 0.0 if after is before else _local_value(weights, board, side, country, after)
+    for key, delta in deltas.items():
+        influence[key] -= delta
+    if after is before:
+        return 0.0
+    return after_value - _local_value(weights, board, side, country, before)
+
+
 def _marginal_gain(weights: GreedyWeights, board: Board, side: Side, country: str, delta: int) -> float:
     """`board_value` swing from adding `delta` Influence points for `side` in
     `country`, leaving `board` exactly as found."""
-    before = board_value(weights, board, side)
-    board.influence[country][side.value] += delta
-    after = board_value(weights, board, side)
-    board.influence[country][side.value] -= delta
-    return after - before
+    return _swing(weights, board, side, country, {side.value: delta})
 
 
 def _sync_board(board: Board, observation: Observation) -> None:
@@ -196,14 +237,7 @@ def _expected_coup_gain(
     opp_inf = board.influence[country][opponent.value]
     opp_removed = int(round(max(0.0, min(expected_margin, opp_inf))))
     leftover = int(round(max(0.0, expected_margin - opp_removed)))
-
-    before = board_value(weights, board, side)
-    board.influence[country][opponent.value] -= opp_removed
-    board.influence[country][side.value] += leftover
-    after = board_value(weights, board, side)
-    board.influence[country][opponent.value] += opp_removed
-    board.influence[country][side.value] -= leftover
-    return after - before
+    return _swing(weights, board, side, country, {opponent.value: -opp_removed, side.value: leftover})
 
 
 def _realignment_bonus(board: Board, side: Side, country: str) -> float:
@@ -296,20 +330,15 @@ def _score_realignment_target(
     opp_bonus = _realignment_bonus(board, opponent, country)
     expected_margin = own_bonus - opp_bonus + _realignment_modifier(observation, side)
 
-    before = board_value(weights, board, side)
     if expected_margin > 0:
         removed = int(round(min(expected_margin, board.influence[country][opponent.value])))
-        board.influence[country][opponent.value] -= removed
-        after = board_value(weights, board, side)
-        board.influence[country][opponent.value] += removed
+        swing = _swing(weights, board, side, country, {opponent.value: -removed})
     elif expected_margin < 0:
         removed = int(round(min(-expected_margin, board.influence[country][side.value])))
-        board.influence[country][side.value] -= removed
-        after = board_value(weights, board, side)
-        board.influence[country][side.value] += removed
+        swing = _swing(weights, board, side, country, {side.value: -removed})
     else:
-        after = before
-    return weights.realignment_base + (after - before)
+        swing = 0.0
+    return weights.realignment_base + swing
 
 
 def _best_influence_value(

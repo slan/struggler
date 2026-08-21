@@ -1,13 +1,16 @@
-"""Tests for GreedyPlayer: the board evaluator, DEFCON-safety heuristic,
-fallback behavior, and a win-rate sanity check against RandomPlayer."""
+"""Tests for GreedyPlayer: the board evaluator (and its local `_swing`
+shortcut), DEFCON-safety heuristic, fallback behavior, and a win-rate sanity
+check against RandomPlayer."""
 
 from __future__ import annotations
 
 import dataclasses
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
-from struggler.bots.greedy import GreedyPlayer, GreedyWeights, board_value
+from struggler.bots.greedy import GreedyPlayer, GreedyWeights, _swing, board_value
 from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
 from struggler.engine import Action, Decision, DecisionKind, Engine, Side
 from struggler.engine.board import Board
@@ -89,3 +92,36 @@ def test_greedy_aldrich_ames_remix_discards_the_opponents_highest_ops_card():
     action = GreedyPlayer().choose_action(observation, [])
 
     assert action.payload["choice"] == "Duck_and_Cover"
+
+
+@given(
+    influence=st.lists(st.tuples(st.integers(0, 6), st.integers(0, 6)), min_size=85, max_size=85),
+    index=st.integers(0, 84),
+    deltas=st.fixed_dictionaries({}, optional={"US": st.integers(-6, 6), "USSR": st.integers(-6, 6)}),
+    us=st.booleans(),
+)
+@settings(max_examples=300, deadline=None)
+def test_swing_equals_the_board_value_difference_of_a_full_recount(influence, index, deltas, us):
+    """`_swing` is `board_value` computed locally (one country's Control
+    bonus and its region's tiers); it must agree exactly with the full
+    recount and leave the board as it found it."""
+    weights = GreedyWeights()
+    side = Side.US if us else Side.USSR
+    board = Board()
+    ids = list(board.countries)
+    for cid, (us_inf, ussr_inf) in zip(ids, influence):
+        board.influence[cid]["US"] = us_inf
+        board.influence[cid]["USSR"] = ussr_inf
+    country = ids[index]
+    # Influence never goes negative on a real board; clamp the random deltas.
+    deltas = {key: max(delta, -board.influence[country][key]) for key, delta in deltas.items()}
+    snapshot = board.snapshot_influence()
+
+    before = board_value(weights, board, side)
+    swing = _swing(weights, board, side, country, deltas)
+    assert board.influence == snapshot
+
+    for key, delta in deltas.items():
+        board.influence[country][key] += delta
+    after = board_value(weights, board, side)
+    assert swing == after - before
