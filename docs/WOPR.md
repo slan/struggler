@@ -3,6 +3,10 @@
 > *"A strange game. The only winning move is not to play."* — WOPR, after
 > learning tic-tac-toe by playing itself. We are aiming a little higher.
 
+This is the contract: layouts, APIs, semantics. The idea behind it, and
+the results so far, are in [JOSHUA.md](JOSHUA.md); frozen runs live under
+[`baselines/`](../baselines/README.md) (`python -m wopr.baseline`).
+
 Two packages, one contract:
 
 - **`struggler.bots.joshua`** — the learned `Player`. `features.py` is the

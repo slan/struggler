@@ -110,6 +110,9 @@ See [docs/LIMITATIONS.md](docs/LIMITATIONS.md) for any known limitations.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The public API, core types |
 | [docs/CARDS.md](docs/CARDS.md) | Card data policy, the event layer, per-card coverage |
 | [docs/BOTS.md](docs/BOTS.md) | The `Player` interface, physical mode, bot roadmap |
+| [docs/JOSHUA.md](docs/JOSHUA.md) | The self-play bot: the idea, the bets, what has been measured |
+| [docs/WOPR.md](docs/WOPR.md) | The training arena and the encoding layout (the contract behind Joshua) |
+| [baselines/README.md](baselines/README.md) | Frozen training runs: trajectories, checkpoints, evaluations per version |
 | [docs/TESTING.md](docs/TESTING.md) | Replay logs, property tests, test-writing policy |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | What the engine does not model |
 

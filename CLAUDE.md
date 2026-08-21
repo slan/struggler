@@ -43,7 +43,11 @@ the tests.
 
   `src/wopr/` is a second top-level package: the RL training arena for
   the `joshua` bot (torch + Stable-Baselines3, optional extras
-  `[joshua]`/`[wopr]`). The engine never imports from it.
+  `[joshua]`/`[wopr]`). The engine never imports from it. Training runs
+  write to `runs/` (gitignored); results worth keeping are frozen under
+  `baselines/` with `python -m wopr.baseline` and get an entry in
+  `baselines/README.md`. The idea and the lab notebook are
+  `docs/JOSHUA.md`.
 
   Tests live under `tests/`, golden replay logs under `tests/replays/`.
 
