@@ -5,6 +5,7 @@ Skipped without stable-baselines3."""
 from __future__ import annotations
 
 import random
+from pathlib import Path
 
 import numpy as np
 import csv
@@ -180,6 +181,33 @@ def test_pool_prioritises_snapshots_the_learner_loses_to(tmp_path):
     reloaded = CheckpointPool(tmp_path)
     assert reloaded.names == ["weak", "strong"] and reloaded.stats == pool.stats
     assert (tmp_path / "strong.pt").exists() and strong == POOL_PREFIX + "strong"
+
+
+def test_pool_save_retries_a_transient_rename_failure(tmp_path, monkeypatch):
+    # Windows: a rename over a file another process has open for a moment
+    # raises PermissionError; the stats are saved after every pool game.
+    pool = CheckpointPool(tmp_path)
+    pool.names = ["only"]
+    pool.stats = {"only": {"games": 1, "wins": 1}}
+    real_replace, failures = Path.replace, []
+
+    def flaky_replace(self, target):
+        if not failures:
+            failures.append(target)
+            raise PermissionError(5, "Access is denied")
+        return real_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", flaky_replace)
+    monkeypatch.setattr("wopr.pool.time.sleep", lambda _: None)
+    pool.save()
+    assert failures and CheckpointPool(tmp_path).stats == pool.stats
+
+    def stuck_replace(self, target):
+        raise PermissionError(5, "Access is denied")
+
+    monkeypatch.setattr(Path, "replace", stuck_replace)
+    with pytest.raises(PermissionError):
+        pool.save()
 
 
 def test_elo_orders_policies_and_respects_anchors():

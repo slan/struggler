@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import random
+import time
 from collections import deque
 from pathlib import Path
 from typing import Any, Sequence
@@ -77,7 +78,26 @@ class CheckpointPool:
     def save(self) -> None:
         tmp = self._stats_path.with_suffix(".tmp")
         tmp.write_text(json.dumps({"names": self.names, "stats": self.stats}, indent=2))
-        tmp.replace(self._stats_path)
+        _replace_with_retry(tmp, self._stats_path)
+
+
+def _replace_with_retry(src: Path, dst: Path, attempts: int = 10, delay: float = 0.05) -> None:
+    """`src.replace(dst)`, retried on Windows' transient `PermissionError`.
+
+    On Windows a rename over a file another process has open for a moment
+    (an antivirus scan, the search indexer) fails with WinError 5. The pool
+    stats are rewritten after every pool game, so a long run is bound to
+    collide eventually; a genuine permission problem still raises after
+    the retries.
+    """
+    for attempt in range(attempts):
+        try:
+            src.replace(dst)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay * (attempt + 1))
 
 
 class AnchorSchedule:
