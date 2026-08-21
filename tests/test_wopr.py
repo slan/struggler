@@ -7,6 +7,8 @@ from __future__ import annotations
 import random
 
 import numpy as np
+import csv
+
 import pytest
 
 torch = pytest.importorskip("torch")
@@ -23,6 +25,7 @@ from wopr.buffer import AlternatingRolloutBuffer  # noqa: E402
 from wopr.ladder import Match, elo_ratings, summarize  # noqa: E402
 from wopr.opponents import NetOpponent, PlayerOpponent, RandomOpponent  # noqa: E402
 from wopr.pool import POOL_PREFIX, CheckpointPool  # noqa: E402
+from wopr.callback import CSV_COLUMNS, ensure_columns  # noqa: E402
 from wopr.policy import JoshuaPolicy  # noqa: E402
 from wopr.vec_env import LEARNER, WoprVecEnv, observation_space  # noqa: E402
 
@@ -221,3 +224,24 @@ def test_policy_precision_keeps_the_ppo_interface_in_float32(precision):
 
     with pytest.raises(ValueError):
         JoshuaPolicy(observation_space(), spaces.Discrete(F.K_MAX), lambda _: 3e-4, joshua_config=SMALL, precision="fp16")
+
+
+def test_metrics_csv_from_an_older_run_is_rewritten_under_the_current_columns(tmp_path):
+    """Rows are appended in `CSV_COLUMNS` order, so a resumed run whose
+    file predates a column must have its header (and old rows) migrated,
+    not its new values filed under the wrong names."""
+    path = tmp_path / "metrics.csv"
+    path.write_text("update,games,steps_per_s,win_rate\n1,30,2000.0,0.5\n2,65,1900.0,0.6\n")
+
+    ensure_columns(path)
+
+    with path.open(newline="") as f:
+        reader = csv.DictReader(f)
+        assert tuple(reader.fieldnames) == CSV_COLUMNS
+        rows = list(reader)
+    assert [r["update"] for r in rows] == ["1", "2"]
+    assert rows[1]["win_rate"] == "0.6" and rows[1]["steps_per_s"] == "1900.0"
+    assert rows[1]["update_s"] == ""  # a column the old run never had
+
+    ensure_columns(path)  # idempotent on a current file
+    assert path.read_text().count("\n") == 3

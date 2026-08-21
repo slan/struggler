@@ -41,6 +41,26 @@ CSV_COLUMNS = (
 )
 
 
+def ensure_columns(path: Path) -> None:
+    """Create `metrics.csv`, or rewrite an older run's file under the
+    current `CSV_COLUMNS` if its header differs. Rows are written in
+    `CSV_COLUMNS` order, so resuming a run whose file predates a column
+    would otherwise file every new value under the wrong name."""
+    if not path.exists():
+        with path.open("w", newline="") as f:
+            csv.DictWriter(f, fieldnames=CSV_COLUMNS).writeheader()
+        return
+    with path.open(newline="") as f:
+        reader = csv.DictReader(f)
+        if tuple(reader.fieldnames or ()) == CSV_COLUMNS:
+            return
+        rows = list(reader)
+    with path.open("w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(rows)
+
+
 class WoprCallback(BaseCallback):
     def __init__(
         self,
@@ -67,9 +87,7 @@ class WoprCallback(BaseCallback):
         self._start = time.perf_counter()
         self._start_timesteps = 0
         self._csv_path = run_dir / "metrics.csv"
-        if not self._csv_path.exists():
-            with self._csv_path.open("w", newline="") as f:
-                csv.DictWriter(f, fieldnames=CSV_COLUMNS).writeheader()
+        ensure_columns(self._csv_path)
 
     # -- SB3 hooks -------------------------------------------------------------------
 
