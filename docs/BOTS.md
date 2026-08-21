@@ -47,12 +47,14 @@ class Player(Protocol):
 
 There is no registry: `src/main.py`'s `build_player(kind, *, seed=0)` is a
 plain `if`/`elif` over kind names (`"human"`, `"first"`, `"random"`,
-`"greedy"`, `"llm"`), each branch constructing the corresponding `Player`
+`"greedy"`, `"llm"`, `"joshua"`), each branch constructing the corresponding `Player`
 directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 `bots/naive.py`, `GreedyPlayer` from `bots/greedy.py`, `LLMPlayer` from
 `bots/llm/player.py` — the `"llm"` branch also picks a provider client via
 `STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`, and passes through
-`plan_turns` from `--no-turn-plan`). Adding a new bot means
+`plan_turns` from `--no-turn-plan` — and `JoshuaPlayer` from
+`bots/joshua/player.py`, loading the checkpoint named by
+`--joshua-checkpoint`; see [WOPR.md](WOPR.md)). Adding a new bot means
 implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
 name and the class it builds.
@@ -254,18 +256,19 @@ built:
    turn-level plan it plays to, are in "LLM bot: the board reading and the
    turn plan" below. This tier needed exactly one thing from the engine:
    `Observation.space_race_attempts` (see below).
-4. **Self-play reinforcement learning** (future, most promising long-term,
-   most expensive to build): train a model by having it play itself
-   repeatedly via `play_game`, using `Engine.winner` as the terminal reward.
-   The most future-relevant reason `GreedyPlayer` is built as weighted
-   features over `board_value()` rather than an if/elif cascade: a linear
-   (or larger) model over the same feature set, with *learned* instead of
-   hand-set weights, is a structurally compatible next step — swap
-   `GreedyWeights` for trained parameters, or replace `board_value()` with
-   a learned value function outright, without redesigning how a `Player`
-   plugs into the engine. `Engine.serialize()`/`deserialize()` (mandate #5)
-   are what make self-play cheap: cloning state for search/training doesn't
-   need a bespoke copy path.
+4. **Self-play reinforcement learning** (built — `bots/joshua/` and the
+   `wopr` arena, see [WOPR.md](WOPR.md)): `JoshuaPlayer` answers every
+   decision with a network trained by PPO against itself, a pool of its
+   past checkpoints, and the tier-1/2 bots, with `Engine.winner` as the
+   only reward. It needed nothing new from the engine: the action is an
+   index into `Decision.options` (mandate #2), the input is `Observation`
+   alone (mandate #4), and training games are reproducible from their
+   seeds (mandate #3). The arena runs many engines decision by decision
+   and is designed so the in-process Python backend can be swapped for a
+   shared-memory or rewritten engine without touching the model.
+   `GreedyPlayer`'s weighted-features design remains the cheap yardstick
+   it was meant to be — and, via `wopr.opponents.PlayerOpponent`, an
+   anchor opponent in the arena.
 
 ## LLM bot: the board reading and the turn plan
 

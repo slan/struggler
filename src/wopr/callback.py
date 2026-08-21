@@ -1,0 +1,241 @@
+"""Per-rollout bookkeeping: game results, policy health, pool snapshots, CSV.
+
+What gets logged, and why each number is there:
+
+- games / win rates *per seat* and per opponent kind -- Twilight Struggle is
+  asymmetric, so one pooled win rate hides a policy that only learned USSR.
+- `entropy`, `k_valid`, `entropy_ratio` (H / ln K) and `k_eff` (exp H):
+  exploration health. H/lnK near 0 with many legal options means the policy
+  has collapsed onto a line; near 1 means it has not started choosing.
+- SB3's `approx_kl`, `clip_fraction`, `explained_variance`, losses:
+  update stability; a KL well above target or a clip fraction above ~0.3
+  says the step size is too big, EV near 0 says the value head is lost.
+
+Snapshots go to the `CheckpointPool` every `snapshot_every` rollouts and
+to `<run>/joshua.pt` (the latest, what `JoshuaPlayer` loads) every rollout.
+"""
+
+from __future__ import annotations
+
+import csv
+import time
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+import numpy as np
+import torch
+from stable_baselines3.common.callbacks import BaseCallback
+
+from struggler.bots.joshua.model import save_checkpoint
+from wopr.pool import POOL_PREFIX, CheckpointPool
+from wopr.vec_env import LEARNER, WoprVecEnv
+
+CSV_COLUMNS = (
+    "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s",
+    "win_rate", "win_rate_us", "win_rate_ussr", "draw_rate", "win_rate_vs_pool", "win_rate_vs_anchor",
+    "ep_len_mean", "turn_mean",
+    "entropy", "k_valid", "entropy_ratio", "k_eff",
+    "approx_kl", "clip_fraction", "explained_variance", "policy_loss", "value_loss", "entropy_loss",
+    "pool_size",
+)
+
+
+class WoprCallback(BaseCallback):
+    def __init__(
+        self,
+        *,
+        run_dir: Path,
+        env: WoprVecEnv,
+        pool: CheckpointPool,
+        target_games: int,
+        snapshot_every: int,
+        games_done: int = 0,
+        verbose: int = 1,
+    ) -> None:
+        super().__init__(verbose)
+        self.run_dir = run_dir
+        self.env = env
+        self.pool = pool
+        self.target_games = target_games
+        self.snapshot_every = snapshot_every
+        self.games = games_done
+        self.update = 0
+        self._rollout_games: list[dict[str, Any]] = []
+        self._rollout_start = time.perf_counter()
+        self._start = time.perf_counter()
+        self._start_timesteps = 0
+        self._csv_path = run_dir / "metrics.csv"
+        if not self._csv_path.exists():
+            with self._csv_path.open("w", newline="") as f:
+                csv.DictWriter(f, fieldnames=CSV_COLUMNS).writeheader()
+
+    # -- SB3 hooks -------------------------------------------------------------------
+
+    def _on_training_start(self) -> None:
+        self._start = time.perf_counter()
+        self._start_timesteps = self.model.num_timesteps
+
+    def _on_rollout_start(self) -> None:
+        self._rollout_games = []
+        self._rollout_start = time.perf_counter()
+
+    def _on_step(self) -> bool:
+        for info in self.locals["infos"]:
+            episode = info.get("episode")
+            if episode is None:
+                continue
+            self.games += 1
+            self._rollout_games.append(episode)
+            self._record_pool(episode)
+        return True
+
+    def _on_rollout_end(self) -> None:
+        self.update += 1
+        rollout_s = time.perf_counter() - self._rollout_start
+        row = self._game_metrics()
+        row.update(self._policy_health())
+        row.update(
+            update=self.update,
+            timesteps=self.model.num_timesteps,
+            games=self.games,
+            games_in_rollout=len(self._rollout_games),
+            elapsed_s=round(time.perf_counter() - self._start, 1),
+            steps_per_s=round(self.model.n_steps * self.env.num_envs / rollout_s, 1),
+            pool_size=len(self.pool),
+        )
+        self._pending_row = row
+        save_checkpoint(self.model.policy.net, self.run_dir / "joshua.pt", extra={"games": self.games, "update": self.update})
+        if self.snapshot_every > 0 and self.update % self.snapshot_every == 0:
+            self.pool.add(f"u{self.update:05d}", self.model.policy.net, extra={"games": self.games, "update": self.update})
+
+    def _on_training_end(self) -> None:
+        self._flush(final=True)
+
+    # PPO logs its train/* values after _on_rollout_end; the row is flushed
+    # at the start of the next rollout so it carries them too.
+    def on_rollout_start(self) -> None:
+        self._flush(final=False)
+        super().on_rollout_start()
+
+    # -- metrics -----------------------------------------------------------------------
+
+    def _record_pool(self, episode: dict[str, Any]) -> None:
+        seats = episode["seats"]
+        for side, policy_id in seats.items():
+            if policy_id.startswith(POOL_PREFIX):
+                learner_side = next(s for s, p in seats.items() if p == LEARNER)
+                self.pool.record(policy_id, episode["winner"] == learner_side)
+        self.pool.save()
+
+    def _game_metrics(self) -> dict[str, Any]:
+        games = self._rollout_games
+        if not games:
+            return {}
+        outcomes: Counter = Counter()
+        by_seat = {"US": [0, 0], "USSR": [0, 0]}
+        vs_pool = [0, 0]
+        vs_anchor = [0, 0]
+        for g in games:
+            seats = g["seats"]
+            learner_sides = [s for s, p in seats.items() if p == LEARNER]
+            if len(learner_sides) == 2:
+                outcomes["self_play"] += 1
+                continue
+            side = learner_sides[0]
+            won = g["winner"] == side
+            by_seat[side][0] += int(won)
+            by_seat[side][1] += 1
+            if g["winner"] is None:
+                outcomes["draw"] += 1
+            elif won:
+                outcomes["win"] += 1
+            else:
+                outcomes["loss"] += 1
+            opponent = seats["US" if side == "USSR" else "USSR"]
+            bucket = vs_pool if opponent.startswith(POOL_PREFIX) else vs_anchor
+            bucket[0] += int(won)
+            bucket[1] += 1
+
+        def rate(wins: int, total: int) -> float | None:
+            return round(wins / total, 4) if total else None
+
+        decided = outcomes["win"] + outcomes["loss"] + outcomes["draw"]
+        return {
+            "win_rate": rate(outcomes["win"], decided),
+            "draw_rate": rate(outcomes["draw"], decided),
+            "win_rate_us": rate(*by_seat["US"]),
+            "win_rate_ussr": rate(*by_seat["USSR"]),
+            "win_rate_vs_pool": rate(*vs_pool),
+            "win_rate_vs_anchor": rate(*vs_anchor),
+            "ep_len_mean": round(float(np.mean([g["l"] for g in games])), 1),
+            "turn_mean": round(float(np.mean([g["turn"] for g in games])), 2),
+        }
+
+    def _policy_health(self, sample: int = 2048) -> dict[str, Any]:
+        buffer = self.model.rollout_buffer
+        masks = buffer.observations["opt_mask"].reshape(-1, buffer.observations["opt_mask"].shape[-1])
+        k_valid = masks.sum(-1)
+        multi = k_valid > 1
+        if not multi.any():
+            return {}
+        rng = np.random.default_rng(self.update)
+        index = np.flatnonzero(multi)
+        if len(index) > sample:
+            index = rng.choice(index, size=sample, replace=False)
+        obs = {
+            name: torch.as_tensor(array.reshape(-1, *array.shape[2:])[index], device=self.model.device)
+            for name, array in buffer.observations.items()
+        }
+        with torch.no_grad():
+            entropy = float(self.model.policy.get_distribution(obs).entropy().mean())
+        k_mean = float(k_valid[index].mean())
+        return {
+            "entropy": round(entropy, 4),
+            "k_valid": round(k_mean, 2),
+            "entropy_ratio": round(entropy / np.log(k_mean), 4) if k_mean > 1 else None,
+            "k_eff": round(float(np.exp(entropy)), 2),
+        }
+
+    def _flush(self, *, final: bool) -> None:
+        row = getattr(self, "_pending_row", None)
+        if row is None:
+            return
+        logged = self.model.logger.name_to_value
+        row.update(
+            approx_kl=_round(logged.get("train/approx_kl")),
+            clip_fraction=_round(logged.get("train/clip_fraction")),
+            explained_variance=_round(logged.get("train/explained_variance")),
+            policy_loss=_round(logged.get("train/policy_gradient_loss")),
+            value_loss=_round(logged.get("train/value_loss")),
+            entropy_loss=_round(logged.get("train/entropy_loss")),
+        )
+        with self._csv_path.open("a", newline="") as f:
+            csv.DictWriter(f, fieldnames=CSV_COLUMNS, extrasaction="ignore").writerow(row)
+        if self.verbose:
+            print(
+                f"[wopr] upd {row['update']:>4} | games {row['games']:>6} (+{row['games_in_rollout']}) "
+                f"| wr {row.get('win_rate')} us {row.get('win_rate_us')} ussr {row.get('win_rate_ussr')} "
+                f"pool {row.get('win_rate_vs_pool')} anchor {row.get('win_rate_vs_anchor')} "
+                f"| len {row.get('ep_len_mean')} turn {row.get('turn_mean')} "
+                f"| H {row.get('entropy')} K {row.get('k_valid')} H/lnK {row.get('entropy_ratio')} "
+                f"| kl {row.get('approx_kl')} clip {row.get('clip_fraction')} ev {row.get('explained_variance')} "
+                f"| {row['steps_per_s']} st/s",
+                flush=True,
+            )
+        self._pending_row = None
+
+
+def _round(value: Any, digits: int = 4) -> Any:
+    return None if value is None else round(float(value), digits)
+
+
+class StopAtGames(BaseCallback):
+    """Ends `learn()` once the paired WoprCallback has counted `target` games."""
+
+    def __init__(self, tracker: WoprCallback) -> None:
+        super().__init__()
+        self._tracker = tracker
+
+    def _on_step(self) -> bool:
+        return self._tracker.games < self._tracker.target_games

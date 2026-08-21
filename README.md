@@ -13,14 +13,15 @@ To understand the full story, read the article [Giving AI the atom bomb buttons]
 Python 3.12+. The project is managed with [uv](https://docs.astral.sh/uv/):
 
 ```sh
-uv sync              # creates .venv with the engine + test tools
-uv sync --extra llm  # optional: also the LLM bot's provider SDKs
+uv sync               # creates .venv with the engine + test tools
+uv sync --extra llm   # optional: also the LLM bot's provider SDKs
+uv sync --extra wopr  # optional: torch + stable-baselines3, to train or play the learned `joshua` bot
 uv run pytest
 uv run python src/main.py --us greedy --ussr random
 ```
 
 Without uv, a plain virtualenv works too: `pip install -e ".[test]"`
-(and `".[llm]"` for the LLM bot).
+(and `".[llm]"` / `".[wopr]"` for the optional bots).
 
 ### Configure an LLM bot
 
@@ -48,6 +49,7 @@ python src/main.py                                  # human vs human
 python src/main.py --us greedy --ussr greedy --seed 1  # bot vs bot
 python src/main.py --ussr llm                       # human (US) vs llm bot (USSR)
 python src/main.py --physical us --ussr llm         # bot vs a real physical board
+python src/main.py --ussr joshua --joshua-checkpoint runs/first/joshua.pt  # vs the learned bot
 ```
 The options for the players are:
 - human
@@ -55,6 +57,7 @@ The options for the players are:
 - random
 - greedy
 - llm
+- joshua (a self-play-trained network; train one with `python -m wopr.train --run first --games 2000`, see [docs/WOPR.md](docs/WOPR.md))
 
 But you can create your own implementation using the engine like this:
 
@@ -93,7 +96,7 @@ implement `choose_action(observation, history) -> Action`, returning one
 action drawn from `observation.pending_decision.options`, then add one
 branch to `build_player` in [src/main.py](src/main.py) mapping a new kind
 name (for `--us`/`--ussr`) to it.  See [docs/BOTS.md](docs/BOTS.md) for the full `Player` contract and how the existing bots (`first`, `random`, `greedy`,
-`llm`) are built.
+`llm`, `joshua`) are built.
 
 ## Status
 

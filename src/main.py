@@ -5,6 +5,7 @@ Examples:
     python src/main.py --us greedy --ussr random --seed 1  # bot vs bot
     python src/main.py --ussr greedy                       # human (US) vs bot (USSR)
     python src/main.py --ussr llm
+    python src/main.py --ussr joshua --joshua-checkpoint runs/first/joshua.pt
 """
 
 from __future__ import annotations
@@ -29,6 +30,7 @@ from struggler.runner import play_game
 DEFAULT_LLM_PROVIDER = "openai"
 DEFAULT_LLM_MODELS = {"anthropic": "claude-opus-5", "openai": "gpt-5.6-luna"}
 DEFAULT_LLM_PLAN_MODELS = {"anthropic": "claude-opus-5", "openai": "gpt-5.6-sol"}
+DEFAULT_JOSHUA_CHECKPOINT = "runs/joshua/joshua.pt"
 
 
 def build_llm_client(provider: str | None = None, model: str | None = None):
@@ -61,6 +63,7 @@ def build_player(
     log_path: str | None = None,
     side_label: str = "",
     plan_turns: bool = True,
+    joshua_checkpoint: str = DEFAULT_JOSHUA_CHECKPOINT,
 ) -> Player:
     if kind == "human":
         return HumanPlayer()
@@ -70,6 +73,11 @@ def build_player(
         return RandomPlayer(seed=seed)
     if kind == "greedy":
         return GreedyPlayer()
+    if kind == "joshua":
+        # torch is an optional dependency (`pip install -e ".[joshua]"`).
+        from struggler.bots.joshua.player import JoshuaPlayer
+
+        return JoshuaPlayer.from_checkpoint(joshua_checkpoint, seed=seed)
     if kind == "llm":
         client = build_llm_client()
         plan_provider = os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
@@ -92,7 +100,7 @@ def build_player(
             log_path=log_path,
             resume=resume,
         )
-    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm)")
+    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm/joshua)")
 
 
 def main() -> None:
@@ -100,6 +108,11 @@ def main() -> None:
     parser.add_argument("--us", default="human")
     parser.add_argument("--ussr", default="human")
     parser.add_argument("--seed", type=int, default=12345)
+    parser.add_argument(
+        "--joshua-checkpoint",
+        default=DEFAULT_JOSHUA_CHECKPOINT,
+        help="Checkpoint a 'joshua' seat loads (written by `python -m wopr.train`; see docs/WOPR.md).",
+    )
     parser.add_argument(
         "--physical",
         choices=["us", "ussr"],
@@ -184,18 +197,18 @@ def main() -> None:
                 bot_side: BotHeadlineAnnouncer(build_player(
                     bot_kind, seed=seed + 1, resume=args.resume,
                     log_path=bot_log_path, side_label=bot_side.value.lower(),
-                    plan_turns=not args.no_turn_plan,
+                    plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint,
                 )),
             }
         else:
             players = {
                 Side.US: build_player(
                     args.us, seed=seed + 1, resume=args.resume, log_path=args.us_log_path,
-                    side_label="us", plan_turns=not args.no_turn_plan,
+                    side_label="us", plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint,
                 ),
                 Side.USSR: build_player(
                     args.ussr, seed=seed + 2, resume=args.resume, log_path=args.ussr_log_path,
-                    side_label="ussr", plan_turns=not args.no_turn_plan
+                    side_label="ussr", plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint
                 ),
             }
         winner = play_game(
@@ -221,7 +234,7 @@ def main() -> None:
             bot_side: BotHeadlineAnnouncer(build_player(
                 bot_kind, seed=args.seed + 1, resume=args.resume,
                 log_path=bot_log_path, side_label=bot_side.value.lower(),
-                plan_turns=not args.no_turn_plan,
+                plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint,
             )),
         }
     else:
@@ -229,11 +242,11 @@ def main() -> None:
         players = {
             Side.US: build_player(
                 args.us, seed=args.seed + 1, resume=args.resume, log_path=args.us_log_path,
-                side_label="us", plan_turns=not args.no_turn_plan,
+                side_label="us", plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint,
             ),
             Side.USSR: build_player(
                 args.ussr, seed=args.seed + 2, resume=args.resume, log_path=args.ussr_log_path,
-                side_label="ussr", plan_turns=not args.no_turn_plan,
+                side_label="ussr", plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint,
             ),
         }
 

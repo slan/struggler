@@ -10,6 +10,7 @@ commit.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | The decision stack, the public API, `Engine`, core types |
 | [docs/CARDS.md](docs/CARDS.md) | `events.py`, `cards.json`, anything card-related |
 | [docs/BOTS.md](docs/BOTS.md) | `bots/`, the `Player` protocol, physical mode |
+| [docs/WOPR.md](docs/WOPR.md) | `bots/joshua/` (the learned bot, its encoding layout), `src/wopr/` (the self-play training arena) |
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
 
@@ -39,6 +40,10 @@ the tests.
     `src/main.py`'s `build_player`.
   - `data/` — the game's JSON facts (`cards.json`, `countries.json`,
     `rules.json`).
+
+  `src/wopr/` is a second top-level package: the RL training arena for
+  the `joshua` bot (torch + Stable-Baselines3, optional extras
+  `[joshua]`/`[wopr]`). The engine never imports from it.
 
   Tests live under `tests/`, golden replay logs under `tests/replays/`.
 

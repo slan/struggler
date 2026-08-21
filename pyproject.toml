@@ -15,6 +15,9 @@ test = ["pytest", "hypothesis"]
 llm-anthropic = ["anthropic>=0.68"]
 llm-openai = ["openai>=1.0"]
 llm = ["anthropic>=0.68", "openai>=1.0"]
+# Joshua, the learned bot (inference only) -- and WOPR, its training arena.
+joshua = ["numpy>=1.26", "torch>=2.4"]
+wopr = ["numpy>=1.26", "torch>=2.4", "stable-baselines3>=2.6"]
 
 # `uv sync` installs the project plus this group; `uv sync --extra llm`
 # adds an optional feature. The `test` extra above is the same set for
