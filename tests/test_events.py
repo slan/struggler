@@ -324,9 +324,18 @@ def test_us_japan_pact_controls_and_shields_japan():
     engine.board.influence["Japan"] = {"US": 0, "USSR": 4}  # USSR-controlled first
     engine._fire_event(Side.US, "US_Japan_Mutual_Defense_Pact")
     assert engine.board.control("Japan") is Side.US
+    # "Sufficient Influence for Control" is on top of the USSR's, which stays.
+    assert engine.board.influence["Japan"] == {"US": 8, "USSR": 4}
     assert "Japan" not in {
         a.payload["country"] for a in engine._coup_target_options(Side.USSR)
     }
+
+
+def test_fidel_removes_the_us_before_controlling_cuba():
+    engine = _bare()
+    engine.board.influence["Cuba"] = {"US": 2, "USSR": 1}
+    engine._fire_event(Side.USSR, "Fidel")
+    assert engine.board.influence["Cuba"] == {"US": 0, "USSR": 3}  # "Remove all US Influence", then Control
 
 
 def test_willy_brandt_scores_and_lifts_nato_for_west_germany():

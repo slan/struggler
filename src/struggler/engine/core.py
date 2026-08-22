@@ -1514,13 +1514,18 @@ class Engine:
     def remove_all_influence(self, country: str, side: Side) -> None:
         self.board.influence[country][side.value] = 0
 
-    def gain_control(self, country: str, side: Side) -> None:
-        """Remove all opponent Influence in `country` and give `side` enough of
-        its own for Control ("adds sufficient Influence for Control")."""
-        self.board.influence[country][side.opponent.value] = 0
-        stability = self.board.countries[country].stability
-        if self.board.influence[country][side.value] < stability:
-            self.board.influence[country][side.value] = stability
+    def gain_control(self, country: str, side: Side, *, remove_opponent: bool = True) -> None:
+        """Give `side` enough Influence in `country` for Control ("sufficient
+        Influence for Control"): the opponent's Influence there plus the
+        stability. `remove_opponent` first removes all of the opponent's
+        Influence, as the cards that say so do (Fidel, Romanian Abdication);
+        the US/Japan Mutual Defense Pact does not, and the US sits on top of
+        whatever the USSR has."""
+        if remove_opponent:
+            self.board.influence[country][side.opponent.value] = 0
+        needed = self.board.influence[country][side.opponent.value] + self.board.countries[country].stability
+        if self.board.influence[country][side.value] < needed:
+            self.board.influence[country][side.value] = needed
 
     # -- events that grant "conduct Operations" -----------------------------
 
