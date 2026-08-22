@@ -175,6 +175,15 @@ class PlaydekOperator(Bridge):
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"headline {card}"))
         elif ev.kind == EventType.PUSH_RESOLVE_CARD:
             self.play_log.append(self._seq)  # an action boundary: a card entering the resolve slot
+            try:
+                pushed = ids.card_id(f["card"])
+            except KeyError:
+                pushed = None
+            if self._played is not None and self._played[0] == pushed:
+                # The same card entering the slot again is a new play of it
+                # (the China Card handed back by Ussuri River Skirmish and
+                # played again in the same turn), not a further use record.
+                self._played = None
         elif ev.kind == EventType.OUTPUT_ANIMATION_CARD:
             # A card leaving a hand for the resolve slot, the hint saying how
             # it is used (`translate.ANIMATION_USES`): the one place the DLL
@@ -571,8 +580,13 @@ class PlaydekOperator(Bridge):
             try:
                 ok = self._try(option)
                 left = len(self.rolls) + sum(len(q) for q in self.moves.values())
-            except Exception:  # an option the engine rejects downstream is simply not it
+                if self.trace:
+                    print(f"  SIM {d.kind.value} {dict(option.payload)}: {'matches' if ok else 'no'}, {left} facts left"
+                          f"{'' if ok else ': ' + ('; '.join(self.state_diffs(hands=False)) or 'stopped short')}")
+            except Exception as e:  # an option the engine rejects downstream is simply not it
                 ok = False
+                if self.trace:
+                    print(f"  SIM {d.kind.value} {dict(option.payload)}: rejected ({e!r})")
             finally:
                 self._simulating -= 1
                 self.engine = real
@@ -602,6 +616,8 @@ class PlaydekOperator(Bridge):
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
             if a is None or self.stop:
+                if self.trace:
+                    print(f"  SIM   stuck at {d.actor.value} {d.kind.value}: {'no answer' if a is None else self.report.divergences[-1]}")
                 return False
             self.engine.step(a)
         return not self.state_diffs(hands=False)
