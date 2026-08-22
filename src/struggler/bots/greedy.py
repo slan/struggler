@@ -65,7 +65,7 @@ from struggler.engine import (
     Subregion,
 )
 from struggler.engine.board import Board, CountryInfo
-from struggler.engine.cards import load_cards
+from struggler.engine.cards import action_rounds, load_cards
 from struggler.engine.core import SCORING_CARD_REGION, REALIGNMENT_STOP
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
@@ -116,6 +116,14 @@ class GreedyWeights:
     scoring_card_weight: float = 2.0  # per net VP the region would score, signed favorably/unfavorably
     hold_high_ops_weight: float = 0.5  # prefer headlining a low-Ops card, keeping high-Ops ones for Operations
     action_round_ops_weight: float = 1.0
+    # A scoring card still in hand at the end of the turn loses the game
+    # (rule 4.4): once the scoring cards held are as many as the action
+    # rounds left, one of them must go now, whatever the board says.
+    scoring_card_deadline_bonus: float = 1000.0
+    # Quagmire traps the US and Bear Trap the USSR whoever plays them: for
+    # the trapped side, playing one for Ops spends rounds it may need for a
+    # scoring card (the trap's discards take precedence over scoring cards).
+    self_trap_penalty: float = 50.0
 
 
 # -- board evaluation ---------------------------------------------------------
@@ -434,7 +442,10 @@ def _score_headline(weights: GreedyWeights, board: Board, observation: Observati
     # Non-scoring: headlining is a no-op discard while its event is unfired
     # (events off, or an unimplemented event) -- spend a low-Ops card here and
     # keep higher-Ops ones for Operations.
-    return -weights.hold_high_ops_weight * card.ops
+    value = -weights.hold_high_ops_weight * card.ops
+    if _SELF_TRAPS.get(cid) is side:
+        value -= weights.self_trap_penalty
+    return value
 
 
 def _score_action_round_play(
@@ -444,9 +455,27 @@ def _score_action_round_play(
     cid = action.payload["card"]
     card = _CARDS[cid]
     if card.scoring:
-        return weights.scoring_card_weight * _scoring_card_favorability(board, side, cid)
+        value = weights.scoring_card_weight * _scoring_card_favorability(board, side, cid)
+        if _scoring_cards_due(observation):
+            value += weights.scoring_card_deadline_bonus
+        return value
     ops = _effective_ops_estimate(card, observation, side)
-    return weights.action_round_ops_weight * ops
+    value = weights.action_round_ops_weight * ops
+    if _SELF_TRAPS.get(cid) is side:
+        value -= weights.self_trap_penalty
+    return value
+
+
+#: Cards whose event locks a side's action rounds regardless of who plays them.
+_SELF_TRAPS: dict[str, Side] = {"Quagmire": Side.US, "Bear_Trap": Side.USSR}
+
+
+def _scoring_cards_due(observation: Observation) -> bool:
+    """True when the scoring cards in hand are as many as the action rounds
+    left this turn (this one included): holding one past the turn loses."""
+    held = sum(1 for cid in observation.hand if cid in _CARDS and _CARDS[cid].scoring)
+    remaining = action_rounds(observation.turn) - observation.action_round + 1
+    return held > 0 and held >= remaining
 
 
 def _score_play_mode(weights: GreedyWeights, board: Board, observation: Observation, action: Action) -> float:
