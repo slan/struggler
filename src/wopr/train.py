@@ -72,6 +72,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--snapshot-every", type=int, default=10, help="updates between pool snapshots (0: never)")
     p.add_argument("--pool-window", type=int, default=None, help="sample only the newest N snapshots")
     p.add_argument("--no-events", action="store_true", help="Ops-only curriculum: Engine.new_game(events=False)")
+    p.add_argument("--handicap", type=int, default=0, help="training games open with the US this many VP ahead (a tournament bid for the USSR seat); evaluation stays at 0")
     p.add_argument("--device", default="auto", help="auto | cpu | cuda")
     p.add_argument("--precision", choices=list(PRECISIONS), default="bf16", help="bf16 autocast for the network (default; halves the update) or plain fp32")
     p.add_argument("--torch-threads", type=int, default=None)
@@ -116,10 +117,13 @@ def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSche
     seats = make_seat_assigner(args.self_play, args.vs_pool, anchor, pool)
     opponents = StandardOpponents(str(pool.directory), args.seed, device)
     if args.workers > 1:
-        spec = ArenaSpec(args.n_envs, args.seed, events=not args.no_events)
+        spec = ArenaSpec(args.n_envs, args.seed, events=not args.no_events, starting_vp=args.handicap)
         backend: Backend = SharedMemoryBackend(spec, seats, opponents, workers=args.workers, worker_threads=args.worker_threads)
     else:
-        backend = InProcessBackend(Arena(args.n_envs, seed=args.seed, seat_assigner=seats, events=not args.no_events), opponents)
+        backend = InProcessBackend(
+            Arena(args.n_envs, seed=args.seed, seat_assigner=seats, events=not args.no_events, starting_vp=args.handicap),
+            opponents,
+        )
     return WoprVecEnv(backend)
 
 

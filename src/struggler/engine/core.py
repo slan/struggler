@@ -51,6 +51,7 @@ class Engine:
         self.board = board if board is not None else Board()
         self.defcon = 5
         self.vp = 0  # US-positive: >0 favors US, <0 favors USSR (matches score_region)
+        self.starting_vp = 0  # the VP the game opened at (a handicap); 0 in the printed game
         self.turn = 1
         self.action_round = 1
 
@@ -200,6 +201,7 @@ class Engine:
             "board": self.board.serialize(),
             "defcon": self.defcon,
             "vp": self.vp,
+            "starting_vp": self.starting_vp,
             "turn": self.turn,
             "action_round": self.action_round,
             "next_decision_id": self._next_decision_id,
@@ -244,6 +246,7 @@ class Engine:
         engine.board.load_influence(data["board"])
         engine.defcon = data["defcon"]
         engine.vp = data["vp"]
+        engine.starting_vp = data.get("starting_vp", 0)
         engine.turn = data["turn"]
         engine.action_round = data["action_round"]
         engine._next_decision_id = data["next_decision_id"]
@@ -313,6 +316,7 @@ class Engine:
         events: bool = True,
         physical_mode: bool = False,
         physical_side: Side | None = None,
+        starting_vp: int = 0,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -327,6 +331,10 @@ class Engine:
         fields on `__init__`) — its hand is unknown to the engine until
         revealed, and all dice (both sides') are entered manually. See
         docs/BOTS.md.
+
+        `starting_vp`: the VP track's opening value, US-positive — a
+        handicap, as a tournament bid gives the US side VP for the USSR
+        seat. 0 is the printed game.
         """
         if physical_mode and physical_side not in (Side.US, Side.USSR):
             raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
@@ -337,6 +345,8 @@ class Engine:
         engine.physical_side = physical_side
         engine.china_card_owner = "USSR"
         engine.china_card_available = True
+        engine.starting_vp = starting_vp
+        engine.vp = starting_vp
         engine.turn = 1
         engine._start_turn(initial=True)  # build deck, deal (phase -> predeal until dealt)
         engine._advance()  # drains physical-mode dealing if any, then runs setup -> first headline

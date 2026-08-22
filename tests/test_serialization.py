@@ -71,3 +71,19 @@ def test_round_trip_through_a_chance_decision_preserves_rng_state():
     engine.step(engine.legal_actions()[0])
     restored.step(restored.legal_actions()[0])
     assert engine.serialize() == restored.serialize()
+
+
+def test_starting_vp_opens_the_game_there_and_round_trips():
+    # A handicap (a tournament bid): the VP track opens at N, US-positive,
+    # and the game otherwise plays as printed.
+    from struggler.engine import Engine, Side
+
+    engine = Engine.new_game(seed=3, starting_vp=4)
+    assert engine.vp == 4 and engine.starting_vp == 4
+    assert engine.observe(Side.US).vp == 4
+    assert Engine.new_game(seed=3).vp == 0
+    clone = Engine.deserialize(engine.serialize())
+    assert clone.vp == 4 and clone.starting_vp == 4
+    legacy = engine.serialize()
+    del legacy["starting_vp"]
+    assert Engine.deserialize(legacy).starting_vp == 0

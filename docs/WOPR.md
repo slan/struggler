@@ -198,6 +198,16 @@ constant, and so is one against an opponent it always beats
 all: pure self-play against the pool. While the pool is empty, pool
 games are self-play.
 
+`--handicap N` opens every training game with the US N VP ahead
+(`Engine.new_game(starting_vp=N)`, carried to the collectors in
+`ArenaSpec`): a tournament bid for the USSR seat. With strong policies
+the USSR seat wins most games between equals (JOSHUA.md), so the
+terminal reward of a US-seat row says mostly which seat it was; a bid
+that brings the seats to even makes games turn on play. Evaluation —
+the loop's gate, `wopr.baseline` — stays at the printed game;
+`wopr.eval --handicap N` plays a pair under a bid, which with a policy
+against itself (`a=x.pt b=x.pt`) measures the USSR edge at that bid.
+
 ### The pool (`wopr/pool.py`)
 
 A directory of snapshots taken every `--snapshot-every` updates, with
@@ -298,8 +308,10 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   from v8, one generation each way against the same champion: 2 epochs
   gated 0.635 vs 4 epochs' 0.573, beat Greedy 0.995 vs 0.960, tied head
   to head (0.455), with healthy KL and explained variance in both — at
-  28% less wall time per generation. Pass `--n-epochs 4` for the old
-  recipe.
+  28% less wall time per generation. That was a continuation: a run
+  from scratch at 2 epochs is badly undertrained at 8,000 games (the
+  hidden-128 control in the capacity experiment lost to v5 0.06), so a
+  fresh run wants `--n-epochs 4`.
 - **Device and precision.** `--device auto` picks CUDA when available.
   On CPU, `--torch-threads 16` is the measured sweet spot for the update
   phase (8 threads is 1.5× slower, 32 no faster); torch's default of all

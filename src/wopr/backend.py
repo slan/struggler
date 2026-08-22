@@ -231,6 +231,7 @@ class ArenaSpec:
     seed: int
     events: bool = True
     include_optional: bool = True
+    starting_vp: int = 0
 
 
 @dataclass(frozen=True)
@@ -291,6 +292,7 @@ def worker_main(
     arena = Arena(
         len(slots), seed=spec.seed, seat_assigner=assign, events=spec.events,
         include_optional=spec.include_optional, slot_offset=lo, total_slots=spec.n_games,
+        starting_vp=spec.starting_vp,
     )
     backend = InProcessBackend(
         arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner

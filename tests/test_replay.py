@@ -169,3 +169,19 @@ def test_resuming_from_a_trimmed_log_continues_the_same_on_disk_record(tmp_path)
     replayed = run_replay(resumed_log)
     assert replayed.is_terminal
     assert replayed.serialize() == resumed_engine.serialize()
+
+
+def test_game_log_records_the_starting_vp(tmp_path):
+    import json
+
+    from struggler.engine import Engine
+    from struggler.engine.replay import GameLogWriter, make_engine
+
+    engine = Engine.new_game(seed=5, starting_vp=3)
+    writer = GameLogWriter(tmp_path / "game.json", engine)
+    writer.finalize(None)
+    log = json.loads((tmp_path / "game.json").read_text())
+    assert log["starting_vp"] == 3
+    rebuilt = make_engine(log)
+    assert rebuilt.vp == 3 and rebuilt.serialize()["hands"] == engine.serialize()["hands"]
+    assert make_engine({"seed": 5, "new_game": True}).vp == 0

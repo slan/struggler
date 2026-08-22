@@ -385,3 +385,17 @@ def test_resumed_run_takes_its_ppo_hyperparameters_from_the_flags(tmp_path):
     assert resumed.n_epochs == 2 and resumed.ent_coef == 0.05
     assert resumed.lr_schedule(1.0) == 1e-4 and resumed.clip_range(1.0) == 0.1
     assert resumed.n_steps == 4  # sized the buffer; not a flag a resume can change
+
+
+def test_arena_and_eval_open_games_at_the_handicap():
+    arena = Arena(2, seed=0, starting_vp=5)
+    assert arena.engine(0).vp == 5 and arena.engine(1).vp == 5
+    arena.reset(0)
+    assert arena.engine(0).vp == 5
+    assert Arena(1, seed=0).engine(0).vp == 0
+    job = PairJob("random", "first", games=2, seed=0, starting_vp=19)
+    assert ArenaSpec(4, 0, starting_vp=job.starting_vp).starting_vp == 19
+    # With the US one VP short of winning, the first VP the US gains ends
+    # the game: every match still resolves to a Match with a US-first record.
+    matches = run_pair(job)
+    assert len(matches) == 2 and {m.a for m in matches} == {"random", "first"}

@@ -55,7 +55,9 @@ def parse_policy(spec: str, *, seed: int, device: str, deterministic: bool) -> t
     return name, NetOpponent.from_checkpoint(path, seed=seed, device=device, deterministic=deterministic)
 
 
-def play_pair(a: str, b: str, policies: dict[str, Opponent], *, games: int, seed: int, events: bool) -> list[Match]:
+def play_pair(
+    a: str, b: str, policies: dict[str, Opponent], *, games: int, seed: int, events: bool, starting_vp: int = 0
+) -> list[Match]:
     half = max(1, games // 2)
 
     def assign_a_us(slot: int, episode: int, rng) -> dict[Side, str]:
@@ -66,7 +68,7 @@ def play_pair(a: str, b: str, policies: dict[str, Opponent], *, games: int, seed
 
     matches: list[Match] = []
     for assigner in (assign_a_us, assign_a_ussr):
-        arena = Arena(half, seed=seed, seat_assigner=assigner, events=events)
+        arena = Arena(half, seed=seed, seat_assigner=assigner, events=events, starting_vp=starting_vp)
         for result in play_out(arena, policies):
             # Recorded US-first: `Match.a` is whoever sat as US.
             score_us = 0.5 if result.winner is None else (1.0 if result.winner is Side.US else 0.0)
@@ -86,6 +88,7 @@ class PairJob:
     events: bool = True
     deterministic: bool = True
     device: str = "cpu"
+    starting_vp: int = 0
 
     @property
     def a(self) -> str:
@@ -112,7 +115,9 @@ def run_pair(job: PairJob) -> list[Match]:
         )[1]
         for spec in (job.spec_a, job.spec_b)
     }
-    return play_pair(job.a, job.b, policies, games=job.games, seed=job.seed, events=job.events)
+    return play_pair(
+        job.a, job.b, policies, games=job.games, seed=job.seed, events=job.events, starting_vp=job.starting_vp
+    )
 
 
 def default_workers() -> int:
@@ -137,6 +142,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--device", default="cpu")
     p.add_argument("--sample", action="store_true", help="sample network policies instead of taking their argmax")
     p.add_argument("--no-events", action="store_true")
+    p.add_argument("--handicap", type=int, default=0, help="open every game with the US this many VP ahead (measures the USSR edge under a bid)")
     p.add_argument("--workers", type=int, default=None, help="pair-playing processes (default: CPUs / 4)")
     args = p.parse_args(argv)
 
@@ -151,7 +157,7 @@ def main(argv: list[str] | None = None) -> None:
 
     jobs = [
         PairJob(spec_a, spec_b, args.games, args.seed, events=not args.no_events,
-                deterministic=not args.sample, device=args.device)
+                deterministic=not args.sample, device=args.device, starting_vp=args.handicap)
         for spec_a, spec_b in itertools.combinations(args.policies, 2)
     ]
     matches: list[Match] = []

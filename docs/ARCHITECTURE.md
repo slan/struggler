@@ -194,3 +194,14 @@ through the public API alone, with no event mechanics involved" is a
 property worth being able to test in isolation. `serialize()` carries
 `events_enabled` alongside `turn_effects` and `game_effects`, so a saved
 game round-trips its event state either way (mandate #5).
+
+## Starting VP (a handicap)
+
+`Engine.new_game(..., starting_vp=N)` opens the VP track at N (US-positive)
+instead of 0 — what a tournament bid does: the player who wants the USSR
+seat gives the US that many VP. Nothing else changes; the printed game is
+`starting_vp=0`, the default. `serialize()` carries `starting_vp` beside
+`vp`, and a `new_game` replay log records it in its header, so a
+handicapped game round-trips and replays like any other (mandate #5).
+The training arena uses it to take the seat out of the result
+(docs/WOPR.md).

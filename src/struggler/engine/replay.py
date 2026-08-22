@@ -69,6 +69,7 @@ def make_engine(log: dict[str, Any]) -> Engine:
             seed=log["seed"],
             include_optional=log.get("include_optional", False),
             events=log.get("events", False),
+            starting_vp=log.get("starting_vp", 0),
             physical_mode=log.get("physical_mode", False),
             physical_side=Side(physical_side) if physical_side else None,
         )
@@ -226,7 +227,7 @@ def replay_history(log: dict[str, Any]) -> tuple[Engine, list[Event]]:
 class GameLogWriter:
     """Records a live `play_game` run to `path`, as a lean, human-readable
     `new_game` replay log: `{seed, new_game, include_optional, events,
-    actions, winner}`, no `checkpoints`.
+    starting_vp, actions, winner}`, no `checkpoints`.
 
     Each entry in `actions` is `encode_event`'s output — actor, the action,
     and the same DEFCON/VP/turn/country context `HumanPlayer` shows a human
@@ -266,6 +267,7 @@ class GameLogWriter:
         self._seed = state["seed"]
         self._include_optional = engine.include_optional
         self._events_enabled = engine.events_enabled
+        self._starting_vp = engine.starting_vp
         self._physical_mode = engine.physical_mode
         self._physical_side = engine.physical_side.value if engine.physical_side is not None else None
         self._actions: list[dict[str, Any]] = list(initial_actions) if initial_actions is not None else []
@@ -286,6 +288,7 @@ class GameLogWriter:
             "new_game": True,
             "include_optional": self._include_optional,
             "events": self._events_enabled,
+            "starting_vp": self._starting_vp,
             "physical_mode": self._physical_mode,
             "physical_side": self._physical_side,
             "actions": self._actions,
