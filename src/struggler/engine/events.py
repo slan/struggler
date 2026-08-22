@@ -303,9 +303,10 @@ def _nato(engine: "Engine", side: Side) -> None:
 
 @event("US_Japan_Mutual_Defense_Pact")
 def _us_japan_pact(engine: "Engine", side: Side) -> None:
-    # US gains enough Influence to Control Japan; the USSR may never Coup or
-    # make Realignment rolls against Japan for the rest of the game.
-    engine.gain_control("Japan", Side.US)
+    # "The US receives sufficient Influence in Japan for Control": on top of
+    # the USSR's, which stays; the USSR may never Coup or make Realignment
+    # rolls against Japan for the rest of the game.
+    engine.gain_control("Japan", Side.US, remove_opponent=False)
     engine.game_effects["us_japan_pact"] = True
 
 
