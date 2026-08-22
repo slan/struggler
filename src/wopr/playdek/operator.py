@@ -143,6 +143,7 @@ class PlaydekOperator(Bridge):
         self._last_action: tuple[Decision, Action] | None = None  # the bot's latest, not yet applied by the engine when `flush` runs
         self._simulating = 0
         self._completed_for_dll = False  # the bot's last action was finished in the DLL after the engine's game had ended
+        self._extra_ops_pending = 0  # a simulation's Ops to grant the US once the play under way is done (the DLL's Grain Sales)
 
     def players(self, player: Player) -> dict[Side, Player]:
         """The `play_game` players table: the bot on its seat, the operator
@@ -577,7 +578,8 @@ class PlaydekOperator(Bridge):
         action = self._simulate(d)
         if not (self.stop and len(self.report.divergences) > before):
             return action
-        if self._simulate_one(next(a for a in d.options if a.payload["choice"] == "take"), extra_ops=2):
+        take = next(a for a in d.options if a.payload["choice"] == "take")
+        if self._simulate_one(take, extra_ops=2, extra_first=True) or self._simulate_one(take, extra_ops=2):
             del self.report.divergences[before:]
             self.known["Grain Sales: the DLL conducts Grain Sales' Ops as well as playing the taken card (its text: only if returned)"] += 1
             self.diverge("rules", "Grain Sales: the DLL conducted its 2 Ops and played the taken card; the engine plays the card alone", fatal=True)
@@ -585,16 +587,17 @@ class PlaydekOperator(Bridge):
 
     # -- choices the records do not name: try each, keep what reproduces the DLL --
 
-    def _simulate_one(self, option: Action, extra_ops: int = 0) -> bool:
+    def _simulate_one(self, option: Action, extra_ops: int = 0, extra_first: bool = False) -> bool:
         """Whether `option`, played on a copy of the engine, reproduces the
         DLL's state (`_simulate` for a single option; `extra_ops`: Ops the
-        US is granted on top, once the play is done)."""
+        US is granted on top, before the play (`extra_first`) or once it is
+        done)."""
         real, queues = self.engine, self._queues()
         divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
         self.engine = Engine.deserialize(real.serialize())
         self._simulating += 1
         try:
-            return self._try(option, extra_ops=extra_ops)
+            return self._try(option, extra_ops=extra_ops, extra_first=extra_first)
         except Exception:
             return False
         finally:
@@ -645,14 +648,18 @@ class PlaydekOperator(Bridge):
             self.known[f"{d.context.get('event')}: {len(matches)} choices reproduce the DLL's state, the first taken"] += 1
         return matches[0][2]
 
-    def _try(self, option: Action, extra_ops: int = 0) -> bool:
+    def _try(self, option: Action, extra_ops: int = 0, extra_first: bool = False) -> bool:
         self.engine.step(option)
+        if extra_ops and extra_first:
+            self.engine.push_event_operations(Side.US, extra_ops)  # the DLL's Grain Sales Ops, before the taken card
+        elif extra_ops:
+            self._extra_ops_pending = extra_ops  # ...or after it: granted at the bot's next decision, in whichever nested simulation gets there
         while not self.engine.is_terminal:
             d = self.engine.pending_decision
             if d.actor is self.side:
-                if extra_ops:
-                    self.engine.push_event_operations(Side.US, extra_ops)  # the DLL's Grain Sales Ops on top of the taken card
-                    extra_ops = 0
+                if self._extra_ops_pending:
+                    self.engine.push_event_operations(Side.US, self._extra_ops_pending)
+                    self._extra_ops_pending = 0
                     continue
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
@@ -669,14 +676,14 @@ class PlaydekOperator(Bridge):
         return (list(self.rolls), copy.deepcopy((self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
                                                  self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired,
                                                  self._revealed, self._taken, self._exits, self._exits_before_reshuffle, self.reshuffled,
-                                                 self.synced_seq)))
+                                                 self.synced_seq, self._extra_ops_pending)))
 
     def _set_queues(self, queues: tuple) -> None:
         rolls, rest = queues
         self.rolls = collections.deque(rolls)
         (self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
          self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken,
-         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq) = copy.deepcopy(rest)
+         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq, self._extra_ops_pending) = copy.deepcopy(rest)
 
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
