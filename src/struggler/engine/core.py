@@ -488,12 +488,6 @@ class Engine:
                 self._award_vp(side.opponent, deficit)
                 if self.is_terminal:
                     return
-        # We Will Bury You: the USSR scores 3 VP at the end of the turn unless
-        # the US cancelled it (by playing UN Intervention, see _handle_play_mode).
-        if self.turn_effects.get("we_will_bury_you"):
-            self._award_vp(Side.USSR, 3)
-            if self.is_terminal:
-                return
         # DEFCON recovers by one at the end of every turn.
         self._change_defcon(+1, caused_by=Side.US)
         # A China Card passed this turn becomes available to its new owner.
@@ -1047,6 +1041,15 @@ class Engine:
         card = self.cards[cid]
         mode = action.payload["mode"]
 
+        if side is Side.US and self.game_effects.pop("we_will_bury_you", None):
+            # We Will Bury You: "unless UN Intervention is played as an Event
+            # on the US player's next action round, the USSR gains 3 VP prior
+            # to any US VP award" -- this is that round, whatever it plays.
+            if mode != "un_intervention":
+                self._award_vp(Side.USSR, 3)
+                if self.is_terminal:
+                    return
+
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
             self._maybe_defectors_action_round(side, cid)
@@ -1069,10 +1072,8 @@ class Engine:
 
         if mode == "un_intervention":
             # Cancel the opponent card's event; use it purely for its Ops. UN
-            # Intervention itself is spent to the discard pile. Playing it also
-            # defuses We Will Bury You's end-of-turn VP for the US.
-            if side is Side.US:
-                self.turn_effects.pop("we_will_bury_you", None)
+            # Intervention itself is spent to the discard pile. (We Will Bury
+            # You's VP were settled above.)
             un_id = RULES["un_intervention_id"]
             # Mirrors _file_card's own declare-then-remove sequence: for the
             # physical side this is still a HIDDEN_CARD placeholder, not the
