@@ -166,6 +166,25 @@ def test_containment_boosts_us_ops_only():
     assert engine._effective_ops(Side.USSR, duck) == 3  # opponent unaffected
 
 
+def test_ops_modifiers_never_take_a_card_above_four():
+    # Containment: "+1 ... to a maximum of 4". A 4-Ops card played for Ops
+    # under it must still buy exactly four placements.
+    engine = _bare()
+    engine._fire_event(Side.US, "Containment")
+    nato = engine.cards["NATO"]  # 4 ops
+    assert engine._effective_ops(Side.US, nato) == 4
+    engine.turn_effects["brezhnev"] = True
+    assert engine._effective_ops(Side.USSR, nato) == 4
+    engine.phase = "action_round"
+    engine.hands["US"] = ["NATO"]
+    engine._push(Side.US, DecisionKind.ACTION_ROUND_PLAY, (Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "NATO"}),), {})
+    engine.step(engine.pending_decision.options[0])
+    engine.step(Action(DecisionKind.PLAY_MODE, {"mode": "ops"}))
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+    assert engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE
+    assert engine.pending_decision.context["ops_remaining"] == 4
+
+
 def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
     engine = _bare()
     engine._fire_event(Side.US, "Red_Scare_Purge")  # US plays it -> hurts USSR

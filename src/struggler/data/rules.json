@@ -8,6 +8,8 @@
     "SOUTH_AMERICA": [2, 5, 6]
   },
   "vp_to_win": 20,
+  "ops_modifier_min": 1,
+  "ops_modifier_max": 4,
   "coup_min_defcon": {
     "EUROPE": 5,
     "ASIA": 4,
