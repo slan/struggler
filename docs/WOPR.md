@@ -756,7 +756,17 @@ Findings from the first four random games, and what became of each:
   where "sufficient Influence for Control" sits on top of it
   (`fix/us-japan-pact-keeps-ussr-influence`; `gain_control` now removes
   the opponent only where the card says so, as Fidel and Romanian
-  Abdication do).
+  Abdication do); the wars that pick their target subtracted 1 for the
+  target's own control, where the cards say "adjacent"
+  (`fix/war-target-own-control`); Blockade's, Latin American Debt
+  Crisis's and the traps' discards compared printed Ops where the turn's
+  modifiers count -- under Containment the AI paid Blockade with Korean
+  War and the engine cleared West Germany
+  (`fix/discard-thresholds-use-modified-ops`). These two were found in
+  games against the AI itself, where a drift shows as a state
+  divergence at the bot's next card prompt; `runs/playdek/trace/one.py`
+  (not tracked) plays one traced game, and the `INF` lines show what the
+  placement inference saw.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

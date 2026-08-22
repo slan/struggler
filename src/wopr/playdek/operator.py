@@ -128,6 +128,7 @@ class PlaydekOperator(Bridge):
         self._un_target: str | None = None  # the opponent's card to name once UN Intervention's "Play Event" is answered
         self._played: tuple[str, int] | None = None  # (card, turn) of the other seat's last queued play: its further use records add no card
         self._headlined: str | None = None
+        self._plays_seen: set[str] = set()  # the other seat's cards seen played: they left its hand, but not as a discard
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
@@ -198,6 +199,7 @@ class PlaydekOperator(Bridge):
             self.recent.append(f"play {card} {hint:#x} by {actor}")
             if actor is not self.other:
                 return True
+            self._plays_seen.add(card)
             if self._played != (card, self._dll_turn):
                 self._played = (card, self._dll_turn)
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"play {card}"))
@@ -210,7 +212,7 @@ class PlaydekOperator(Bridge):
         have not been accounted for, latest first (not consumed)."""
         piles = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
         gone = sorted(((seq, c) for c, (was, now, seq) in self._last_moves.items()
-                       if was == HAND_LOCATION[owner] and now in piles), reverse=True)
+                       if was == HAND_LOCATION[owner] and now in piles and c not in self._plays_seen and c != self._headlined), reverse=True)
         return [c for _, c in gone]
 
     def last_hand_of(self, card: str) -> Side | None:
