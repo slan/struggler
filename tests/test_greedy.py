@@ -159,3 +159,57 @@ def test_greedy_treats_europe_scoring_at_control_as_the_game(holder):
         action = GreedyPlayer().choose_action(observation, [])
         expected = "Europe_Scoring" if side is holder else "Duck_and_Cover"
         assert action.payload["card"] == expected
+
+
+def _play_greedy_vs_greedy(seed: int) -> Engine:
+    engine = Engine.new_game(seed=seed)
+    play_game(engine, {Side.US: GreedyPlayer(), Side.USSR: GreedyPlayer()})
+    return engine
+
+
+def test_greedy_plays_a_scoring_card_before_the_turn_runs_out():
+    """A scoring card held at the end of the turn loses the game (4.4);
+    Greedy must play one no later than the round where the scoring cards
+    in hand are as many as the rounds left, whatever the board says."""
+    from struggler.bots.greedy import _scoring_cards_due
+    from struggler.engine.cards import action_rounds
+
+    class Obs:
+        def __init__(self, hand, turn, action_round):
+            self.hand, self.turn, self.action_round = hand, turn, action_round
+
+    last = action_rounds(1)
+    assert _scoring_cards_due(Obs(("Asia_Scoring", "Duck_and_Cover"), 1, last))
+    assert _scoring_cards_due(Obs(("Asia_Scoring", "Europe_Scoring"), 1, last - 1))
+    assert not _scoring_cards_due(Obs(("Asia_Scoring", "Europe_Scoring"), 1, last - 2))
+    assert not _scoring_cards_due(Obs(("Duck_and_Cover",), 1, last))
+
+
+@pytest.mark.parametrize("seed", range(12))
+def test_greedy_never_loses_to_a_self_inflicted_rule(seed):
+    """The yardstick must play the game legally end to end: a rules fix
+    that makes a bot lose by its own hand (a scoring card held past the
+    turn) has to fail here, not in an evaluation."""
+    engine = _play_greedy_vs_greedy(seed)
+    assert engine.is_terminal
+    assert engine.serialize()["game_over_reason"] != "held_scoring_card"
+
+
+def test_greedy_does_not_spring_the_opponent_s_trap_on_itself():
+    """Quagmire traps the US whoever plays it; the US playing it for Ops
+    spends the rounds a scoring card needs (seed 0 of the sanity test lost
+    Europe Scoring that way)."""
+    from struggler.bots.greedy import _SELF_TRAPS, _score_action_round_play
+    from struggler.engine.board import Board
+
+    class Obs:
+        side = Side.US
+        turn, action_round = 4, 1
+        hand = ("Quagmire", "Defectors", "Europe_Scoring")
+        turn_effects: dict = {}
+
+    weights = GreedyWeights()
+    board = Board()
+    quagmire = _score_action_round_play(weights, board, Obs(), Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Quagmire"}))
+    defectors = _score_action_round_play(weights, board, Obs(), Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Defectors"}))
+    assert quagmire < defectors and _SELF_TRAPS["Quagmire"] is Side.US
