@@ -1516,6 +1516,52 @@ def test_cuban_missile_crisis_sets_defcon_and_flags_the_opponent():
     assert engine.pending_decision is None
 
 
+def test_cuban_missile_crisis_may_be_cancelled_by_the_side_that_played_it():
+    # "...if the USSR player removes two Influence from Cuba or the US player
+    # removes two Influence from either West Germany or Turkey": either side.
+    engine = _bare(seed=1)
+    engine.board.influence["West_Germany"] = {"US": 4, "USSR": 0}
+    engine.hands["US"] = ["Nasser"]
+    engine.turn_effects["cuban_missile_crisis"] = "USSR"  # the US played it
+    engine.phase = "action_rounds"
+    engine._ars_played = 1  # the US's round comes up
+    engine._advance()
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.US
+    assert d.context["event"] == "Cuban_Missile_Crisis_defuse"
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "West_Germany"}))
+    assert engine.board.influence["West_Germany"]["US"] == 2
+    assert "cuban_missile_crisis" not in engine.turn_effects
+    assert engine.pending_decision.kind is DecisionKind.ACTION_ROUND_PLAY  # the round goes on
+
+
+def test_cuban_missile_crisis_cancel_offered_again_before_the_banned_coup():
+    engine = _bare(seed=1)
+    engine.defcon = 2
+    engine.board.influence["Cuba"] = {"US": 0, "USSR": 3}
+    engine.board.influence["Costa_Rica"] = {"US": 2, "USSR": 0}  # no Battleground: DEFCON stays 2
+    engine.hands["USSR"] = ["Nasser"]
+    engine.turn_effects["cuban_missile_crisis"] = "USSR"
+    engine.phase = "action_rounds"
+    engine._ars_played = 2  # the USSR's second round
+    engine._advance()
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "skip"}))  # not at the start of the round
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Nasser"}))
+    engine.step(Action(DecisionKind.PLAY_MODE, {"mode": "ops"}))
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "coup"}))
+    d = engine.pending_decision  # ...but once more before the target
+    assert d.kind is DecisionKind.EVENT_CHOICE and d.context["event"] == "Cuban_Missile_Crisis_defuse"
+    assert d.context["at"] == "coup"
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Cuba"}))
+    assert engine.board.influence["Cuba"]["USSR"] == 1
+    assert "cuban_missile_crisis" not in engine.turn_effects
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.COUP_TARGET and d.actor is Side.USSR
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Costa_Rica"}))
+    engine.step(engine.pending_decision.options[0])  # the roll: a coup, not the end of the game
+    assert not engine.is_terminal
+
+
 def test_cuban_missile_crisis_defuse_offered_each_of_the_trapped_sides_rounds():
     engine = _bare(seed=1)
     engine.board.influence["Cuba"] = {"US": 0, "USSR": 3}  # USSR can afford to defuse

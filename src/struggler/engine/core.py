@@ -442,10 +442,13 @@ class Engine:
             side = self._side_for_play_index(idx)
             self.action_round = idx // 2 + 1
             self._ars_played += 1
-            if self.turn_effects.get("cuban_missile_crisis") == side.value:
-                # "May defuse at any point in the turn": offered fresh at the
-                # start of every one of this side's action rounds until they
-                # take it or the turn ends -- a free choice, not a spent round.
+            if self.turn_effects.get("cuban_missile_crisis"):
+                # "This event may be cancelled at any time if the USSR player
+                # removes two Influence from Cuba or the US player removes
+                # two Influence from either West Germany or Turkey" -- either
+                # side, not only the one whose coups it bans: offered fresh
+                # at the start of every action round until someone takes it
+                # or the turn ends, a free choice, not a spent round.
                 self._push_cmc_defuse_offer(side)
             else:
                 self._dispatch_action_round(side)
@@ -881,19 +884,30 @@ class Engine:
         else:
             self._push_action_round_play(side)
 
-    def _push_cmc_defuse_offer(self, side: Side) -> None:
+    def _push_cmc_defuse_offer(self, side: Side, at_coup: bool = False) -> None:
         """Cuban Missile Crisis: `side` may remove 2 Influence from Cuba
-        (USSR) or West Germany/Turkey (US, its choice) to lift the
-        Coup-attempt ban for the rest of the turn. Offered as a free choice
-        -- it never costs the action round that follows it."""
+        (USSR) or West Germany/Turkey (US, its choice) to cancel the event
+        for the rest of the turn. Offered as a free choice at the start of
+        the side's action round (it never costs the round that follows it)
+        and, `at_coup`, once more when the side whose coups it bans has
+        chosen to coup -- "at any time" includes the last moment before
+        the roll that would lose it the game."""
         candidates = ["Cuba"] if side is Side.USSR else ["West_Germany", "Turkey"]
         eligible = [c for c in candidates if self.board.influence[c][side.value] >= 2]
         if not eligible:
-            self._dispatch_action_round(side)
+            if not at_coup:
+                self._dispatch_action_round(side)
             return
         self.push_event_choice(
-            "Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",)
+            "Cuban_Missile_Crisis_defuse", side, tuple(eligible) + ("skip",),
+            extra={"at": "coup"} if at_coup else None,
         )
+
+    def _maybe_offer_cmc_defuse_at_coup(self, side: Side) -> None:
+        """Before the coup target of a side whose coups Cuban Missile Crisis
+        bans: pushed on top of the target decision, so it is asked first."""
+        if self.turn_effects.get("cuban_missile_crisis") == side.value:
+            self._push_cmc_defuse_offer(side, at_coup=True)
 
     def _push_action_round_play(self, side: Side) -> None:
         if self.physical_mode and side is self.physical_side:
@@ -1177,6 +1191,7 @@ class Engine:
             # (resolved at target selection, in _handle_coup_target).
             self.military_ops[side.value] += ops
             self.begin_coup(side, ops, bonus=bonus)
+            self._maybe_offer_cmc_defuse_at_coup(side)
         else:  # realignment
             # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
             # Asia): one extra Realignment attempt, all-or-nothing, if every
@@ -2306,6 +2321,7 @@ class Engine:
             )
             if options:
                 self._push(side, DecisionKind.COUP_TARGET, options, {"ops": ops, "bonus": None})
+                self._maybe_offer_cmc_defuse_at_coup(side)
         elif choice == "realign":
             options = tuple(
                 Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
