@@ -611,10 +611,23 @@ def test_indo_pakistani_war_target_choice_resolves_to_a_roll():
 def test_independent_reds_matches_us_to_ussr_influence():
     engine = _bare()
     engine.board.influence["Romania"] = {"US": 0, "USSR": 3}
+    engine.board.influence["Hungary"] = {"US": 1, "USSR": 2}
+    engine.board.influence["Bulgaria"] = {"US": 2, "USSR": 2}  # nothing to add: not a choice
     engine._fire_event(Side.US, "Independent_Reds")
     assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE
+    assert {a.payload["choice"] for a in engine.pending_decision.options} == {"Romania", "Hungary"}
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Romania"}))
     assert engine.board.influence["Romania"]["US"] == 3  # matched
+
+
+def test_independent_reds_with_nothing_to_match_asks_nothing():
+    engine = _bare()
+    for cid in ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia"):
+        engine.board.influence[cid] = {"US": 1, "USSR": 1}
+    before = engine.serialize()["board"]
+    engine._fire_event(Side.US, "Independent_Reds")
+    assert engine.pending_decision is None
+    assert engine.serialize()["board"] == before
 
 
 def test_puppet_governments_only_targets_empty_countries():

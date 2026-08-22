@@ -175,7 +175,8 @@ Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed (branch),
 Socialist Governments, Muslim Revolution, Colonial Rear Guards, Liberation
 Theology, The Voice of America, Puppet Governments, OAS Founded, Pershing
 II Deployed, The Reformer, Solidarity, Marine Barracks Bombing, Independent
-Reds (match-influence branch), East European Unrest and South African
+Reds (match-influence branch: only the countries with USSR Influence to
+match are choices, none is no event), East European Unrest and South African
 Unrest (which use `push_event_influence`'s per-selection `amount` for the
 Late-War 2-per-country removal), De-Stalinization (a relocate flow: remove
 up to 4 USSR Influence, then replace it in non-US-controlled countries, max

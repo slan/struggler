@@ -674,11 +674,15 @@ def _brush_war(engine: "Engine", side: Side) -> None:
 
 @event("Independent_Reds")
 def _independent_reds(engine: "Engine", side: Side) -> None:
-    # Add US Influence in one of these to equal the USSR Influence there.
-    engine.push_event_choice(
-        "Independent_Reds", Side.US,
-        ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia"),
+    # Add US Influence in one of these to equal the USSR Influence there:
+    # only a country where there is USSR Influence to match is a choice,
+    # and with none the event has nothing to do.
+    candidates = tuple(
+        cid for cid in ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia")
+        if engine.board.influence[cid]["USSR"] > engine.board.influence[cid]["US"]
     )
+    if candidates:
+        engine.push_event_choice("Independent_Reds", Side.US, candidates)
 
 
 def _independent_reds_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
