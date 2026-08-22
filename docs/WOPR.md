@@ -887,7 +887,11 @@ Findings from the first four random games, and what became of each:
   batch: when several simulated choices reproduce the DLL's board (Junta's
   free Realignment that removed nothing, and declining it), the one that
   consumed the DLL's records is taken -- left queued, the realignment's
-  dice passed for ABM Treaty's granted Ops two turns later. Two engine
+  dice passed for ABM Treaty's granted Ops two turns later. A seventh:
+  the card Grain Sales hands the US is played at once and the DLL
+  reports no use for it, only the coup or the influence that follows, so
+  its `PLAY_MODE` (and an opponent card's `EVENT_OPS_ORDER`) is simulated
+  like an either/or. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear

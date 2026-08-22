@@ -324,6 +324,12 @@ class PlaydekOperator(Bridge):
                 return None if card is None else self._pick(d, lambda a: a.payload["card"] == card, f"discard {card}")
             if d.kind is DecisionKind.PLAY_MODE and len(d.options) == 1:
                 return d.options[0]  # a scoring card: the DLL reports no use for it
+            if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._taken
+                    and not self.moves[self.other]):
+                # The card Grain Sales handed over is played at once, and the
+                # DLL reports no use for it (only the coup or the influence
+                # that followed): each use is tried on a copy.
+                return self._simulate(d)
             if d.kind is DecisionKind.OPS_TYPE and not (self.moves[self.other] and self.moves[self.other][0].meaning.meaning is T.Meaning.USE):
                 return self._answer_ops_type(d)
         if d.actor is Side.CHANCE and d.kind is DecisionKind.RANDOM_DISCARD:
