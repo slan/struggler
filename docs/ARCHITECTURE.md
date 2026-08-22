@@ -247,7 +247,8 @@ player; UN Intervention on any opponent-event card; the bonus
 Realignment attempt stays in its region; the China Card's and Vietnam
 Revolts' bonuses stack; Cuban Missile Crisis cancelled by either side,
 and before the banned coup; the end-of-turn Military Operations
-penalties netted before the marker moves).
+penalties netted before the marker moves; Marine Barracks Bombing
+removing two points, not two countries).
 
 ## Opening deal order
 
