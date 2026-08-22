@@ -194,3 +194,11 @@ through the public API alone, with no event mechanics involved" is a
 property worth being able to test in isolation. `serialize()` carries
 `events_enabled` alongside `turn_effects` and `game_effects`, so a saved
 game round-trips its event state either way (mandate #5).
+
+## End of turn
+
+The required Military Operations are settled as one move of the VP
+marker: each side's shortfall against DEFCON goes to its opponent, the
+two netted before the marker moves, and the automatic victory at 20 VP
+is checked on the result -- not after the first of the two penalties
+alone (`Engine._end_of_turn`).
