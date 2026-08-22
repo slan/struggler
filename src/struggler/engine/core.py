@@ -26,6 +26,7 @@ _DEFAULT_MIN_DEFCON = 1
 # not yet known to the engine (see Engine.physical_mode). No real card id in
 # data/cards.json ever looks like this, so it can never collide with one.
 HIDDEN_CARD = "?"
+REALIGNMENT_STOP = "stop"  # the REALIGNMENT_TARGET option that ends the attempts early
 
 # Physical-mode headline option: the operator's real discard pile ran out
 # and got reshuffled at the table before the engine's own bookkeeping
@@ -2573,6 +2574,10 @@ class Engine:
         options = self._realignment_target_options(side)
         if not options:
             return
+        if spent >= 1:
+            # 6.3: each Op *may* be used for a roll. Once at least one has
+            # been, the rest may be left unused.
+            options += (Action(DecisionKind.REALIGNMENT_TARGET, {"country": REALIGNMENT_STOP}),)
         self._push(
             side,
             DecisionKind.REALIGNMENT_TARGET,
@@ -2583,6 +2588,8 @@ class Engine:
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         country = action.payload["country"]
+        if country == REALIGNMENT_STOP:
+            return  # the remaining Ops are forfeited; the action round moves on
         self._push(
             Side.CHANCE,
             DecisionKind.REALIGNMENT_ACTOR_ROLL,
