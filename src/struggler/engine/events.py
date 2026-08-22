@@ -1013,7 +1013,8 @@ def _push_ask_not(engine: "Engine", side: Side, discarded: int) -> None:
         if engine.physical_mode and side is engine.physical_side
         else engine.hands[side.value]
     )
-    choices = tuple(cid for cid in source if not engine.cards[cid].scoring) + ("stop",)
+    # "Up to the entire hand (including scoring cards)": every card may go.
+    choices = tuple(source) + ("stop",)
     if len(choices) == 1:  # nothing left to discard -> draw and finish
         engine.draw_cards_to_hand(side, discarded)
         return
