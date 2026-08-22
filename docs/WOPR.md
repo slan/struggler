@@ -438,17 +438,45 @@ touch. What the DLL is good for is the two things struggler cannot
 provide: an independent, commercial-grade opponent, and a second
 implementation of the rules to diff against.
 
-### What this is for
+### What this is for, and the pieces
 
 The bridge to Joshua is the engine's physical mode (`docs/BOTS.md`): the
 struggler engine mirrors the Playdek game as referee, Joshua sees only its
 `Observation`, and a `PlaydekOperator` replaces the human operator —
 translating the DLL's events (the AI's card plays, placements, rolls) into
-the operator's answers and Joshua's `Action` into `SelectGameOption` by
-`selectionID`/`selectionHint`. Every action is a chance to compare the two
-engines' states; a desync is either a bridge bug or a rules divergence
-worth a line in `LIMITATIONS.md`. That bridge is the next step; the loop
-above is the part that works today.
+the operator's answers and Joshua's `Action` into `SelectGameOption`.
+Every action is a chance to compare the two engines' states; a desync is
+either a bridge bug or a rules divergence worth a line in
+`LIMITATIONS.md`. The same translation, driven by a random policy in
+hotseat mode, is a lockstep differ of the two rules engines — thousands
+of random games an hour exercise every card event — and, on identical
+games, a matched per-decision benchmark of the two.
+
+The pure parts exist:
+
+- `ids.py` — the vocabularies. A card option's `selectionID` is
+  `100 + GMT number` (the same `number` as `cards.json`); a country's is
+  Playdek's `country_index` (1 USSR, 2 USA, 3 Canada … 87 Chinese Civil
+  War), also the `id` of `COUNTRY_INFLUENCE` events. Numbers above 110
+  are Playdek-only (promos 121–128, Turn Zero 129–146, the AI's Ops
+  proxies 201–204).
+- `translate.py` — what an option *means* (`Meaning.CARD / USE / COUNTRY
+  / CHOICE`, plus the UI-only `CANCEL` and `SWITCH_CARD`), the struggler
+  actions a "use" option stands for (one Playdek "Place Influence" is
+  `PLAY_MODE` ops + `OPS_TYPE` influence, with `EVENT_OPS_ORDER` in
+  between on an opponent's card — "Resolve Event First" is its own
+  option), lookups the other way (`find_card/find_country/find_use`),
+  and `rolls_from_event`, which turns the DLL's `COUP_ROLL`, `WAR_ROLL`,
+  `REALIGNMENT`, `SPACE_RACE_ROLL`, `TRAP_ROLL` and `EFFECT_ROLL` records
+  into physical mode's CHANCE answers. A country option's struggler
+  *kind* (`PLACE_INFLUENCE`, `EVENT_INFLUENCE`, `COUP_TARGET`, …) is
+  whatever the engine is asking; only the bridge knows that.
+
+Still to build: the bridge itself (`lockstep.py`: Playdek drives, the
+struggler engine replays each committed action with the DLL's rolls and
+deals as CHANCE answers, legality sets and state compared every step,
+with a known-divergence list), then the `PlaydekOperator` for Joshua and
+the eval.
 
 ## What Joshua cannot do yet
 

@@ -13,7 +13,7 @@ import struct
 
 import pytest
 
-from struggler.engine.types import Side
+from struggler.engine.types import DecisionKind, Side
 from wopr.playdek import ffi
 from wopr.playdek.game import EventDecoder, EventType, GameEvent
 
@@ -106,3 +106,96 @@ def test_hotseat_prompts_both_seats_in_order():
         assert game.hand_count(0) == 8 and game.hand_count(1) == 8
     finally:
         game.close()
+
+
+def test_ids_cover_both_vocabularies():
+    from wopr.playdek import ids
+
+    ids.check_against_struggler()
+    assert ids.card_id(125) == "Containment" and ids.card_selection("Duck_and_Cover") == 104
+    assert ids.country_id(17) == "Poland" and ids.country_index("US") == 2 and ids.country_id(1) == "USSR"
+    assert ids.country_id(87) == "Chinese_Civil_War" and ids.country_id(11) == "Spain_Portugal"
+    with pytest.raises(KeyError):
+        ids.card_id(250)  # nothing above 110 is a struggler card
+
+
+def test_ids_agree_with_the_installed_lua_database():
+    from wopr.playdek import ids
+
+    try:
+        root = ffi.find_install()
+    except FileNotFoundError:
+        pytest.skip("Playdek's Twilight Struggle is not installed")
+    assert ids.lua_countries(root) == {i + 1: n for i, n in enumerate(ids.PLAYDEK_COUNTRIES)}
+    lua = ids.lua_cards(root)
+    from struggler.engine.cards import load_cards
+
+    ours = {c.number: c.name for c in load_cards().values()}
+
+    def squash(name: str) -> str:  # "U-2 Incident" == "U2 Incident", "SALT" == "Salt"
+        return "".join(ch for ch in name.casefold() if ch.isalnum())
+
+    differing = {n: (ours[n], lua[n]) for n in ours if squash(ours[n]) != squash(lua[n])}
+    assert not differing, differing
+
+
+def _prompt(text, rows, player=0):
+    from wopr.playdek.game import Option, Prompt
+
+    return Prompt(player, text, tuple(Option(i, sid, hint, False, label) for i, (sid, hint, label) in enumerate(rows)))
+
+
+def test_translate_card_use_options():
+    from wopr.playdek import translate as T
+    from wopr.playdek.ffi import SelectionHint as H
+
+    # "Select Use For Event Card" on an opponent's card, as the DLL lists it.
+    prompt = _prompt("Select Use For Event Card", [
+        (0, H.CANCEL, "Cancel"), (125, H.SWITCH_CARD, "Play Containment"), (0, H.PLAY_EVENT, "Play Event"),
+        (0, H.RESOLVE_EVENT_FIRST, "Resolve Event First"), (0, H.OPS_INFLUENCE, "Place Influence"),
+        (0, H.OPS_REALIGNMENT, "Realignment Rolls"), (0, H.OPS_COUP, "Coup Attempt"), (0, H.OPS_SPACE_RACE, "Space Race"),
+    ])
+    assert T.meaning(prompt.options[0]).meaning is T.Meaning.CANCEL
+    assert T.meaning(prompt.options[1]).meaning is T.Meaning.SWITCH_CARD
+    assert T.find_use(prompt, mode="event").text == "Play Event"
+    assert T.find_use(prompt, mode="space_race").text == "Space Race"
+    assert T.find_use(prompt, mode="ops", ops_type="coup").text == "Coup Attempt"
+    assert T.find_use(prompt, mode="ops", event_first=True).text == "Resolve Event First"
+    coup = T.meaning(T.find_use(prompt, mode="ops", ops_type="coup")).use
+    assert [a.payload for a in T.actions_for_use(coup, opponents_card=True)] == [{"mode": "ops"}, {"order": "ops_first"}, {"type": "coup"}]
+    assert [a.payload for a in T.actions_for_use(coup, opponents_card=False)] == [{"mode": "ops"}, {"type": "coup"}]
+    first = T.meaning(T.find_use(prompt, mode="ops", event_first=True)).use
+    assert [a.payload for a in T.actions_for_use(first, opponents_card=True)] == [{"mode": "ops"}, {"order": "event_first"}]
+    with pytest.raises(LookupError):
+        T.find_use(prompt, mode="un_intervention")
+
+
+def test_translate_cards_countries_and_fallback_labels():
+    from wopr.playdek import translate as T
+    from wopr.playdek.ffi import SelectionHint as H
+
+    headline = _prompt("Select a Card to Headline", [(125, H.HEADLINE_CARD, "Headline Containment"), (111, H.HEADLINE_CARD, "Headline Korean War")])
+    assert T.cards_offered(headline) == {"Containment", "Korean_War"}
+    assert T.find_card(headline, "Korean_War").index == 1
+    place = _prompt("Place 3 More Influence", [(7, H.SETUP_INFLUENCE_COUNTRY, "Place Influence in Finland"), (17, H.SETUP_INFLUENCE_COUNTRY, "Place Influence in Poland")])
+    assert T.countries_offered(place) == {"Finland", "Poland"}
+    assert T.find_country(place, "Poland").selection_id == 17
+    war = _prompt("Select War Country", [(36, H.WAR_COUNTRY, "War in India"), (35, H.WAR_COUNTRY, "War in Pakistan")])
+    assert T.countries_offered(war) == {"India", "Pakistan"}
+    # A hint we have not catalogued, but a country in the label: still a country target.
+    coup = _prompt("Select Coup Country", [(30, 0xA0C0, "Coup Attempt in Iran")])
+    assert T.meaning(coup.options[0]) == T.OptionMeaning(T.Meaning.COUNTRY, country="Iran", label="Coup Attempt in Iran")
+    assert T.meaning(_prompt("?", [(0, 0xA0C0, "Something new")]).options[0]).meaning is T.Meaning.UNKNOWN
+
+
+def test_translate_roll_events_to_chance_answers():
+    from wopr.playdek import translate as T
+    from wopr.playdek.game import GameEvent
+
+    sides = {0: Side.USSR, 456: Side.US}
+    coup = T.rolls_from_event(GameEvent(int(EventType.COUP_ROLL), (0, 30, 4)), sides)
+    assert coup == [T.Roll(DecisionKind.COUP_ROLL, {"value": 4}, country="Iran")]
+    realign = T.rolls_from_event(GameEvent(int(EventType.REALIGNMENT), (456, 17, 2, 5)), sides)
+    assert [(r.kind, r.side, r.payload["value"]) for r in realign] == [
+        (DecisionKind.REALIGNMENT_ACTOR_ROLL, Side.US, 5), (DecisionKind.REALIGNMENT_OPPONENT_ROLL, Side.USSR, 2)]
+    assert T.rolls_from_event(GameEvent(int(EventType.VP_TRACK), (3,)), sides) == []
