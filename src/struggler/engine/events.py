@@ -1249,11 +1249,11 @@ def _che_choice(engine: "Engine", side: Side, choice: str, context: dict) -> Non
 @event("Cuban_Missile_Crisis")
 def _cuban_missile_crisis(engine: "Engine", side: Side) -> None:
     # Set DEFCON to 2. For the rest of the turn any Coup attempt by the
-    # opponent loses them the game (checked in _handle_coup_roll). The
-    # opponent may defuse by removing 2 Influence from Cuba (USSR) or West
-    # Germany *or Turkey* (US, its choice) -- offered fresh at the start of
-    # every one of their action rounds this turn (see
-    # Engine._push_cmc_defuse_offer), not just once immediately.
+    # opponent loses them the game (checked in _handle_coup_roll). Either
+    # side may cancel the event by removing 2 Influence from Cuba (USSR) or
+    # West Germany *or Turkey* (US, its choice) -- offered fresh at the
+    # start of every action round this turn and again when the banned side
+    # goes to coup (see Engine._push_cmc_defuse_offer), not just once.
     engine.set_defcon(2, caused_by=side)
     if engine.is_terminal:
         return
@@ -1266,7 +1266,8 @@ def _cuban_missile_crisis_defuse_choice(
     if choice != "skip":
         engine.remove_influence(choice, side, 2)
         engine.turn_effects.pop("cuban_missile_crisis", None)
-    engine._dispatch_action_round(side)
+    if context.get("at") != "coup":
+        engine._dispatch_action_round(side)  # the round the offer preceded; at a coup the target is next
 
 
 # -- We Will Bury You: end-of-turn VP unless UN Intervention defuses it -------

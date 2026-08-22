@@ -272,10 +272,12 @@ different such country if the first removed US Influence, capped at two via
 the `che` context on the `COUP_ROLL`.
 
 **Deferred per-turn conditions.** Cuban Missile Crisis (DEFCON→2; a coup by
-the flagged side loses the game, checked in `_handle_coup_roll`; the
-at-risk side may defuse — Cuba for the USSR, West Germany or Turkey for the
-US — offered fresh at the start of each of its action rounds for the rest
-of the turn via `Engine._push_cmc_defuse_offer`), We Will Bury You (DEFCON
+the flagged side loses the game, checked in `_handle_coup_roll`; either
+side may cancel the event as printed — Cuba for the USSR, West Germany or
+Turkey for the US — offered fresh at the start of each action round for
+the rest of the turn via `Engine._push_cmc_defuse_offer`, and once more
+to the flagged side when it has chosen to coup, before the target), We
+Will Bury You (DEFCON
 −1; the `we_will_bury_you` game effect resolves on the US's next
 action-round play: UN Intervention as an event cancels it, anything else
 hands the USSR 3 VP before that play resolves — per the FAQ it survives
