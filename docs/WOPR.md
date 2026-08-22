@@ -891,7 +891,13 @@ Findings from the first four random games, and what became of each:
   the card Grain Sales hands the US is played at once and the DLL
   reports no use for it, only the coup or the influence that follows, so
   its `PLAY_MODE` (and an opponent card's `EVENT_OPS_ORDER`) is simulated
-  like an either/or. Two engine
+  like an either/or. And one more `known`, DLL-different: We Will Bury
+  You's 3 VP are paid by the engine the moment the US plays a card other
+  than UN Intervention, by the DLL once that play is done -- when the VP
+  end the game there, the engine is over while the DLL still asks the
+  rest of the bot's action; `_complete_for_dll` finishes it with the
+  plainest choices and the two results are compared (a different winner
+  is fatal). Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear

@@ -139,6 +139,7 @@ class PlaydekOperator(Bridge):
         self._synced_move_seq = 0  # the card-move count when the two states last agreed at rest
         self._last_action: tuple[Decision, Action] | None = None  # the bot's latest, not yet applied by the engine when `flush` runs
         self._simulating = 0
+        self._completed_for_dll = False  # the bot's last action was finished in the DLL after the engine's game had ended
 
     def players(self, player: Player) -> dict[Side, Player]:
         """The `play_game` players table: the bot on its seat, the operator
@@ -879,10 +880,43 @@ class PlaydekOperator(Bridge):
             except Desync:
                 break
             if option is None:
+                if self.engine.is_terminal and self._complete_for_dll(prompt):
+                    continue
                 self.diverge("game over", f"the engine is over ({self.engine.winner}) while the DLL still asks {prompt.text!r}", fatal=True)
                 break
             self._choose(prompt, option)
-        return self.finish()
+        report = self.finish()
+        if self._completed_for_dll and self.game.result is not None and self._sides_by_player.get(self.game.result.winner_id) is not self.engine.winner:
+            self.diverge("game over", f"the engine's game ended ({self.engine.winner}) during the bot's action, the DLL's after it with another result ({self.game.result})", fatal=True)
+        return report
+
+    def _complete_for_dll(self, prompt: Prompt) -> bool:
+        """The engine's game ended in the middle of the bot's action where
+        the DLL's goes on to the action's end (We Will Bury You's 3 VP: the
+        engine pays them the moment the US plays another card, the DLL
+        once that play is done): finish the action in the DLL with the
+        plainest choices, so that its result can be compared. A new action
+        (a card prompt) is the DLL playing on, not this."""
+        if self.prompt_side(prompt) is not self.side:
+            return False
+        meanings = {T.meaning(o).meaning for o in prompt.visible}
+        if T.Meaning.CARD in meanings:
+            return False
+        pick = None
+        if T.Meaning.USE in meanings:
+            try:
+                pick = T.find_use(prompt, mode="ops", ops_type="influence")
+            except LookupError:
+                pick = next((o for o in prompt.visible if T.meaning(o).meaning is T.Meaning.USE), None)
+        if pick is None:
+            pick = next((o for o in prompt.visible if T.meaning(o).meaning not in UI_ONLY), None)
+        if pick is None:
+            return False
+        if not self._completed_for_dll:
+            self.known["the engine's game ended at the card play, the DLL's after the action (We Will Bury You's VP)"] += 1
+        self._completed_for_dll = True
+        self._choose(prompt, pick)
+        return True
 
 
 def play_match(pd: Playdek, player: Player, *, seed: int, side: Side, difficulty: AIDifficulty = AIDifficulty.HARD,
