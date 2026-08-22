@@ -363,9 +363,18 @@ def test_us_japan_pact_controls_and_shields_japan():
     engine.board.influence["Japan"] = {"US": 0, "USSR": 4}  # USSR-controlled first
     engine._fire_event(Side.US, "US_Japan_Mutual_Defense_Pact")
     assert engine.board.control("Japan") is Side.US
+    # "Sufficient Influence for Control" is on top of the USSR's, which stays.
+    assert engine.board.influence["Japan"] == {"US": 8, "USSR": 4}
     assert "Japan" not in {
         a.payload["country"] for a in engine._coup_target_options(Side.USSR)
     }
+
+
+def test_fidel_removes_the_us_before_controlling_cuba():
+    engine = _bare()
+    engine.board.influence["Cuba"] = {"US": 2, "USSR": 1}
+    engine._fire_event(Side.USSR, "Fidel")
+    assert engine.board.influence["Cuba"] == {"US": 0, "USSR": 3}  # "Remove all US Influence", then Control
 
 
 def test_willy_brandt_scores_and_lifts_nato_for_west_germany():
@@ -664,10 +673,23 @@ def test_indo_pakistani_war_target_choice_resolves_to_a_roll():
 def test_independent_reds_matches_us_to_ussr_influence():
     engine = _bare()
     engine.board.influence["Romania"] = {"US": 0, "USSR": 3}
+    engine.board.influence["Hungary"] = {"US": 1, "USSR": 2}
+    engine.board.influence["Bulgaria"] = {"US": 2, "USSR": 2}  # nothing to add: not a choice
     engine._fire_event(Side.US, "Independent_Reds")
     assert engine.pending_decision.kind is DecisionKind.EVENT_CHOICE
+    assert {a.payload["choice"] for a in engine.pending_decision.options} == {"Romania", "Hungary"}
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Romania"}))
     assert engine.board.influence["Romania"]["US"] == 3  # matched
+
+
+def test_independent_reds_with_nothing_to_match_asks_nothing():
+    engine = _bare()
+    for cid in ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia"):
+        engine.board.influence[cid] = {"US": 1, "USSR": 1}
+    before = engine.serialize()["board"]
+    engine._fire_event(Side.US, "Independent_Reds")
+    assert engine.pending_decision is None
+    assert engine.serialize()["board"] == before
 
 
 def test_puppet_governments_only_targets_empty_countries():
@@ -1163,15 +1185,17 @@ def test_grain_sales_reveals_exactly_one_ussr_card():
     assert choice.actor is Side.US
     assert {a.payload["choice"] for a in choice.options} == {"take", "return"}
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "take"}))
-    # "play the card": the US gets the normal Event/Ops choice for it, not
-    # just its fixed Ops value -- it moved to the US hand, not filed away yet.
+    # "play the card": the US gets the normal play choice for it, not just
+    # its fixed Ops value -- it moved to the US hand, not filed away yet. It
+    # is a USSR card, so that is Ops (the event happening with them), never
+    # the event alone.
     assert revealed not in engine.hands["USSR"] and revealed not in engine.discard_pile
     assert revealed in engine.hands["US"]
     play = engine.pending_decision
     assert play.kind is DecisionKind.PLAY_MODE and play.actor is Side.US
     assert play.context["card"] == revealed
     assert "ops" in {a.payload["mode"] for a in play.options}
-    assert "event" in {a.payload["mode"] for a in play.options}
+    assert "event" not in {a.payload["mode"] for a in play.options}
 
 
 def test_grain_sales_with_empty_ussr_hand_grants_the_us_two_ops():
@@ -1260,6 +1284,43 @@ def _play_card_for(engine: Engine, side: Side, cid: str, mode: str) -> None:
         {"card": cid},
     )
     engine.step(Action(DecisionKind.PLAY_MODE, {"mode": mode}))
+
+
+def test_an_opponents_card_is_not_offered_for_its_event_alone():
+    # Duck and Cover is a US event: the USSR plays it for Ops (the event
+    # happens either side of them) or the Space Race, never as an event on
+    # its own; the US, whose event it is, may.
+    engine = _bare()
+    engine.hands["USSR"] = ["Duck_and_Cover"]
+    engine.hands["US"] = ["Duck_and_Cover"]
+    assert engine.events_enabled
+    assert "event" not in engine._play_modes(Side.USSR, "Duck_and_Cover")
+    assert "ops" in engine._play_modes(Side.USSR, "Duck_and_Cover")
+    assert "event" in engine._play_modes(Side.US, "Duck_and_Cover")
+    # A neutral card is anyone's to play for its event.
+    engine.hands["USSR"].append("Olympic_Games")
+    assert "event" in engine._play_modes(Side.USSR, "Olympic_Games")
+
+
+def test_a_card_with_its_play_restriction_unmet_is_not_offered_for_its_event():
+    # NATO: "play only after Marshall Plan or Warsaw Pact Formed". Until one
+    # is played it is Ops (or the Space Race) only; then its event too.
+    engine = _bare()
+    engine.hands["US"] = ["NATO", "Special_Relationship"]
+    assert "event" not in engine._play_modes(Side.US, "NATO")
+    assert "ops" in engine._play_modes(Side.US, "NATO")
+    engine.game_effects["marshall_or_warsaw"] = True
+    assert "event" in engine._play_modes(Side.US, "NATO")
+    # Special Relationship's "if the UK is US-controlled" is the effect's
+    # condition, not a play restriction: playable, and nothing happens.
+    assert engine.board.control("UK") is not Side.US
+    assert "event" in engine._play_modes(Side.US, "Special_Relationship")
+    # One Small Step: "if you are behind on the Space Race, play this card to...".
+    engine.hands["USSR"] = ["One_Small_Step"]
+    engine.space_race = {"US": 1, "USSR": 1}
+    assert "event" not in engine._play_modes(Side.USSR, "One_Small_Step")
+    engine.space_race = {"US": 2, "USSR": 1}
+    assert "event" in engine._play_modes(Side.USSR, "One_Small_Step")
 
 
 def test_owner_event_play_fires_the_event():

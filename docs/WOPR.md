@@ -620,6 +620,15 @@ The pure parts exist:
 
 ### The lockstep differ (`lockstep.py`)
 
+What the differ and the match operator below share is `bridge.py`: the
+absorption of the DLL's records into facts (absolute influence, DEFCON,
+VP, card locations, a FIFO of dice, what was dealt this turn), the
+per-side queues of `Move`s (a choice the other program made, as a
+`translate.OptionMeaning`), the answers to the engine's CHANCE decisions
+and to a side's queued moves, the state comparison and the divergence
+report. The differ fills the queues from the prompts a policy answers;
+the operator fills the AI's from the records its play leaves behind.
+
 `python -m wopr.playdek.lockstep --games 4 --seed 1 [--trace]` plays
 hotseat games with a random policy and replays them on the struggler
 engine in physical mode, on demand: every engine decision is answered
@@ -736,8 +745,116 @@ Findings from the first four random games, and what became of each:
   --seed 5`, `--games 8 --seed 13`) run to the end with nothing but the
   known entries above and the word-matched choices; where both engines
   finish, the winner agrees.
+- **Found by the operator, fixed upstream** (what the differ cannot see:
+  a play the DLL never offers, or an event no random game fired):
+  the engine offered an opponent's card "for its event" alone, a play the
+  rules do not have (`fix/opponent-card-event-only`; a random policy on
+  the engine picked it one game in two); Independent Reds asked the US
+  to choose among all five countries whether or not there was USSR
+  Influence to match, and asked with none (`fix/independent-reds-targets`);
+  the US/Japan Mutual Defense Pact wiped the USSR's Influence in Japan,
+  where "sufficient Influence for Control" sits on top of it
+  (`fix/us-japan-pact-keeps-ussr-influence`; `gain_control` now removes
+  the opponent only where the card says so, as Fidel and Romanian
+  Abdication do).
 
-Then the `PlaydekOperator` for Joshua and the eval.
+### The match operator (`operator.py`) and the eval (`eval.py`)
+
+`PlaydekOperator` is the physical-mode operator of a game against
+Playdek's AI (docs/BOTS.md): the engine referees with the AI's seat as
+the physical side, the operator is the `Player` under that side and
+`Side.CHANCE`, and the bot's own seat is wrapped by `players()` so every
+action it takes is told to the DLL as it is made. The engine leads for
+the bot's seat, the DLL leads for the AI's:
+
+- **The bot's actions become the DLL's prompts.** Each is queued as it
+  is made and `flush` replies to the DLL's prompt as soon as the queue
+  determines the option: a card prompt from `ACTION_ROUND_PLAY` (with a
+  look at the `PLAY_MODE` behind it, since UN Intervention is its own
+  card there and a scoring card has no use prompt at all), one "use"
+  option from `PLAY_MODE` + `EVENT_OPS_ORDER` + `OPS_TYPE`, a country,
+  a choice (`translate.find_choice`: cards and countries by id, DEFCON
+  by the `0xA070+n` hints, the rest by label words, a decline by the
+  `STOP` entry). A forced single-option step the DLL never asks about
+  is dropped; anything else that does not fit the prompt is a fatal
+  mismatch. Before the bot decides, `narrow` cuts its options down to
+  the ones the DLL offers for the same choice when the DLL is at that
+  prompt (De-Stalinization's sources: the DLL forbids relocating back
+  into a country just emptied, the card text does not), so the play is
+  legal in both programs.
+- **The AI's play is read off the records.** It is never prompted, only
+  reported: its card and use from the `OUTPUT_ANIMATION_CARD` record of
+  the card leaving its hand for the resolve slot, whose
+  `animation_event_hint` is `0x8N01` for the use chosen (`0x82` event,
+  `0x83` event first, `0x84` influence, `0x85` realignment, `0x86` coup,
+  `0x87` space race; `0x8N02` is the automatic other half of an Ops
+  play, `0x1` a scoring card, `0x2` an event another event fired); its
+  headline from the card's move to the headline location; its coup,
+  war and realignment targets from the roll records (and "stop" once
+  no further realignment is reported); its influence, Ops or an
+  event's, from the influence *history* — each country's values since
+  the two states last agreed at rest, the earliest change past the
+  engine's value in the right direction first, so that a placement a
+  later action in the same chunk undid (a Marshall Plan point realigned
+  away) is still made and then undone by that action's own dice; any
+  order is legal since a point's cost depends only on its own country.
+  Ops an event grants (a boycotted Olympic Games' sponsor, CIA Created)
+  from the earliest of the dice or influence changes that followed —
+  not the first kind found, or the seat's own action round's coup would
+  be taken for the granted Op; a discard from the card
+  that left its hand, a Five Year Plan discard from the resolve record
+  of the card it fired, a Grain Sales draw from the reveal record. The
+  China Card has no card location: its holder comes from `CHINA_CARD`.
+  An either/or the records do not name is **simulated**: each option is
+  played on a copy of the engine with the rest of the chunk answered
+  from the same facts, and the one that leaves the copy in the DLL's
+  state is it (nested choices recurse; several matching is noted under
+  `known`). The DLL is at rest whenever the engine asks — it is only
+  pumped to the bot's next prompt or the game's end — so "no record
+  yet" means "not done", never "not yet arrived".
+- **Setup order.** The DLL deals after the opening placements, the
+  engine before; the bot's placements cannot wait for a deal the DLL
+  has not made, so the engine runs with `deal_after_setup=True`
+  (docs/ARCHITECTURE.md) and the bot places without sight of its hand,
+  as Playdek's players do.
+- **Hotseat emulation** (`emulate=`, `eval --difficulty hotseat`): the
+  same protocol against a DLL-prompt policy on the other seat, its
+  records feeding the engine exactly as the AI's would, at 10k prompts
+  a second instead of 15 s a decision — how the operator is tested.
+  Two things differ: a hotseat game re-emits an action's records at
+  its commit (the next action boundary, after the next `ACTION_ROUND`
+  record), a game against the AI does not. `Bridge.replayed` matches
+  the re-emission off a FIFO of the records acted on (dice, card plays
+  and influence values, in emission order) in hotseat mode only: kept
+  against the AI, the FIFO's head would be the game's oldest record and
+  a later roll equal to it would be taken for a replay. The influence
+  values must go through it too: a re-emitted `COUNTRY_INFLUENCE`
+  carries the value of its time, stale if a later action changed it,
+  and would otherwise enter the history as a new change. And the
+  hotseat re-asks the very first prompt, dropping the first answer
+  *and* the records it produced: `_reasked` answers it again and takes
+  those records back.
+- **What a game costs.** The AI spends 15 s on every decision, a card
+  play being three or four of them: a game that runs six or more turns
+  is 30–50 minutes of one core. (The "2½ minutes" measured earlier was
+  a random opponent ending games in a turn or two.) The eval's
+  `--workers` is the only lever; a hundred games are an afternoon.
+- **Desync.** A fatal divergence (the engine asks what the DLL cannot
+  answer, the bot's action has no option in the DLL, no choice
+  reproduces the DLL's state) ends the game as a `Desync`; the game
+  does not count. The state is compared at every card prompt of the
+  bot's and the difference reported, as in the differ.
+
+`python -m wopr.playdek.eval --games 20 --policy joshua=baselines/r2/v1/joshua.pt
+--difficulty hard --workers 8 --out runs/playdek/<name>` plays the games
+in a process pool (one Playdek instance per worker, one game at a time
+each), seats alternating by game
+index, seed `--seed + index`, and writes every game's replay log
+(`<out>/games/`), every result (`<out>/results.jsonl`) and the tally
+(`<out>/summary.json`): the policy's win rate per seat with a Wilson 95%
+interval, the endings, the desyncs, the `known` counts. The AI is not
+deterministic for a seed, so it is a sample, not a replay; `--policy
+greedy|random|first` give the yardsticks.
 
 ## What Joshua cannot do yet
 

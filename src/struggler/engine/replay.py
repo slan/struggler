@@ -73,6 +73,7 @@ def make_engine(log: dict[str, Any]) -> Engine:
             physical_mode=log.get("physical_mode", False),
             physical_side=Side(physical_side) if physical_side else None,
             variants=log.get("variants", ()),
+            deal_after_setup=log.get("deal_after_setup", False),
         )
     engine = Engine(seed=log["seed"])
     apply_setup(engine, log["setup"])
@@ -270,6 +271,7 @@ class GameLogWriter:
         self._variants = sorted(engine.board.variants)
         self._events_enabled = engine.events_enabled
         self._starting_vp = engine.starting_vp
+        self._deal_after_setup = engine.deal_after_setup
         self._physical_mode = engine.physical_mode
         self._physical_side = engine.physical_side.value if engine.physical_side is not None else None
         self._actions: list[dict[str, Any]] = list(initial_actions) if initial_actions is not None else []
@@ -297,6 +299,8 @@ class GameLogWriter:
             "actions": self._actions,
             "winner": self._winner,
         }
+        if self._deal_after_setup:
+            log["deal_after_setup"] = True  # the default order needs no key (older logs have none)
         try:
             self._path.parent.mkdir(parents=True, exist_ok=True)
             fd, tmp_name = tempfile.mkstemp(dir=self._path.parent, suffix=".tmp")

@@ -39,10 +39,16 @@ class Event:
     `resolve` applies the effect for the given phasing side. `eligible` gates
     whether the event is allowed to happen; it defaults to "always" and exists
     for events (and future rule-modifiers) whose text has a precondition.
+    `restricts_play` says the precondition is a play restriction ("play only
+    if", "may no longer be played as an event"): the card is then not offered
+    for its event in an action round while it is unmet, only for Ops or the
+    Space Race. Off for a precondition that is the effect's own condition
+    (Special Relationship), where the event is playable and does nothing.
     """
 
     resolve: Callable[["Engine", Side], None]
     eligible: Callable[["Engine", Side], bool] = lambda engine, side: True
+    restricts_play: bool = True
 
 
 EVENTS: dict[str, Event] = {}
@@ -52,11 +58,12 @@ def event(
     card_id: str,
     *,
     eligible: Callable[["Engine", Side], bool] | None = None,
+    restricts_play: bool = True,
 ) -> Callable[[Callable[["Engine", Side], None]], Callable[["Engine", Side], None]]:
     """Register the decorated function as `card_id`'s event resolver."""
 
     def register(fn: Callable[["Engine", Side], None]) -> Callable[["Engine", Side], None]:
-        EVENTS[card_id] = Event(resolve=fn, eligible=eligible or Event.eligible)
+        EVENTS[card_id] = Event(resolve=fn, eligible=eligible or Event.eligible, restricts_play=restricts_play)
         return fn
 
     return register
@@ -303,9 +310,10 @@ def _nato(engine: "Engine", side: Side) -> None:
 
 @event("US_Japan_Mutual_Defense_Pact")
 def _us_japan_pact(engine: "Engine", side: Side) -> None:
-    # US gains enough Influence to Control Japan; the USSR may never Coup or
-    # make Realignment rolls against Japan for the rest of the game.
-    engine.gain_control("Japan", Side.US)
+    # "The US receives sufficient Influence in Japan for Control": on top of
+    # the USSR's, which stays; the USSR may never Coup or make Realignment
+    # rolls against Japan for the rest of the game.
+    engine.gain_control("Japan", Side.US, remove_opponent=False)
     engine.game_effects["us_japan_pact"] = True
 
 
@@ -469,13 +477,15 @@ def _reagan_bombs_libya(engine: "Engine", side: Side) -> None:
     engine._award_vp(Side.US, engine.board.influence["Libya"]["USSR"] // 2)
 
 
-@event("One_Small_Step")
+@event(
+    "One_Small_Step",
+    eligible=lambda engine, side: engine.space_race[side.value] < engine.space_race[side.opponent.value],
+)
 def _one_small_step(engine: "Engine", side: Side) -> None:
-    # If you are behind on the Space Race, jump two boxes; get VP for the
-    # second step only (the printed card's own wording).
-    if engine.space_race[side.value] < engine.space_race[side.opponent.value]:
-        engine.advance_space_race_box(side, award_vp=False)
-        engine.advance_space_race_box(side)
+    # "If you are behind on the Space Race, play this card to": jump two
+    # boxes, VP for the second step only (the printed card's own wording).
+    engine.advance_space_race_box(side, award_vp=False)
+    engine.advance_space_race_box(side)
 
 
 @event("AWACS_Sale_to_Saudis")
@@ -674,11 +684,15 @@ def _brush_war(engine: "Engine", side: Side) -> None:
 
 @event("Independent_Reds")
 def _independent_reds(engine: "Engine", side: Side) -> None:
-    # Add US Influence in one of these to equal the USSR Influence there.
-    engine.push_event_choice(
-        "Independent_Reds", Side.US,
-        ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia"),
+    # Add US Influence in one of these to equal the USSR Influence there:
+    # only a country where there is USSR Influence to match is a choice,
+    # and with none the event has nothing to do.
+    candidates = tuple(
+        cid for cid in ("Yugoslavia", "Romania", "Bulgaria", "Hungary", "Czechoslovakia")
+        if engine.board.influence[cid]["USSR"] > engine.board.influence[cid]["US"]
     )
+    if candidates:
+        engine.push_event_choice("Independent_Reds", Side.US, candidates)
 
 
 def _independent_reds_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
@@ -1542,6 +1556,7 @@ def _norad(engine: "Engine", side: Side) -> None:
 @event(
     "Special_Relationship",
     eligible=lambda engine, side: engine.board.control("UK") is Side.US,
+    restricts_play=False,  # "if the UK is US-controlled": the effect's condition, not the play's
 )
 def _special_relationship(engine: "Engine", side: Side) -> None:
     # Physical card text, confirmed: while the UK is US-controlled --

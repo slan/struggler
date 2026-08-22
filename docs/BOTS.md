@@ -98,7 +98,10 @@ up silently (nothing new is *learned* by the engine, still just a count).
 All of this — both hands' dealing, every dice roll, and the physical side's
 own moves — is answered by one `struggler.engine.physical.OperatorConsolePlayer`
 instance, registered in `players` under **both** `physical_side` and
-`Side.CHANCE`; `runner.play_game` routes to it accordingly. The bot side's
+`Side.CHANCE`; `runner.play_game` routes to it accordingly. (The same seat
+can be held by a program: `wopr.playdek.operator.PlaydekOperator` answers
+it from what Playdek's digital edition reports of its AI's play, with the
+AI as the "physical" side — docs/WOPR.md.) The bot side's
 own `Player` is completely untouched — it still only ever computes its own
 strategic decisions from `Observation`/`history`, unaware anything is
 different about this game.

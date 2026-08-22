@@ -69,6 +69,22 @@ _CARD_HINTS = {
     SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.PLAY_OPPONENT_CARD,
     SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD,
 }
+# `OUTPUT_ANIMATION_CARD.animation_event_hint` when a card leaves a hand for
+# the resolve slot: `0x8000 | (use << 8) | 1` for the use the player chose
+# (the second byte 2 marks the automatic other half of an "event after
+# Ops" play). 0x81 is a headline's reveal. This is how an AI seat's use is
+# learned -- the AI's choices are never prompted, only reported.
+ANIMATION_USES: dict[int, Use] = {
+    0x82: Use("event"),
+    0x83: Use("ops", None, True),
+    0x84: Use("ops", "influence", False),
+    0x85: Use("ops", "realignment", False),
+    0x86: Use("ops", "coup", False),
+    0x87: Use("space_race"),
+}
+ANIMATION_HEADLINE = 0x81
+ANIMATION_CHOSEN = 0x01  # low byte: the use the player chose (0x02: the automatic second half)
+
 _COUNTRY_BY_NAME = {name: i + 1 for i, name in enumerate(ids.PLAYDEK_COUNTRIES)}
 _LABEL_COUNTRY = re.compile(r" in (.+)$")
 
@@ -104,11 +120,19 @@ def meaning(option: Option) -> OptionMeaning:
     if SelectionHint.DEFCON_SET < hint <= SelectionHint.DEFCON_SET + 5:
         return OptionMeaning(Meaning.CHOICE, defcon=hint - SelectionHint.DEFCON_SET, label=option.text)
     # Unknown hint: a country named in the label is still a country target
-    # ("Coup in Poland", "Attempt Realignment in Iran").
+    # ("Coup in Poland", "Attempt Realignment in Iran"), and a card id with
+    # the card's name in the label a card ("Recover Summit", Star Wars).
     m = _LABEL_COUNTRY.search(option.text)
     if m and m.group(1) in _COUNTRY_BY_NAME:
         return OptionMeaning(Meaning.COUNTRY, country=ids.country_id(_COUNTRY_BY_NAME[m.group(1)]), label=option.text)
+    number = option.selection_id - ids.CARD_SELECTION_OFFSET
+    if number in ids.CARD_BY_NUMBER and _squash(ids._CARDS[ids.CARD_BY_NUMBER[number]].name) in _squash(option.text):
+        return OptionMeaning(Meaning.CARD, card=ids.CARD_BY_NUMBER[number], label=option.text)
     return OptionMeaning(Meaning.UNKNOWN, label=option.text)
+
+
+def _squash(name: str) -> str:
+    return "".join(ch for ch in name.casefold() if ch.isalnum())
 
 
 def actions_for_use(use: Use, *, opponents_card: bool) -> list[Action]:
@@ -156,6 +180,48 @@ def find_use(prompt: Prompt, *, mode: str, ops_type: str | None = None, event_fi
         if u.mode == mode and (mode != "ops" or u.ops_type == ops_type) and not u.event_first:
             return o
     raise LookupError(f"no use option for mode={mode} ops_type={ops_type} event_first={event_first} in {[o.text for o in prompt.visible]}")
+
+
+def use_from_animation(hint: int) -> Use | None:
+    """The use a card-play animation hint reports, or None for anything
+    else (a headline reveal, the automatic second half, a plain move)."""
+    if hint & 0xFF != ANIMATION_CHOSEN:
+        return None
+    return ANIMATION_USES.get((hint >> 8) & 0xFF)
+
+
+def find_stop(prompt: Prompt) -> Option:
+    """The "stop here" entry of an optional repetition ("No More
+    Realignment", "Do Not Discard", "Done Removing")."""
+    for o in prompt.visible:
+        if meaning(o).meaning is Meaning.STOP:
+            return o
+    raise LookupError(f"no stop option in {prompt.text!r}: {[o.text for o in prompt.visible]}")
+
+
+def find_choice(prompt: Prompt, choice: str, *, defcon: int) -> Option:
+    """The option for a struggler EVENT_CHOICE payload: a card or country id
+    by its own lookup, a DEFCON level (or raise/lower/none from the current
+    `defcon`) by the DEFCON hints, anything else by the label words."""
+    if choice in ids.NUMBER_BY_CARD:
+        return find_card(prompt, choice)
+    if choice in ids.INDEX_BY_COUNTRY:
+        return find_country(prompt, choice)
+    levels = {o: meaning(o).defcon for o in prompt.visible}
+    if any(level is not None for level in levels.values()):
+        want = {"raise": defcon + 1, "lower": defcon - 1, "none": defcon}.get(choice)
+        if want is None and choice.isdigit():
+            want = int(choice)
+        for o, level in levels.items():
+            if level == want:
+                return o
+        raise LookupError(f"no DEFCON option for {choice!r} at DEFCON {defcon} in {[o.text for o in prompt.visible]}")
+    words = set(choice.lower().replace("_", " ").split())
+    scored = [(len(words & set(o.text.lower().split())), o) for o in prompt.visible if meaning(o).meaning is not Meaning.BLANK]
+    best = max(scored, key=lambda t: t[0], default=None)
+    if best is None or best[0] == 0:
+        raise LookupError(f"no option shares a word with {choice!r} in {prompt.text!r}: {[o.text for o in prompt.visible]}")
+    return best[1]
 
 
 def uses_offered(prompt: Prompt) -> set[Use]:

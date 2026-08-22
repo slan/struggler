@@ -196,7 +196,8 @@ Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed (branch),
 Socialist Governments, Muslim Revolution, Colonial Rear Guards, Liberation
 Theology, The Voice of America, Puppet Governments, OAS Founded, Pershing
 II Deployed, The Reformer, Solidarity, Marine Barracks Bombing, Independent
-Reds (match-influence branch), East European Unrest and South African
+Reds (match-influence branch: only the countries with USSR Influence to
+match are choices, none is no event), East European Unrest and South African
 Unrest (which use `push_event_influence`'s per-selection `amount` for the
 Late-War 2-per-country removal), De-Stalinization (a relocate flow: remove
 up to 4 USSR Influence, then replace it in non-US-controlled countries, max
@@ -227,6 +228,11 @@ itself has no standalone event, so `_play_modes` excludes it from the
 `"event"` mode (alongside the China Card) when it is the card being
 played directly — it is Ops-only in that case, and the combo only
 triggers via the `un_intervention` mode offered on the *other* card.
+The `"event"` mode is also never offered on an opponent's card: such a
+card is played for Ops (its event happening before or after them, the
+`EVENT_OPS_ORDER` decision), for the Space Race, or with UN Intervention
+— the rules give no "event only" play of the other side's events, and a
+headline is the only place one is played as an event on its own.
 
 **Take-and-play from a hand or the discard pile.** Missile Envy
 (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops

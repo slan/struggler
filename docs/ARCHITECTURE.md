@@ -224,4 +224,18 @@ versions per rules version (docs/WOPR.md); a rules change that makes an
 existing bot lose by its own hand must fail a test (the Greedy sanity
 test in `tests/test_greedy.py`), not an evaluation. Version 1 is the
 engine before the August 2026 fixes; version 2 is after the nine of
-them (`b55daf5`).
+them (`b55daf5`); version 3 adds the four the match operator found
+(an opponent's card or an event whose play restriction is unmet is not
+offered "for its event", Independent Reds' targets, the US/Japan Pact
+leaving the USSR's Influence in Japan -- docs/WOPR.md).
+
+## Opening deal order
+
+`Engine.new_game(..., deal_after_setup=True)` deals the opening hands
+after the USSR's 6 and the US's 7 opening placements instead of before
+them, so the placements are made without sight of a hand. The default
+deals first, as the printed setup sequence does; the option is Playdek's
+order, which `wopr.playdek` has to follow in physical mode because its
+`DEAL_CARD` answers come from the other program's deal (docs/WOPR.md).
+`serialize()` carries the flag, and a `new_game` replay log records it
+in its header when set (mandate #5).

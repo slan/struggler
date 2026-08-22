@@ -230,3 +230,44 @@ def test_translate_roll_events_to_chance_answers():
     assert [(r.kind, r.side, r.payload["value"]) for r in realign] == [
         (DecisionKind.REALIGNMENT_ACTOR_ROLL, Side.US, 5), (DecisionKind.REALIGNMENT_OPPONENT_ROLL, Side.USSR, 2)]
     assert T.rolls_from_event(GameEvent(int(EventType.VP_TRACK), (3,)), sides) == []
+
+
+def test_translate_animation_hints_name_the_use():
+    from wopr.playdek import translate as T
+
+    # `OUTPUT_ANIMATION_CARD.animation_event_hint` of a card leaving a hand
+    # for the resolve slot: 0x8N01 is the use chosen (N as the app's use
+    # menu orders them), 0x8N02 the automatic other half of an Ops play.
+    assert T.use_from_animation(0x8201) == T.Use("event")
+    assert T.use_from_animation(0x8301) == T.Use("ops", None, True)
+    assert T.use_from_animation(0x8401) == T.Use("ops", "influence", False)
+    assert T.use_from_animation(0x8501) == T.Use("ops", "realignment", False)
+    assert T.use_from_animation(0x8601) == T.Use("ops", "coup", False)
+    assert T.use_from_animation(0x8701) == T.Use("space_race")
+    assert T.use_from_animation(0x8101) is None  # a headline's reveal
+    assert T.use_from_animation(0x8302) is None  # the event after the Ops, not a choice
+    assert T.use_from_animation(0x1) is None and T.use_from_animation(0x2) is None  # a scoring card; an event fired by an event
+
+
+def test_translate_replies_for_the_bots_choices():
+    from wopr.playdek import translate as T
+    from wopr.playdek.ffi import SelectionHint as H
+
+    realign = _prompt("Attempt Realignment in 2 More Countries", [(29, H.OPS_REALIGNMENT + 1, "Realignment Roll in Iraq"), (0, H.STOP, "No More Realignment")])
+    assert T.find_stop(realign).text == "No More Realignment"
+    assert T.find_country(realign, "Iraq").selection_id == 29
+    blockade = _prompt("You May Discard a Card from Your Hand", [(125, H.DISCARD_CARD, "Discard Containment"), (0, H.STOP, "Do Not Discard")])
+    assert T.find_choice(blockade, "Containment", defcon=5).text == "Discard Containment"
+    assert T.find_stop(blockade).text == "Do Not Discard"
+    olympics = _prompt("Participate in Olympic Games?", [(0, H.EVENT_CHOICE_YES, "Participate"), (0, H.EVENT_CHOICE_NO, "Boycott"), (120, H.EVENT_CHOICE_BLANK, "")])
+    assert T.find_choice(olympics, "boycott", defcon=5).text == "Boycott"
+    assert T.find_choice(olympics, "participate", defcon=5).text == "Participate"
+    summit = _prompt("You May Adjust DEFCON Level", [(145, H.DEFCON_SET + 3, "Improve DEFCON Level"), (145, H.DEFCON_SET + 1, "Degrade DEFCON Level"), (145, H.DEFCON_SET + 2, "Pass")])
+    assert T.find_choice(summit, "raise", defcon=2).text == "Improve DEFCON Level"
+    assert T.find_choice(summit, "none", defcon=2).text == "Pass"
+    learned = _prompt("Choose DEFCON Level", [(146, H.DEFCON_SET + n, f"DEFCON {n}") for n in (5, 4, 3, 2, 1)])
+    assert T.find_choice(learned, "3", defcon=5).text == "DEFCON 3"
+    source = _prompt("Choose the country", [(17, H.RELOCATE_FROM_COUNTRY, "Relocate Influence from Poland")])
+    assert T.find_choice(source, "Poland", defcon=5).selection_id == 17
+    with pytest.raises(LookupError):
+        T.find_choice(olympics, "remove", defcon=5)
