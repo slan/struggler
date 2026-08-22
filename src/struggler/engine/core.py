@@ -1602,10 +1602,11 @@ class Engine:
         owner = Side(ctx["owner"])
         card = action.payload["card"]
         if ctx["purpose"] == "five_year_plan":
-            # A discarded USSR-associated event fires (even against the USSR's
-            # own interest); anything else is just discarded.
+            # A discarded US-associated event fires (the card text: "If the
+            # card has a US associated event, the event occurs immediately");
+            # a USSR or neutral event, or a scoring card, is just discarded.
             info = self.cards[card]
-            if not info.scoring and info.side.value == owner.value and self._has_event(card):
+            if not info.scoring and info.side.value == owner.opponent.value and self._has_event(card):
                 self._file_card(owner, card, fired=True)
                 self._fire_event(owner, card)
             else:
