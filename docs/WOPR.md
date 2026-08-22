@@ -395,9 +395,13 @@ cost something to learn, so they are not learned twice:
   `OUTPUT_ANIMATION_*` records are the preview).
 - Time: the hard AI takes a few seconds per decision; a whole game
   against a scripted opponent took 2½ minutes (hard) and 4½ (easy, it
-  lasted longer). The process is mostly idle while the AI thinks, so
-  several games can run in parallel processes — the DLL is a process-wide
-  singleton with one current game.
+  lasted longer), and forced updates change none of that — the time is
+  the AI's thinking, not pacing. The process is mostly idle while the AI
+  thinks, so several games can run in parallel processes — the DLL is a
+  process-wide singleton with one current game. The AI is not
+  deterministic for a given `seed` and a fixed opponent (two runs of the
+  same scripted game differed from the AI's first decision on), so an
+  eval against it is a sample, not a replay.
 
 ### As a rules engine: measured, and why not
 
