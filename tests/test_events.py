@@ -1163,15 +1163,17 @@ def test_grain_sales_reveals_exactly_one_ussr_card():
     assert choice.actor is Side.US
     assert {a.payload["choice"] for a in choice.options} == {"take", "return"}
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "take"}))
-    # "play the card": the US gets the normal Event/Ops choice for it, not
-    # just its fixed Ops value -- it moved to the US hand, not filed away yet.
+    # "play the card": the US gets the normal play choice for it, not just
+    # its fixed Ops value -- it moved to the US hand, not filed away yet. It
+    # is a USSR card, so that is Ops (the event happening with them), never
+    # the event alone.
     assert revealed not in engine.hands["USSR"] and revealed not in engine.discard_pile
     assert revealed in engine.hands["US"]
     play = engine.pending_decision
     assert play.kind is DecisionKind.PLAY_MODE and play.actor is Side.US
     assert play.context["card"] == revealed
     assert "ops" in {a.payload["mode"] for a in play.options}
-    assert "event" in {a.payload["mode"] for a in play.options}
+    assert "event" not in {a.payload["mode"] for a in play.options}
 
 
 def test_grain_sales_with_empty_ussr_hand_grants_the_us_two_ops():
@@ -1260,6 +1262,22 @@ def _play_card_for(engine: Engine, side: Side, cid: str, mode: str) -> None:
         {"card": cid},
     )
     engine.step(Action(DecisionKind.PLAY_MODE, {"mode": mode}))
+
+
+def test_an_opponents_card_is_not_offered_for_its_event_alone():
+    # Duck and Cover is a US event: the USSR plays it for Ops (the event
+    # happens either side of them) or the Space Race, never as an event on
+    # its own; the US, whose event it is, may.
+    engine = _bare()
+    engine.hands["USSR"] = ["Duck_and_Cover"]
+    engine.hands["US"] = ["Duck_and_Cover"]
+    assert engine.events_enabled
+    assert "event" not in engine._play_modes(Side.USSR, "Duck_and_Cover")
+    assert "ops" in engine._play_modes(Side.USSR, "Duck_and_Cover")
+    assert "event" in engine._play_modes(Side.US, "Duck_and_Cover")
+    # A neutral card is anyone's to play for its event.
+    engine.hands["USSR"].append("Olympic_Games")
+    assert "event" in engine._play_modes(Side.USSR, "Olympic_Games")
 
 
 def test_owner_event_play_fires_the_event():

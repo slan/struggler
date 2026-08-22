@@ -1021,8 +1021,14 @@ class Engine:
         # exists as the 'un_intervention' combo mode offered on a different,
         # qualifying card (below); played directly it has no standalone event, so
         # it is Ops-only too -- offering "event" here would just be a legal-looking
-        # but nonsensical no-op discard.
-        if cid not in (RULES["china_card_id"], RULES["un_intervention_id"]):
+        # but nonsensical no-op discard. An opponent's card cannot be played for
+        # its event alone either (5.2): it is played for Ops, and the event
+        # happens as part of that play (`EVENT_OPS_ORDER`), or for the Space
+        # Race, or with UN Intervention. (With events off every "event" play is
+        # the same no-op discard, and the choice stays enumerated as before.)
+        if cid not in (RULES["china_card_id"], RULES["un_intervention_id"]) and not (
+            self.events_enabled and self._is_opponent_event(side, card)
+        ):
             modes.append("event")
         if self._can_space_race(side, card):
             modes.append("space_race")
