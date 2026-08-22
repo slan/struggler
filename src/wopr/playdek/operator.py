@@ -371,9 +371,11 @@ class PlaydekOperator(Bridge):
                 self.synced_seq = s
                 return
 
-    def _dll_influence_at(self, country: str, seq: int) -> tuple[int, int] | None:
-        """The DLL's (USSR, US) Influence in `country` as of record `seq`."""
-        value = None
+    def _dll_influence_at(self, country: str, seq: int) -> tuple[int, int]:
+        """The DLL's (USSR, US) Influence in `country` as of record `seq`.
+        The DLL reports a country's influence once it changes (the setup
+        values included), so a country with no record yet is empty."""
+        value = (0, 0)
         for q, v in self.influence_history.get(country, ()):
             if q > seq:
                 break
