@@ -375,7 +375,22 @@ class PlaydekOperator(Bridge):
                 return self._answer_choice(d)
             if d.kind in (DecisionKind.QUAGMIRE_DISCARD, DecisionKind.HELD_CARD_DISCARD):
                 card = self.card_that_left(self.other, {a.payload["card"] for a in d.options})
-                return None if card is None else self._pick(d, lambda a: a.payload["card"] == card, f"discard {card}")
+                if card is not None:
+                    return self._pick(d, lambda a: a.payload["card"] == card, f"discard {card}")
+                prompt = self.game.prompt
+                if d.kind is DecisionKind.QUAGMIRE_DISCARD and (self.game.result is not None or (prompt is not None and self.prompt_side(prompt) is self.side)):
+                    # The DLL is past the trap step with nothing discarded:
+                    # the trapped seat had no 2+-Ops card and kept its
+                    # scoring card ("You May Play a Scoring Card" -> Pass, a
+                    # prompt that leaves no record); the engine plays it
+                    # (docs/WOPR.md, known).
+                    if d.context.get("forced_scoring"):
+                        return self._pick(d, lambda a: a.payload["card"] == "none", "keep the scoring card (trapped)")
+                    self.known["trap step: the DLL lets the trapped seat keep its scoring card, the engine plays it"] += 1
+                    self.diverge("rules", f"{self.other.value} is trapped with no 2+-Ops card: the DLL let it keep the scoring card, "
+                                 "the engine plays it", fatal=True)
+                    return d.options[0]
+                return None
             if d.kind is DecisionKind.PLAY_MODE and len(d.options) == 1:
                 return d.options[0]  # a scoring card: the DLL reports no use for it
             if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._handed
