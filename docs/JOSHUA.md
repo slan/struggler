@@ -137,6 +137,8 @@ Details, trajectories and checkpoints per version are in
 | v9 | v8 + 4,000 games with 2 PPO epochs (the A/B winner; 24,000 games) | +1527 ± 26 | 1.00 | **0.99** (0.97 / 1.00) |
 | v10 | v9 + 8,000 games by the loop (one failed gate, then 0.63 vs v9); 32,000 games | +1499 ± 46 | 1.00 | **0.98** (0.97 / 0.98) |
 | v11 | 8,000 games from scratch, **hidden 256**, 4 epochs (the capacity A/B winner; 47 min) | +1244 ± 31 | 0.99 (0.99 / 1.00) | **0.91** (0.85 / 0.97) |
+| v12 | v11 + 4,000 games by the loop (gate 0.79 vs v11); 12,000 games | +1452 ± 15 | 1.00 | **0.98** (0.97 / 0.99) |
+| v13 | v12 + 8,000 (one failed gate at 0.547, then 0.625 vs v12); 20,000 games | +1460 ± 14 | 1.00 | **0.98** (0.98 / 0.97) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -310,6 +312,15 @@ What the capacity experiment taught (hidden 256, August 2026):
   Its games are shorter (mean final turn 5.7 against the 2-epoch arm's
   7.2) — more DEFCON endings, and they win.
 
+- **Through the loop it climbs where 128 had flattened.** Three
+  generations from v11 (4 epochs, 4,000 games each, ~35 min training
+  and 90 s of gate per generation): v12 at 12,000 games (0.79 vs v11),
+  a miss at 16,000 (worst seed 0.547 against the 0.55 gate), v13 at
+  20,000 (0.625 vs v12). On the 128 chain, v12 is level with v8 (0.50;
+  20,000 games of 128) and v13 beats v8 0.65, v9 0.57 and takes 0.40
+  off v10 — 20,000 games of 256 are worth about 30,000 of 128. The gap
+  to v10 is the US seat alone (0.07 as US, 0.73 as USSR).
+
 ### Reading v9's games
 
 Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
@@ -391,8 +402,9 @@ climbing where 128 flattened: v11 continues through the loop with
 itself as the champion (`--hidden 256 --n-epochs 4`, 4,000 games a
 generation), so every promotion is frozen and rated against the whole
 chain, v10 included. The marks to watch: the generation where it passes
-v10 (the 128 chain needed 24,000 games past v5 to get there), and
-whether the gate keeps clearing past 36,000 games. If it flattens too,
+v10 (the 128 chain needed 24,000 games past v5 to get there; v13 at
+20,000 takes 0.40 off it), and whether the gate keeps clearing past
+36,000 games. If it flattens too,
 a third graph layer is next before concluding capacity is not the
 limit. A note on epochs: 2 is the default because it matched 4 when
 continuing a trained run; a fresh run wants 4, and the 256 line is

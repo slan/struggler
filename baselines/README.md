@@ -272,3 +272,46 @@ with 8 collector processes and 16 torch threads).
   chain — 8,000 games of the wider network are worth 12–16,000 of the
   narrower one, at about twice the wall time per game. The USSR seat is
   the stronger one against everything from v3 on.
+
+## v12
+
+Commit `363c5d4` — run `h256-e4`, 12,000 games trained.
+
+- Loop generation 1: v11 continued for 4,000 games; gate 0.55 cleared at 0.785 (worst seed) against v11.
+- Elo vs random: **+1452 ± 15** over seeds [0, 1, 2]
+- vs random: 1.000 (US 1.000 / USSR 1.000)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.977 (US 0.967 / USSR 0.987)
+- vs v1: 0.980 (US 0.967 / USSR 0.993)
+- vs v10: 0.301 (US 0.063 / USSR 0.538)
+- vs v11: 0.791 (US 0.618 / USSR 0.963)
+- vs v2: 1.000 (US 1.000 / USSR 1.000)
+- vs v3: 0.978 (US 0.963 / USSR 0.993)
+- vs v4: 0.864 (US 0.788 / USSR 0.940)
+- vs v5: 0.928 (US 0.913 / USSR 0.943)
+- vs v6: 0.793 (US 0.657 / USSR 0.930)
+- vs v7: 0.756 (US 0.635 / USSR 0.877)
+- vs v8: 0.503 (US 0.323 / USSR 0.683)
+- vs v9: 0.369 (US 0.120 / USSR 0.618)
+
+## v13
+
+Commit `363c5d4` — run `h256-e4`, 20,000 games trained.
+
+- Loop generation 3: v12 continued for 4,000 games; gate 0.55 cleared at 0.620 (worst seed) against v12.
+- Elo vs random: **+1460 ± 14** over seeds [0, 1, 2]
+- vs random: 1.000 (US 1.000 / USSR 1.000)
+- vs first: 0.998 (US 0.997 / USSR 1.000)
+- vs greedy: 0.977 (US 0.980 / USSR 0.973)
+- vs v1: 0.980 (US 0.963 / USSR 0.997)
+- vs v10: 0.399 (US 0.070 / USSR 0.728)
+- vs v11: 0.798 (US 0.620 / USSR 0.977)
+- vs v12: 0.625 (US 0.355 / USSR 0.895)
+- vs v2: 0.993 (US 0.993 / USSR 0.993)
+- vs v3: 0.968 (US 0.957 / USSR 0.980)
+- vs v4: 0.902 (US 0.812 / USSR 0.993)
+- vs v5: 0.950 (US 0.923 / USSR 0.977)
+- vs v6: 0.840 (US 0.710 / USSR 0.970)
+- vs v7: 0.802 (US 0.637 / USSR 0.967)
+- vs v8: 0.650 (US 0.397 / USSR 0.903)
+- vs v9: 0.566 (US 0.278 / USSR 0.853)
