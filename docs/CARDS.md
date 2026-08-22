@@ -163,6 +163,12 @@ chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`). How I
 Learned to Stop Worrying takes the set-DEFCON branch (`set_defcon` plus 5
 military Ops).
 
+Whoever moves the marker, DEFCON 1 loses the game for the phasing player
+-- the side whose action round it is (`Engine._defcon_one_loser`): the US
+degrading DEFCON to 1 after winning a Summit the USSR played loses the
+USSR the game, a US coup granted by Grain Sales in the USSR's round
+likewise. In the headline phase it is the side whose card did it.
+
 **Persistent game-long triggers** (`game_effects`). Yuri and Samantha (USSR
 +1 VP per US coup, in `_handle_coup_roll`), Flower Power (USSR +2 VP per US
 war-card play, via `_maybe_flower_power`, cancelled by An Evil Empire).
