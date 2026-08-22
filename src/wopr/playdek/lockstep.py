@@ -28,7 +28,7 @@ from typing import Callable
 
 from struggler.engine.types import Side
 from wopr.playdek import ffi, ids, translate as T
-from wopr.playdek.bridge import UI_ONLY, Bridge, Move, Report
+from wopr.playdek.bridge import GRANTED_OPS_PROMPT, UI_ONLY, Bridge, Move, Report
 from wopr.playdek.ffi import SelectionHint
 from wopr.playdek.game import Option, Playdek, Prompt
 
@@ -52,6 +52,7 @@ class Lockstep(Bridge):
                          physical_side=physical_side, max_divergences=max_divergences, trace=trace)
         self.policy = policy
         self._held_first: Move | None = None
+        self._skipped_compares = 0
 
     # -- the DLL side -----------------------------------------------------
 
@@ -66,8 +67,19 @@ class Lockstep(Bridge):
         self.drain_engine()
         if prompt is None:
             return False
-        if T.cards_offered(prompt) and not any(self.moves.values()):
-            self.compare_state()  # both sides between actions: the DLL asks for a card, the engine too, nothing queued between them
+        boundary = any(o.hint in (SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.HEADLINE_CARD) for o in prompt.visible)
+        if boundary and not any(self.moves.values()):
+            # Both sides between actions: the DLL asks for a card play, the
+            # engine too, nothing queued between them. (A discard prompt
+            # inside an event is not a rest: a trap's discard precedes the
+            # roll and We Will Bury You's VP, which the engine has paid.)
+            self.compare_state()
+            self._skipped_compares = 0
+        elif boundary:
+            self._skipped_compares += 1
+            if self._skipped_compares == 8:
+                self.diverge("harness", f"no state comparison for 8 action boundaries: a move the engine never consumed is queued "
+                             f"({ {s.value: [m.option.text for m in q] for s, q in self.moves.items() if q} })")
         if self._held_first is not None:
             # The DLL re-asks the very first hotseat prompt and drops the first
             # answer: only queue it once the next prompt proves it was taken.
@@ -78,15 +90,25 @@ class Lockstep(Bridge):
             self._held_first = None
         self.report.prompts += 1
         side = self.prompt_side(prompt)
+        if prompt.text == GRANTED_OPS_PROMPT and any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible):
+            # Ops that are not a card play of one's own -- a UN-Intervened
+            # card's, Missile Envy's exchanged card's -- may go to the Space
+            # Race in the DLL; the engine offers Ops only (`un_intervention`
+            # mode, `push_event_operations`): for the UN-Intervened card the
+            # same play is spacing the card itself. Counted, never picked.
+            what = "UN Intervention: DLL offers the Space Race for the cancelled card" if self._un_ops[side] \
+                else "Missile Envy: DLL offers the Space Race for the exchanged card"
+            self.known[what] += 1
+            prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
+        if (T.uses_offered(prompt) and self.engine.game_effects.get("missile_envy_forced") == side.value
+                and self._last_played[side] == "Missile_Envy" and any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible)):
+            # "The opponent must use the Missile Envy card for Ops": the DLL
+            # lets that play go to the Space Race, the engine asks the Ops
+            # type straight away. Counted, never picked.
+            self.known["Missile Envy: DLL lets the forced play go to the Space Race"] += 1
+            prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
         if self._un_ops[side] and T.uses_offered(prompt):
-            # The DLL lets the Ops of a UN-Intervened card go to the Space
-            # Race; the engine's `un_intervention` mode offers Ops only (the
-            # event is cancelled either way, so spacing the card itself is
-            # the same play without UN Intervention). Counted, never picked.
             self._un_ops[side] = False
-            if any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible):
-                self.known["UN Intervention: DLL offers the Space Race for the cancelled card"] += 1
-                prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
         option = self.policy(prompt)
         m = T.meaning(option)
         drawn = [o for o in prompt.visible if o.hint == SelectionHint.SWITCH_CARD]
@@ -96,7 +118,8 @@ class Lockstep(Bridge):
             # RANDOM_DISCARD is answered from here, and its take/return too.
             self._grain = (ids.card_id(drawn[0].selection_id), option.hint == SelectionHint.SWITCH_CARD)
         if m.meaning is T.Meaning.UNKNOWN:
-            self.diverge("unknown option", f"{prompt.text!r} -> {option.text!r} hint={option.hint:#x}")
+            self.diverge("unknown option", f"{prompt.text!r} -> {option.text!r} hint={option.hint:#x} id={option.selection_id} "
+                         f"among {[(o.text, f'{o.hint:#x}', o.selection_id) for o in prompt.visible][:10]}")
         move = Move(side, prompt, option, m)
         if m.meaning in UI_ONLY:
             pass  # UI steps ("continue with this card" after an event-first resolution): nothing for the engine
@@ -105,7 +128,7 @@ class Lockstep(Bridge):
         else:
             self.queue(side, move)
         if self.trace:
-            print(f"  PD  {side.value:4s} {prompt.text!r} -> {option.text!r}")
+            print(f"  PD  {side.value:4s} {prompt.text!r} -> {option.text!r} [fifo {len(self._replay)}]")
         self.game.choose(option.index)
         return True
 
@@ -120,7 +143,10 @@ class Lockstep(Bridge):
                 return
             if self.trace:
                 print(f"  ENG {d.actor.value:6s} {d.kind.value} -> {dict(action.payload)}")
+                was = (self.engine.defcon, self.engine.vp)
             self.engine.step(action)
+            if self.trace and (self.engine.defcon, self.engine.vp) != was:
+                print(f"  ENG DEFCON {self.engine.defcon} VP {self.engine.vp}")
             self.report.engine_steps += 1
             self.report.steps += 1
 
@@ -160,11 +186,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--max-steps", type=int, default=5000)
     p.add_argument("--max-divergences", type=int, default=40)
     p.add_argument("--trace", action="store_true", help="print every DLL prompt/choice and engine decision/action")
+    p.add_argument("--physical", choices=["us", "ussr"], help="the hand hidden from the engine (default: alternates by game index, US first)")
     args = p.parse_args(argv)
     pd = Playdek()
     for g in range(args.games):
         seed = args.seed + g
-        ls = Lockstep(pd, game_no=g, seed=seed, physical_side=Side.US if g % 2 == 0 else Side.USSR,
+        physical = Side(args.physical.upper()) if args.physical else (Side.US if g % 2 == 0 else Side.USSR)
+        ls = Lockstep(pd, game_no=g, seed=seed, physical_side=physical,
                       policy=random_policy(random.Random(seed)), max_divergences=args.max_divergences, trace=args.trace)
         r = ls.run(max_steps=args.max_steps)
         print(f"game {g} seed {seed}: {r.prompts} prompts, {r.engine_steps} engine steps; Playdek {r.playdek_result}; engine {r.engine_result}; "

@@ -229,7 +229,16 @@ them (`b55daf5`); version 3 adds the four the match operator found
 offered "for its event", Independent Reds' targets, the US/Japan Pact
 leaving the USSR's Influence in Japan, a war's penalty counting adjacent
 countries only, Blockade's and the traps' discards counting the turn's
-Ops modifiers -- docs/WOPR.md).
+Ops modifiers -- docs/WOPR.md) and the ten the lockstep differ found
+over 280 seeds (a card whose event cannot happen is discarded, not
+removed; Ask Not may discard scoring cards; Missile Envy's exchanged
+card is played as its event when it is the taker's; Defectors revealed
+by Five Year Plan cancels the USSR headline or scores the US; We Will
+Bury You is paid at a trapped US round; DEFCON 1 loses the phasing
+player; UN Intervention on any opponent-event card; the bonus
+Realignment attempt stays in its region; the China Card's and Vietnam
+Revolts' bonuses stack; Cuban Missile Crisis cancelled by either side,
+and before the banned coup).
 
 ## Opening deal order
 

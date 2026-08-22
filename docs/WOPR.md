@@ -649,16 +649,29 @@ that cost a wrong diagnosis each:
 
 - **Records are emitted twice, and the second time is late.** Each choice
   emits its records as it is made (the preview); when the action is
-  committed the DLL re-emits *every* record since the previous commit,
-  verbatim and in order — and the commit is the next action boundary,
-  so a headline's realignment rolls are replayed only after the first
-  action round's own records, pumps after the engine consumed the
-  originals. Absolute state (`COUNTRY_INFLUENCE`, `CARD_LOCATION`) is
-  idempotent under this; roll records are not, so `_absorb` keeps a FIFO
-  of un-replayed roll records and drops a record equal to its head.
-  Deduplicating within one pump only (the first version) re-queued the
-  replay of a multi-roll action and fed the next realignment on the same
-  country stale dice.
+  committed the DLL re-emits the whole chunk since the previous commit,
+  verbatim and in order (`LOG_UPDATED` aside, and a hand reveal's
+  replay gains a `PAUSE_FOR_REVEALED_CARDS`), either right after the
+  commit or, when a prompt came first, after that prompt's answer — a
+  turn's end is replayed after the headline pick, whose own records are
+  then the start of the next chunk. Absolute state (`COUNTRY_INFLUENCE`,
+  `CARD_LOCATION`) would be idempotent under this only if it were
+  current — a replayed value is the value of its time — and the dice
+  would be rolled twice, so `Bridge.mark_replays` keeps every record
+  since the last replay in a FIFO, tagged with the pump it arrived in,
+  and takes a run of a batch that copies the FIFO from its head up to a
+  batch boundary for the replay; a chunk the DLL never replays (a
+  non-phasing seat's event-granted Op that ends the phasing seat's
+  action) is skipped over when a later chunk's copy starts at a
+  boundary further in, never at the start of a batch. Two earlier
+  versions were wrong: deduplicating within one pump re-queued the
+  replay of a multi-roll action, and matching one record against the
+  FIFO's head (of dice and influence only) took a second realignment of
+  the same country with the same dice — or the second point placed in
+  the same country — for the replay of the first and fed the engine
+  stale dice for the rest of the game. Over 280 seeds the FIFO drains
+  at every action; a FIFO past 400 records is reported as a harness
+  divergence.
 - **A yes/no event choice lists a third, blank entry** (`selectionHint`
   `0xA0FF`, `selectionID` the card, `isHidden` *false*, empty label)
   beside "Participate"/"Boycott". Selecting it makes the DLL skip the
@@ -764,9 +777,62 @@ Findings from the first four random games, and what became of each:
   War and the engine cleared West Germany
   (`fix/discard-thresholds-use-modified-ops`). These two were found in
   games against the AI itself, where a drift shows as a state
-  divergence at the bot's next card prompt; `runs/playdek/trace/one.py`
-  (not tracked) plays one traced game, and the `INF` lines show what the
-  placement inference saw.
+  divergence at the bot's next card prompt; `eval --games 1 --trace`
+  plays one traced game, and the `INF` lines show what the placement
+  inference saw.
+- **Fifth pass, 280 seeds** (`--games 280 --seed 21`, `--physical`
+  alternating; one seed is reproduced with `--physical us|ussr`, the
+  side the 280-game run hid for it). Ten more engine fixes, each its own
+  branch off upstream: a card whose event cannot happen is discarded,
+  not removed (the engine re-dealt a NATO it had removed);
+  Ask Not may discard scoring cards; Missile Envy's exchanged card is
+  played as its event when it is the taker's or neutral (the engine
+  offered Ops-or-Event); Defectors revealed by Five Year Plan cancels
+  the USSR headline in the headline phase and scores the US 1 VP in an
+  action round; We Will Bury You is paid at a trapped US round; DEFCON 1
+  loses the phasing player, whoever moved the marker (four random games
+  had the other winner); UN Intervention goes with any opponent-event
+  card (Defectors, an ineligible NATO); the bonus Realignment attempt is
+  offered inside its region only; the China Card's and Vietnam Revolts'
+  bonuses stack to 6 Ops; Cuban Missile Crisis may be cancelled by
+  either side and is offered again to the banned side at its coup
+  (`'Remove Cuban Missile Crisis?'`, hint `0xA038`, before the target).
+  Harness bugs of the same pass: a single-option engine decision (an
+  Independent Reds with one candidate, a scoring card's `PLAY_MODE`) was
+  answered with the seat's *next* move, now `_compatible` checks the
+  payload, and a plain-influence prompt's country never answers an
+  either/or; Missile Envy's "Select Card to Give" is asked even for a
+  single candidate, where the engine asks only among ties (dropped once
+  the engine has made the exchange; the physical giver's pick drops it
+  too); the Cuban Missile Crisis defusing is an entry of the action-round
+  prompt (`0xA0AA`, "Remove 2 Influence from West Germany", selectionID
+  250 + the country index) where the engine asks a choice at the round's
+  start; the trap discard prompt's blank "TRAP" entry (`0xA09F`) and its
+  "Pass" (`0xA09C`, "You May Play a Scoring Card"); the DLL keeps a card
+  in the hand until its event is done asking (Blockade's "Do Not
+  Discard"), so the deal skips the card being played; the DLL's deck runs
+  out sooner than the engine's bookkeeping, so its reshuffle (discards
+  back to the deck) makes the physical side's next headline take
+  `RESHUFFLE_NOW` first; Space Race box 6's held-card discard is declined
+  unless the DLL's move is a discard; the state is not compared at the
+  turn's end (the engine has recovered DEFCON, the DLL reports it after
+  its next prompt); the listed either/or labels (`translate.CHOICE_LABELS`:
+  Warsaw Pact, Olympic Games, South African Unrest — whose "Add
+  Influence Adjacent to South Africa" shared two words with the wrong
+  choice) are matched exactly, anything else by words and reported.
+- **DLL behaviour, counted under `known`** (this pass): a trapped seat
+  with no 2+-Ops card may keep its scoring card ("You May Play a Scoring
+  Card" lists none; the engine plays it — fatal, the hands diverge);
+  Junta's free Coup/Realignment is confined to the country the Influence
+  went to (the engine offers the whole region; the bot is narrowed, the
+  AI's choice simulated); Missile Envy's exchanged card, and the forced
+  play of Missile Envy itself, may go to the Space Race (never picked);
+  event-granted Ops ("Select Use For Operations") likewise; De-Stalinization
+  as before. A 4-Ops card under Containment or Brezhnev Doctrine is 5 in
+  the DLL where the cards say "to a maximum of 4" — seen once as a coup
+  result, not yet handled.
+- After the pass: 280 seeds with nothing but the `known` entries, the
+  hotseat emulation 32/32 clean.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
@@ -791,7 +857,11 @@ the bot's seat, the DLL leads for the AI's:
   the ones the DLL offers for the same choice when the DLL is at that
   prompt (De-Stalinization's sources: the DLL forbids relocating back
   into a country just emptied, the card text does not), so the play is
-  legal in both programs.
+  legal in both programs (Junta's free Coup/Realignment likewise: the
+  DLL confines it to the country placed in and offers "Pass" alone when
+  that one has no target — a lone "Pass" the engine is about to ask a
+  choice for waits for the bot's decision, which `narrow` cuts down to
+  the decline; `_next_bot_decision_fits` peeks with a copy of the engine).
 - **The AI's play is read off the records.** It is never prompted, only
   reported: its card and use from the `OUTPUT_ANIMATION_CARD` record of
   the card leaving its hand for the resolve slot, whose
@@ -806,8 +876,11 @@ the bot's seat, the DLL leads for the AI's:
   the two states last agreed at rest, the earliest change past the
   engine's value in the right direction first, so that a placement a
   later action in the same chunk undid (a Marshall Plan point realigned
-  away) is still made and then undone by that action's own dice; any
-  order is legal since a point's cost depends only on its own country.
+  away, or removed by the next card's event) is still made and then
+  undone by that action's own records -- a surplus gone again with no
+  dice on the country and no card played in between is a transient of
+  one event's own resolution (Nasser), not a placement; any order is
+  legal since a point's cost depends only on its own country.
   Ops an event grants (a boycotted Olympic Games' sponsor, CIA Created)
   from the earliest of the dice or influence changes that followed —
   not the first kind found, or the seat's own action round's coup would

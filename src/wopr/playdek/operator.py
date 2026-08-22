@@ -36,7 +36,7 @@ from struggler.engine.player import Event, Player
 from struggler.engine.types import Action, Decision, DecisionKind, Observation, Side
 from struggler.runner import play_game
 from wopr.playdek import ids, translate as T
-from wopr.playdek.bridge import CARD_KINDS, CHINA, COUNTRY_KINDS, HAND_LOCATION, HAND_OF, HEADLINE_OF, UI_ONLY, UN, Bridge, Move, Report
+from wopr.playdek.bridge import CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, HAND_LOCATION, HAND_OF, HEADLINE_OF, UI_ONLY, UN, Bridge, Move, Report
 from wopr.playdek import ffi
 from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
 from wopr.playdek.game import Option, Playdek, Prompt
@@ -51,7 +51,7 @@ ANIMATION_SCORING = 0x1  # the hint of a scoring card's play (no use to choose)
 ANIMATION_FIRED = 0x2  # the hint of a card another event fires out of a hand (Five Year Plan)
 #: EVENT_CHOICE payloads that decline an optional step: the DLL's "Do Not
 #: Discard" / "Done Removing" / "Return It" entries (`SelectionHint.STOP`).
-DECLINES = {"refuse", "none", "decline", "done", "keep", "return", "no", "stop"}
+DECLINES = {"refuse", "none", "decline", "done", "keep", "return", "no", "stop", "skip"}
 _RECORD = Prompt(-1, "<record>", ())  # the prompt of a move learned from the records, not asked
 _TRACED = {
     EventType.OUTPUT_ANIMATION_CARD, EventType.OUTPUT_ANIMATION_ADD_INFLUENCE, EventType.OUTPUT_ANIMATION_REMOVE_INFLUENCE,
@@ -134,6 +134,8 @@ class PlaydekOperator(Bridge):
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
         self._revealed: list[str] = []  # cards shown out of a hand (Grain Sales' draw, CIA Created's hand)
         self._first: tuple[tuple, Option] | None = None  # hotseat: the DLL re-asks the very first prompt and drops the first answer
+        self.play_log: list[int] = []  # seq of every card entering the resolve slot: the boundaries between actions
+        self._last_action: tuple[Decision, Action] | None = None  # the bot's latest, not yet applied by the engine when `flush` runs
         self._simulating = 0
 
     def players(self, player: Player) -> dict[Side, Player]:
@@ -143,8 +145,8 @@ class PlaydekOperator(Bridge):
 
     # -- the DLL's records -> the other seat's moves --------------------------
 
-    def _absorb(self, ev) -> bool:
-        if not super()._absorb(ev):
+    def _absorb(self, ev, replay: bool = False) -> bool:
+        if not super()._absorb(ev, replay):
             return False
         f = ev.fields
         if self.trace and ev.kind in _TRACED:
@@ -166,14 +168,17 @@ class PlaydekOperator(Bridge):
             if HEADLINE_OF.get(f["location"]) is self.other and self._headlined != card:
                 self._headlined = card
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"headline {card}"))
+        elif ev.kind == EventType.PUSH_RESOLVE_CARD:
+            self.play_log.append(self._seq)  # an action boundary: a card entering the resolve slot
         elif ev.kind == EventType.OUTPUT_ANIMATION_CARD:
             # A card leaving a hand for the resolve slot, the hint saying how
             # it is used (`translate.ANIMATION_USES`): the one place the DLL
             # reports a card play as a choice. A hotseat game re-emits it
-            # at the action's commit, which is the next action boundary --
-            # after the next ACTION_ROUND record, so the round the record
-            # arrives in says nothing about whose play it is; the hand the
-            # card last left does.
+            # at the action's commit (dropped before this, `mark_replays`),
+            # which is the next action boundary -- after the next
+            # ACTION_ROUND record, so the round the record arrives in says
+            # nothing about whose play it is; the hand the card last left
+            # does.
             if f["animation_source_location"] != ANIMATION_HAND or f["animation_destination_location"] != ANIMATION_RESOLVE:
                 return True
             try:
@@ -188,8 +193,6 @@ class PlaydekOperator(Bridge):
                     self._taken[card] = self.last_hand_of(card)
             if use is None and hint != ANIMATION_SCORING:
                 return True  # a headline reveal, the automatic second half, an event another event fired
-            if self.replayed(ev):
-                return False
             # Whose play: the hand's owner -- unless an event showed the card
             # out of that hand (Grain Sales), in which case the opponent took
             # it and plays it from there.
@@ -349,17 +352,31 @@ class PlaydekOperator(Bridge):
         if mine is None:
             return None
         past = (lambda v: v > mine) if op == "place" else (lambda v: v < mine)
-        entries = [(seq, value[column]) for seq, value in self.influence_history.get(country, ()) if seq > self.synced_seq]
+        # The side's own column only: a record that moved the other side's
+        # Influence (a removal) repeats this side's value, and is no change
+        # of it -- taken for one, a point the engine already holds was
+        # placed again.
+        entries = []
+        prev = next((value[column] for seq, value in reversed(self.influence_history.get(country, ())) if seq <= self.synced_seq), None)
+        for seq, value in self.influence_history.get(country, ()):
+            if seq <= self.synced_seq:
+                continue
+            if value[column] != prev:
+                entries.append((seq, value[column]))
+            prev = value[column]
         for i, (seq, v) in enumerate(entries):
             if not past(v):
                 continue
             # A surplus gone again in a later record with no coup or
-            # realignment on the country in between is a transient of one
-            # event's own resolution (Nasser: the USSR's +2, then half the US
-            # removed), not something the engine will ask a decision for.
-            # Undone by dice (a Marshall Plan point realigned away) it is.
+            # realignment on the country in between, and no other card
+            # played in between, is a transient of one event's own
+            # resolution (Nasser: the USSR's +2, then half the US removed),
+            # not something the engine will ask a decision for. Undone by
+            # dice (a Marshall Plan point realigned away) or by a later
+            # action's event (the same point removed by De Gaulle) it is.
             undone = next((q for q, w in entries[i + 1:] if not past(w)), None)
-            if undone is not None and not any(seq < q < undone and c == country for q, c in self.roll_log):
+            if (undone is not None and not any(seq < q < undone and c == country for q, c in self.roll_log)
+                    and not any(seq < b < undone for b in self.play_log)):
                 continue
             return seq
         return None
@@ -545,6 +562,8 @@ class PlaydekOperator(Bridge):
             return d
         if self.outgoing or self._un_target is not None:
             return d  # the prompt is for an earlier action still to be told
+        if d.context.get("event") == CMC_DEFUSE:
+            return d  # "skip" is a card play, always there
         meanings = {T.meaning(o).meaning for o in prompt.visible}
         if not self._fits(d, meanings):
             return d
@@ -565,6 +584,8 @@ class PlaydekOperator(Bridge):
         dropped = [dict(a.payload) for a in d.options if a not in options]
         if d.context.get("event") == "De_Stalinization":
             self.known["De-Stalinization: DLL excludes the source countries"] += 1  # documented (docs/WOPR.md)
+        elif d.context.get("event") == "Junta":
+            self.known["Junta: DLL confines the free Coup/Realignment to the country placed in"] += 1  # documented (docs/WOPR.md)
         else:
             self.diverge("options", f"{self.side.value} {d.kind.value} {d.context.get('event', '')}: the engine offers {dropped} the DLL's "
                          f"{prompt.text!r} {[o.text for o in prompt.visible]} does not; the bot chooses among the rest")
@@ -590,6 +611,10 @@ class PlaydekOperator(Bridge):
             return
         if d.kind is DecisionKind.PLAY_MODE and self.engine.cards[d.context["card"]].scoring:
             return  # the DLL asks no use for a scoring card
+        if (d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == CMC_DEFUSE and action.payload["choice"] == "skip"
+                and d.context.get("at") != "coup"):
+            return  # the DLL lists the defusing among the action round's cards: declining it is playing a card (at a coup it asks, with "Pass")
+        self._last_action = (d, action)
         self.outgoing.append((d, action))
         self.flush()
 
@@ -624,10 +649,20 @@ class PlaydekOperator(Bridge):
         if meanings <= UI_ONLY:
             # "Continue with this card" after an event-first resolution.
             return next((o for o in visible if T.meaning(o).meaning is T.Meaning.SWITCH_CARD), visible[0])
-        if meanings <= UI_ONLY | {T.Meaning.STOP} and not (self.outgoing and self._fits(self.outgoing[0][0], meanings)):
+        gives = [o for o in visible if o.hint == SelectionHint.GIVE_CARD]
+        if gives and len(gives) == len(visible) == 1 and not self.outgoing:
+            return gives[0]  # Missile Envy's "Select Card to Give" with one candidate: the engine gave it without asking
+        if (meanings <= UI_ONLY | {T.Meaning.STOP} and not (self.outgoing and self._fits(self.outgoing[0][0], meanings))
+                and self._grain_card(prompt) is None):
             # A decline the DLL asks alone ("Do Not Discard": Blockade with
             # nothing to discard) where the engine resolved the event without
-            # asking the bot.
+            # asking the bot -- unless the engine is about to ask a choice it
+            # answers (Junta's free Coup/Realignment: the DLL confines it to
+            # the country just placed in and offers "Pass" alone when that
+            # one has no target, the engine offers the whole region), which
+            # `narrow` then cuts down to the decline.
+            if not self.outgoing and self._next_bot_decision_fits(meanings):
+                return None
             return T.find_stop(prompt)
         if self._un_target is not None:
             if any(o.hint == SelectionHint.PLAY_OPPONENT_CARD for o in visible):
@@ -710,6 +745,20 @@ class PlaydekOperator(Bridge):
                 return T.find_stop(prompt)
             return T.find_choice(prompt, choice, defcon=self.engine.defcon)
         raise LookupError(f"no translation for the bot's {kind.value} {dict(p)} at {prompt.text!r}")
+
+    def _next_bot_decision_fits(self, meanings: set[T.Meaning]) -> bool:
+        """Whether the decision the engine will ask the bot next, once the
+        bot's latest action is applied, can be answered at a prompt offering
+        `meanings` (a copy of the engine takes the step)."""
+        if self._last_action is None or self.engine.pending_decision is not self._last_action[0]:
+            return False
+        copy = Engine.deserialize(self.engine.serialize())
+        try:
+            copy.step(self._last_action[1])
+        except Exception:
+            return False
+        nxt = copy.pending_decision
+        return nxt is not None and nxt.actor is self.side and self._fits(nxt, meanings)
 
     @staticmethod
     def _fits(d: Decision, meanings: set[T.Meaning]) -> bool:

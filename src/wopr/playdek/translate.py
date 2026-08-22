@@ -67,7 +67,20 @@ _COUNTRY_HINTS = {
 }
 _CARD_HINTS = {
     SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.PLAY_OPPONENT_CARD,
-    SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD,
+    SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD, SelectionHint.GIVE_CARD,
+}
+# An event's either/or whose Playdek label the engine's payload shares no
+# word with, or the wrong one ("Add Influence Adjacent to South Africa"
+# shares two words with `south_africa_only`): (prompt, label) -> the
+# engine's `choice`. Anything not listed here is matched by words and
+# reported ("choice by words"), so a new one shows up in the differ.
+CHOICE_LABELS: dict[tuple[str, str], str] = {
+    ("Choose for Eastern Europe:", "Remove 4 US Countries in Eastern Europe"): "remove",  # Warsaw Pact
+    ("Choose for Eastern Europe:", "Add 5 USSR Influence in Eastern Europe"): "add",
+    ("Participate in Olympic Games?", "Participate"): "participate",
+    ("Participate in Olympic Games?", "Boycott"): "boycott",
+    ("Choose for South Africa:", "Gain 2 Influence in South Africa"): "south_africa_only",  # South African Unrest
+    ("Choose for South Africa:", "Add Influence Adjacent to South Africa"): "and_adjacent",
 }
 # `OUTPUT_ANIMATION_CARD.animation_event_hint` when a card leaves a hand for
 # the resolve slot: `0x8000 | (use << 8) | 1` for the use the player chose
@@ -86,7 +99,7 @@ ANIMATION_HEADLINE = 0x81
 ANIMATION_CHOSEN = 0x01  # low byte: the use the player chose (0x02: the automatic second half)
 
 _COUNTRY_BY_NAME = {name: i + 1 for i, name in enumerate(ids.PLAYDEK_COUNTRIES)}
-_LABEL_COUNTRY = re.compile(r" in (.+)$")
+_LABEL_COUNTRY = re.compile(r" (?:in|from) (.+)$")
 
 
 @dataclass(frozen=True)
@@ -103,11 +116,11 @@ def meaning(option: Option) -> OptionMeaning:
     hint = option.hint
     if hint == SelectionHint.CANCEL:
         return OptionMeaning(Meaning.CANCEL, label=option.text)
-    if hint == SelectionHint.STOP:
+    if hint in (SelectionHint.STOP, SelectionHint.TRAP_PASS):
         return OptionMeaning(Meaning.STOP, label=option.text)
     if hint == SelectionHint.SWITCH_CARD:
         return OptionMeaning(Meaning.SWITCH_CARD, label=option.text)
-    if hint == SelectionHint.EVENT_CHOICE_BLANK:
+    if hint in (SelectionHint.EVENT_CHOICE_BLANK, SelectionHint.FORCED_DISCARD_BLANK):
         return OptionMeaning(Meaning.BLANK, label=option.text)
     if hint in _CARD_HINTS:
         return OptionMeaning(Meaning.CARD, card=ids.card_id(option.selection_id), label=option.text)
@@ -119,9 +132,11 @@ def meaning(option: Option) -> OptionMeaning:
         return OptionMeaning(Meaning.CHOICE, label=option.text)
     if SelectionHint.DEFCON_SET < hint <= SelectionHint.DEFCON_SET + 5:
         return OptionMeaning(Meaning.CHOICE, defcon=hint - SelectionHint.DEFCON_SET, label=option.text)
-    # Unknown hint: a country named in the label is still a country target
-    # ("Coup in Poland", "Attempt Realignment in Iran"), and a card id with
-    # the card's name in the label a card ("Recover Summit", Star Wars).
+    # The Cuban Missile Crisis defusing entry of the action-round prompt
+    # ("Remove 2 Influence from West Germany") and any unknown hint: a
+    # country named in the label is a country target ("Coup in Poland",
+    # "Attempt Realignment in Iran"), and a card id with the card's name in
+    # the label a card ("Recover Summit", Star Wars).
     m = _LABEL_COUNTRY.search(option.text)
     if m and m.group(1) in _COUNTRY_BY_NAME:
         return OptionMeaning(Meaning.COUNTRY, country=ids.country_id(_COUNTRY_BY_NAME[m.group(1)]), label=option.text)
@@ -216,6 +231,9 @@ def find_choice(prompt: Prompt, choice: str, *, defcon: int) -> Option:
             if level == want:
                 return o
         raise LookupError(f"no DEFCON option for {choice!r} at DEFCON {defcon} in {[o.text for o in prompt.visible]}")
+    for o in prompt.visible:
+        if CHOICE_LABELS.get((prompt.text, o.text)) == choice:
+            return o
     words = set(choice.lower().replace("_", " ").split())
     scored = [(len(words & set(o.text.lower().split())), o) for o in prompt.visible if meaning(o).meaning is not Meaning.BLANK]
     best = max(scored, key=lambda t: t[0], default=None)

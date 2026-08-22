@@ -403,6 +403,7 @@ class SelectionHint(IntEnum):
     HEADLINE_CARD = 0xA020
     PLAY_EVENT = 0xA021
     RESOLVE_EVENT_FIRST = 0xA022  # the opponent's event: before or after the Ops
+    GIVE_CARD = 0xA023  # "Give <card>" in "Select Card to Give" (Missile Envy's giver; asked even with a single candidate)
     OPS_INFLUENCE = 0xA030  # "Place Influence" as the use of the Ops
     INFLUENCE_COUNTRY = 0xA031  # "Place Influence in <country>" with Ops
     SETUP_INFLUENCE_COUNTRY = 0xA032  # "Place Influence in <country>" for setup / an event
@@ -416,7 +417,10 @@ class SelectionHint(IntEnum):
     # Summit's "You May Adjust DEFCON Level" lists the three reachable levels (at DEFCON 2: Degrade 0xA071, Pass 0xA072, Improve 0xA073)
     DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)
     FORCED_DISCARD_CARD = 0xA09A  # "Discard <card>" when a discard is required (Bear Trap / Quagmire)
+    TRAP_PASS = 0xA09C  # "Pass" in "You May Play a Scoring Card": a trapped seat with no 2+-Ops card keeps its scoring card
+    FORCED_DISCARD_BLANK = 0xA09F  # the entry labelled "TRAP" (selectionID 0) beside them: selecting it re-asks the prompt
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")
+    CMC_DEFUSE = 0xA0AA  # "Remove 2 Influence from <country>" in "Play Your Action Round" (Cuban Missile Crisis; selectionID 250 + the country index)
     EVENT_CHOICE_YES = 0xA0F0  # "Participate in Olympic Games?" -> Participate
     EVENT_CHOICE_NO = 0xA0F1  # -> Boycott
     EVENT_CHOICE_BLANK = 0xA0FF  # the blank entry (selectionID = the card) beside them: selecting it skips the event

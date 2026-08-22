@@ -578,7 +578,7 @@ def test_china_card_and_vietnam_revolts_bonuses_stack_in_southeast_asia():
     engine.step(Action(DecisionKind.OPS_TYPE, {"type": "coup"}))
     engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Thailand"}))
     assert engine.pending_decision.context["ops"] == 6
-    assert engine.military_ops["USSR"] == 6
+    assert engine.military_ops["USSR"] == 5  # six Military Ops, on a track that stops at 5
     # Japan is in Asia but not Southeast Asia: the China Card's +1 only.
     engine = _bare()
     engine.turn_effects["vietnam_revolts"] = True

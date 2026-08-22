@@ -18,10 +18,10 @@ import collections
 from dataclasses import dataclass, field
 
 from struggler.engine import Engine
-from struggler.engine.core import HIDDEN_CARD
+from struggler.engine.core import HIDDEN_CARD, RESHUFFLE_NOW
 from struggler.engine.types import Action, Decision, DecisionKind, Side
 from wopr.playdek import ffi, ids, translate as T
-from wopr.playdek.ffi import AIDifficulty, EventType
+from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
 from wopr.playdek.game import GameEvent, Option, Playdek, PlaydekGame, Prompt
 
 ROLL_KINDS = {
@@ -40,6 +40,19 @@ COUNTRY_KINDS = {
 CHINA = "The_China_Card"
 UN = "UN_Intervention"
 UI_ONLY = {T.Meaning.CANCEL, T.Meaning.SWITCH_CARD, T.Meaning.BLANK}  # never a move; no policy picks them
+CMC_DEFUSE = "Cuban_Missile_Crisis_defuse"
+GRANTED_OPS_PROMPT = "Select Use For Operations"  # Ops an event grants, UN Intervention's, Missile Envy's exchanged card
+SCORING_PROMPT = "You May Play a Scoring Card"  # a trapped seat with no 2+-Ops card
+#: Prompts whose country is a point of Influence to place or remove: their
+#: moves answer PLACE_INFLUENCE / EVENT_INFLUENCE, never an either/or whose
+#: choices happen to be countries (Independent Reds' match, De-Stalinization's
+#: source, the Cuban Missile Crisis defusing have hints of their own).
+INFLUENCE_HINTS = {SelectionHint.INFLUENCE_COUNTRY, SelectionHint.SETUP_INFLUENCE_COUNTRY, SelectionHint.REMOVE_INFLUENCE_COUNTRY}
+#: Record kinds a hotseat game does not re-emit verbatim at an action's commit (see
+#: `Bridge.mark_replays`); every other kind is replayed verbatim, in order.
+NOT_REPLAYED = {int(EventType.LOAD_PROGRESS), int(EventType.LOG_UPDATED), int(EventType.COMMIT_PLAYER_DECISION), int(EventType.GAME_OVER),
+                int(EventType.OUTPUT_PAUSE), int(EventType.PAUSE_FOR_REVEALED_CARDS)}  # the pauses: a hand reveal replays with an extra one
+REPLAY_FIFO_LIMIT = 400  # stable records outstanding: past this the re-emission has stopped matching, which is a bug worth a line
 
 HAND_OF = {int(ffi.ECardLocation.USSRHAND): Side.USSR, int(ffi.ECardLocation.USHAND): Side.US}
 HEADLINE_OF = {int(ffi.ECardLocation.USSRHEADLINE): Side.USSR, int(ffi.ECardLocation.USAHEADLINE): Side.US}
@@ -117,25 +130,31 @@ class Bridge:
         self._player_of = {side: pid for pid, side in self.game.sides.items()}
         # Records the DLL has emitted once and will emit again: a hotseat
         # game re-emits a whole action's records, verbatim and in order,
-        # when the action is committed (see `_absorb`). A game against the
-        # AI does not, and the FIFO must not be kept there: its head would
-        # be the oldest record of the game, and a later roll equal to it
-        # (the same coup, the same die) would be taken for a replay.
+        # when the action is committed (see `mark_replays`). A game against
+        # the AI does not, and the FIFO must not be kept there: every
+        # record would stay outstanding and a later copy of the whole lot
+        # could, in principle, be taken for a replay.
         self._replays = ai_difficulty is None
-        self._replay: collections.deque[GameEvent] = collections.deque()
+        self._replay: collections.deque[tuple[int, GameEvent]] = collections.deque()  # (the batch it arrived in, the record)
+        self._batch_no = 0
+        self._replay_overflow = False
         self.recent: collections.deque[str] = collections.deque(maxlen=24)  # the last records, for diagnostics
         self._seq = 0  # absorbed records, counted: the arrival order of the facts below
         self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
         self.roll_seq: dict[int, int] = {}  # id(Roll) -> when it arrived
         self.roll_log: list[tuple[int, str]] = []  # (seq, country) of every coup/realignment record, kept
         self.synced_seq = 0  # the record count when the two states last agreed at rest
+        self._setup_synced = False
         self._last_state_diff = ""
+        self.reshuffled = False  # the DLL reshuffled its discards into the deck since the engine last folded them into its hidden pool
         self.known: collections.Counter[str] = collections.Counter()
 
     # -- divergences ------------------------------------------------------
 
     def diverge(self, what: str, detail: str, *, fatal: bool = False) -> None:
         self.report.divergences.append(Divergence(self.report.game, self.report.steps, what, detail, fatal))
+        if self.trace:
+            print(f"  !!  {self.report.divergences[-1]}")
 
     @property
     def stop(self) -> bool:
@@ -144,41 +163,104 @@ class Bridge:
     # -- the DLL side -----------------------------------------------------
 
     def _absorb_events(self) -> None:
-        for ev in self.game.events[self._events_seen:]:
-            self._absorb(ev)
+        batch = self.game.events[self._events_seen:]
         self._events_seen = len(self.game.events)
+        for ev, replay in self.mark_replays(batch):
+            self._absorb(ev, replay)
 
-    def replayed(self, ev: GameEvent) -> bool:
-        """Whether `ev` is a hotseat re-emission of a record already
-        absorbed. Records are matched off a FIFO: the oldest un-replayed one
-        equal to `ev` is its replay, anything else is new and joins the
-        FIFO. Every record kind that is re-emitted and *acted on* must go
-        through here, in emission order, so the head is always the next
-        record due to be replayed."""
+    def mark_replays(self, batch: list[GameEvent]) -> list[tuple[GameEvent, bool]]:
+        """Each record of one pump's batch with whether it is a hotseat
+        re-emission. A hotseat game emits an action's records as the
+        choices are made and again, verbatim and in order, when the action
+        is committed -- the whole run since the previous re-emission, minus
+        the kinds in `NOT_REPLAYED`, possibly only after the next prompt
+        was answered (a turn's end is replayed after the headline pick).
+        So the outstanding records are kept in a FIFO and a run of the
+        batch that copies it from its *head* is the replay; a record equal
+        to some later entry is not -- a second realignment of the same
+        country can roll the same dice, and was once taken for the replay
+        of the first (matched alone, against a FIFO of dice and influence
+        only), which fed the engine stale dice for the rest of the game."""
         if not self._replays:
-            return False
-        if self._replay and self._replay[0] == ev:
-            self._replay.popleft()
-            return True
-        self._replay.append(ev)
-        return False
+            return [(ev, False) for ev in batch]
+        self._batch_no += 1
+        stable = [i for i, ev in enumerate(batch) if ev.kind not in NOT_REPLAYED]
+        replay = [False] * len(batch)
+        k = 0
+        while k < len(stable):
+            # The replay starts with the oldest outstanding record and copies
+            # the chunk up to where it was committed -- the whole FIFO when
+            # the action's last choice committed it (a realignment's rolls
+            # are replayed in the same batch, after their own preview), or
+            # a prefix when a prompt came between the commit and the replay
+            # (the headline pick's own records follow the committed turn
+            # end in the FIFO and are replayed with the next chunk). A
+            # commit is never inside a batch's worth of preview records, so
+            # the copy ends at a batch boundary of the FIFO: anything
+            # shorter is a new record that happens to equal the head (the
+            # second point placed in the same country re-emits the same
+            # `OUTPUT_ANIMATION_ADD_INFLUENCE`).
+            # Not every chunk is replayed (a non-phasing seat's event-granted
+            # Op that ends the phasing seat's action never is): when the
+            # head does not match, a run copying the FIFO from a later
+            # batch boundary is the replay too, and the skipped records are
+            # forgotten -- but not at the start of a batch, where the run
+            # would be the preview of the answer just given (a second
+            # realignment of the same country with the same dice).
+            start, n = self._replay_run(batch, stable, k, 0)
+            if not n and k:
+                j = 1
+                while j < len(self._replay) and not n:
+                    if self._replay[j - 1][0] != self._replay[j][0]:
+                        start, n = self._replay_run(batch, stable, k, j)
+                    j += 1
+            if n:
+                for _ in range(start):
+                    self._replay.popleft()
+                for j in range(n):
+                    replay[stable[k + j]] = True
+                    self._replay.popleft()
+                k += n
+                continue
+            self._replay.append((self._batch_no, batch[stable[k]]))
+            k += 1
+        if len(self._replay) > REPLAY_FIFO_LIMIT and not self._replay_overflow:
+            self._replay_overflow = True
+            self.diverge("harness", f"{len(self._replay)} records outstanding without a re-emission matching them: the replay "
+                         f"matching (`Bridge.mark_replays`) has lost the DLL's commit structure; head {self._replay[0][1]}")
+        return list(zip(batch, replay))
 
-    def _absorb(self, ev: GameEvent) -> bool:
-        """Absorb one record into the facts. False if it was a replay."""
+    def _replay_run(self, batch: list[GameEvent], stable: list[int], k: int, start: int) -> tuple[int, int]:
+        """The length of the run of `batch` from `stable[k]` that copies the
+        FIFO from `start` on, cut back to a batch boundary of the FIFO."""
+        n = 0
+        while start + n < len(self._replay) and k + n < len(stable) and batch[stable[k + n]] == self._replay[start + n][1]:
+            n += 1
+        while n and start + n < len(self._replay) and self._replay[start + n - 1][0] == self._replay[start + n][0]:
+            n -= 1
+        return start, n
+
+    def _absorb(self, ev: GameEvent, replay: bool = False) -> bool:
+        """Absorb one record into the facts. False if it was a replay: the
+        absolute records (influence, card locations, DEFCON, VP) carry the
+        values of their time, stale if a later action changed them, and the
+        dice would be rolled twice."""
         f = ev.fields
         self._seq += 1
+        if replay:
+            if self.trace and (ev.kind in (EventType.COUNTRY_INFLUENCE, EventType.CARD_LOCATION) or T.rolls_from_event(ev, self._index_side)):
+                print(f"  EV  (replay) {ev}")
+            return False
         if ev.kind == EventType.COUNTRY_INFLUENCE:
-            # Absolute, but a hotseat re-emission carries the value of its
-            # time, which a later action may have changed since: matched
-            # off the replay FIFO like the dice, so that neither the state
-            # nor its history takes a stale value for a new one.
-            if self.replayed(ev):
-                return False
             country = ids.country_id(f["id"])
             if self.influence.get(country) != (f["ussr_influence"], f["us_influence"]):
                 self.influence_history.setdefault(country, []).append((self._seq, (f["ussr_influence"], f["us_influence"])))
+                if self.trace:
+                    print(f"  EV  influence {country} {(f['ussr_influence'], f['us_influence'])}")
             self.influence[country] = (f["ussr_influence"], f["us_influence"])
         elif ev.kind == EventType.DEFCON_LEVEL and not f["isSimulating"]:
+            if self.trace and f["defcon_level"] != self.defcon:
+                print(f"  EV  DEFCON {f['defcon_level']}")
             self.defcon = f["defcon_level"]
         elif ev.kind == EventType.TURN_NUMBER and f["turn_number"] != self._dll_turn:
             self._dll_turn = f["turn_number"]  # emitted twice per turn (preview, commit): reset once
@@ -194,7 +276,7 @@ class Bridge:
             self.space = (f["ussr_space"], f["us_space"])
         elif ev.kind == EventType.CARD_LOCATION:
             # Absolute, like influence: a card is dealt when its location
-            # becomes a hand it was not in (the DLL re-emits records at commit).
+            # becomes a hand it was not in.
             loc = f["location"]
             try:
                 card = ids.card_id(f["id"])
@@ -204,6 +286,8 @@ class Bridge:
                 return
             was = self.card_loc.get(card)
             self.card_loc[card] = loc
+            if was == int(ffi.ECardLocation.DISCARDED) and loc == int(ffi.ECardLocation.DECK):
+                self.reshuffled = True  # the DLL's discards are back in its deck: the engine's hidden pool must follow (`RESHUFFLE_NOW`)
             for side, hand in HAND_LOCATION.items():
                 if loc == hand and was in (None, int(ffi.ECardLocation.DECK)):
                     self._dealt[side].add(card)
@@ -218,14 +302,6 @@ class Bridge:
             rolls = T.rolls_from_event(ev, self._index_side)
             if not rolls:
                 return True
-            # A hotseat game emits an action's records twice: once as each
-            # choice is made (the preview) and again, verbatim and in
-            # order, when the action is committed -- which is at the next
-            # action boundary, so the re-emission may arrive pumps later,
-            # after the engine has consumed the originals (a headline's
-            # realignments are replayed after the first action round's).
-            if self.replayed(ev):
-                return False
             self.recent.append(str(ev))
             if self.trace:
                 print(f"  EV  {ev}")
@@ -245,6 +321,8 @@ class Bridge:
         a hotseat game) arrive under the local seat's id whoever is choosing;
         the cards on offer say whose hand it is."""
         side = self._sides_by_player[prompt.player_id]
+        if prompt.text == SCORING_PROMPT:
+            return Side.USSR if self.engine.game_effects.get("bear_trap") else Side.US  # the trapped seat's, whoever's id it carries
         owners = {self.hand_of(T.meaning(o).card) for o in prompt.visible if T.meaning(o).meaning is T.Meaning.CARD}
         owners.discard(None)
         if len(owners) == 1:
@@ -265,6 +343,18 @@ class Bridge:
             return d.options[0]
         if d.actor is Side.CHANCE:
             return self._answer_chance(d)
+        if self.reshuffled and d.kind is DecisionKind.HEADLINE_PLAY:
+            # The DLL reshuffled its discards into the deck (its deck runs
+            # out sooner than the engine's bookkeeping expects, docs/BOTS.md):
+            # the physical side's next deal may hold any of them, so the
+            # engine is told to fold its discard pile into the hidden pool
+            # before the pick (the headline offers `RESHUFFLE_NOW` for that).
+            # Not offered when the engine's own deck ran out at the same time
+            # (it reshuffled by itself): nothing to fold, the flag lapses.
+            self.reshuffled = False
+            again = next((a for a in d.options if a.payload["card"] == RESHUFFLE_NOW), None)
+            if again is not None:
+                return again
         side = d.actor
         q = self.moves[side]
         if d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == "Grain_Sales_to_Soviets" and self._grain is not None:
@@ -273,9 +363,19 @@ class Bridge:
             if not took:
                 q.popleft()  # the "Return It" move
             return self._pick(d, lambda a: a.payload.get("choice") == ("take" if took else "return"), f"Grain Sales {'take' if took else 'return'} {card}")
+        while (q and q[0].option.hint == SelectionHint.GIVE_CARD and "Missile_Envy" in self.engine.hands[side.value]
+               and not (d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == "Missile_Envy_pick")):
+            # Missile Envy's "Select Card to Give" is asked even with a single
+            # candidate; the engine asks the giver only among ties. Once the
+            # engine has made the exchange (Missile Envy is in the giver's
+            # hand) without asking, the move is dropped before anything else
+            # looks at the queue: left there, it would pass for the answer
+            # the next forced step is waiting for. Before that, it waits.
+            q.popleft()
         if len(d.options) == 1 and q and not self._compatible(d, q[0]):
-            # A forced step the DLL did not ask about (a single legal target):
-            # known only once this side's next prompt turned out to be something else.
+            # A forced step the DLL did not ask about (a single legal target,
+            # a scoring card's "use"): known only once this side's next
+            # prompt turned out to be something that cannot answer it.
             return d.options[0]
         if not q:
             if len(d.options) == 1 and self.game.result is not None:
@@ -283,6 +383,37 @@ class Bridge:
             return None
         mv = q[0]
         m = mv.meaning
+        if d.kind is DecisionKind.EVENT_CHOICE and {a.payload.get("choice") for a in d.options} <= {"none", "coup", "realign"}:
+            # An event's free Coup/Realignment (Junta, Ortega, Tear Down This
+            # Wall): the DLL asks the use ("Select Use For Operations", or
+            # "Pass"), or goes straight to the target when only one use exists.
+            if m.meaning is T.Meaning.USE and m.use.ops_type in ("coup", "realignment"):
+                q.popleft()
+                want = "coup" if m.use.ops_type == "coup" else "realign"
+                return self._pick(d, lambda a: a.payload.get("choice") == want, f"free {want}")
+            if m.meaning is T.Meaning.COUNTRY:
+                want = "coup" if "coup" in {a.payload.get("choice") for a in d.options} else "realign"
+                return self._pick(d, lambda a: a.payload.get("choice") == want, f"free {want} (the target is next)")
+        if d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == CMC_DEFUSE:
+            # The engine offers the defusing at the start of each of this
+            # side's action rounds; the DLL lists it among the action round's
+            # cards ("Remove 2 Influence from West Germany"). A card play
+            # next means it was declined, and stays queued for the round.
+            if mv.option.hint == SelectionHint.CMC_DEFUSE and m.meaning is T.Meaning.COUNTRY:
+                q.popleft()
+                return self._pick(d, lambda a: a.payload.get("choice") == m.country, f"defuse in {m.country}")
+            return self._pick(d, lambda a: a.payload.get("choice") == "skip", "skip defusing")
+        if mv.option.hint == SelectionHint.TRAP_PASS:
+            # "You May Play a Scoring Card" -> "Pass": the DLL lets a trapped
+            # seat with no 2+-Ops card keep its scoring card for a later
+            # round; the engine plays it at once (docs/WOPR.md).
+            q.popleft()
+            if d.kind is DecisionKind.QUAGMIRE_DISCARD and d.context.get("forced_scoring"):
+                return self._pick(d, lambda a: a.payload["card"] == "none", "keep the scoring card (trapped)")
+            self.known["trap step: the DLL lets the trapped seat keep its scoring card, the engine plays it"] += 1
+            self.diverge("rules", f"{side.value} is trapped with no 2+-Ops card: the DLL offers to keep the scoring card (Pass), "
+                         "the engine plays it", fatal=True)
+            return self._answer(d)
         if m.meaning is T.Meaning.STOP and d.kind not in (DecisionKind.EVENT_CHOICE, DecisionKind.REALIGNMENT_TARGET):
             # A decline the DLL asked alone ("Do Not Discard" as the only
             # option: Blockade with no card to discard) where the engine
@@ -314,6 +445,10 @@ class Bridge:
                 self._forced_mode[side] = "un_intervention"
                 self._un_ops[side] = True
                 return self._pick(d, lambda a: a.payload["card"] == target.card, f"card {target.card} (UN Intervention)")
+        if d.kind is DecisionKind.HELD_CARD_DISCARD and mv.option.hint not in (SelectionHint.DISCARD_CARD, SelectionHint.STOP):
+            # Space Race box 6's optional discard before the deal: the DLL's
+            # next move is the headline pick, not a discard -- declined.
+            return self._pick(d, lambda a: a.payload["card"] == "none", "no held-card discard")
         if d.kind in CARD_KINDS and m.meaning is T.Meaning.CARD:
             q.popleft()
             self._check_cards(d, mv)
@@ -377,6 +512,13 @@ class Bridge:
             dll_hand |= {c for c in self._dealt[side] if self.card_loc.get(c) != int(ffi.ECardLocation.DECK)} - self._engine_dealt[side]
             dll_hand.discard(CHINA)
             missing = dll_hand - set(self.engine.hands[side.value])
+            last = self._last_played[side]
+            if last in missing and last not in self.engine.hands[side.value] and last not in self._dealt[side]:
+                # The card it is playing right now: the DLL keeps it in the
+                # hand until its event is done asking (Blockade's "Do Not
+                # Discard"), the engine filed it at the play. Dealt again
+                # this turn (after a reshuffle), it is a card to deal.
+                missing.discard(last)
             if not missing:
                 return None
             offered = [a for a in d.options if a.payload["card"] in missing]
@@ -438,6 +580,9 @@ class Bridge:
             if not gone:
                 return None
             card = max(gone)[1]
+            q = self.moves[physical]
+            if q and q[0].option.hint == SelectionHint.GIVE_CARD:
+                q.popleft()  # the giver's own "Select Card to Give" answer, asked of the seat the engine cannot see
             return self._pick(d, lambda a: a.payload["choice"] == card, f"Missile Envy takes {card} for {taker.value}")
         if event == "Aldrich_Ames_Remix_reveal":
             card = next((a.payload["choice"] for a in d.options if a.payload["choice"] in in_hand), None)
@@ -464,11 +609,37 @@ class Bridge:
 
     @staticmethod
     def _compatible(d: Decision, mv: Move) -> bool:
-        m = mv.meaning.meaning
-        return ((d.kind in CARD_KINDS and m is T.Meaning.CARD) or (d.kind is DecisionKind.EVENT_CHOICE and m in (T.Meaning.CARD, T.Meaning.STOP)) or (d.kind in COUNTRY_KINDS and m is T.Meaning.COUNTRY)
-                or (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER, DecisionKind.OPS_TYPE) and m is T.Meaning.USE)
-                or (d.kind is DecisionKind.EVENT_CHOICE and m in (T.Meaning.CHOICE, T.Meaning.COUNTRY))
-                or (d.kind is DecisionKind.REALIGNMENT_TARGET and m is T.Meaning.STOP))
+        """Whether `mv` can answer `d`: an option of `d` is what it names.
+        The kind alone is not enough -- a card play is a card, and so is
+        the one candidate of an Independent Reds the DLL resolved on its
+        own; the engine asks the latter, with one option, before the
+        former."""
+        m = mv.meaning
+        k = d.kind
+        opts = d.options
+        if m.meaning is T.Meaning.CARD:
+            if k is DecisionKind.ACTION_ROUND_PLAY and m.card == UN:
+                return True  # played as the opponent card's mode; see `_answer`
+            if k in CARD_KINDS:
+                return any(a.payload.get("card") == m.card for a in opts)
+            return k is DecisionKind.EVENT_CHOICE and any(a.payload.get("choice") == m.card for a in opts)
+        if m.meaning is T.Meaning.COUNTRY:
+            if k in COUNTRY_KINDS:
+                return any(a.payload.get("country") == m.country for a in opts)
+            return (k is DecisionKind.EVENT_CHOICE and mv.option.hint not in INFLUENCE_HINTS
+                    and any(a.payload.get("choice") in (m.country, "skip") for a in opts))
+        if m.meaning is T.Meaning.USE:
+            use = m.use
+            if k is DecisionKind.PLAY_MODE:
+                return any(a.payload.get("mode") == use.mode for a in opts)
+            if k is DecisionKind.OPS_TYPE:
+                return use.ops_type is None or any(a.payload.get("type") == use.ops_type for a in opts)
+            return k is DecisionKind.EVENT_OPS_ORDER
+        if m.meaning is T.Meaning.STOP:
+            if k is DecisionKind.REALIGNMENT_TARGET:
+                return any(a.payload.get("country") == "stop" for a in opts)
+            return k is DecisionKind.EVENT_CHOICE and any(a.payload.get("choice") not in ids.NUMBER_BY_CARD and a.payload.get("choice") not in ids.INDEX_BY_COUNTRY for a in opts)
+        return k is DecisionKind.EVENT_CHOICE and m.meaning is T.Meaning.CHOICE
 
     def _pick(self, d: Decision, pred, what: str) -> Action:
         for a in d.options:
@@ -489,8 +660,11 @@ class Bridge:
             else:
                 want = str(level)
             return self._pick(d, lambda a: a.payload.get("choice") == want, f"DEFCON {level} -> {want}")
-        # No shared vocabulary for an event's either/or: match the option
-        # whose payload shares the most words with Playdek's label.
+        # An either/or: the listed labels, else the option whose payload
+        # shares the most words with Playdek's label (reported).
+        listed = T.CHOICE_LABELS.get((mv.prompt.text, mv.option.text))
+        if listed is not None:
+            return self._pick(d, lambda a: a.payload.get("choice") == listed, f"choice {listed} ({mv.option.text!r})")
         words = set(mv.option.text.lower().split())
         best = max(d.options, key=lambda a: len(words & set(str(a.payload.get("choice", "")).lower().replace("_", " ").split())))
         self.diverge("choice by words", f"{mv.prompt.text!r} {mv.option.text!r} -> {dict(best.payload)} of {[dict(a.payload) for a in d.options]}")
@@ -561,8 +735,16 @@ class Bridge:
         e = self.engine
         if e.phase in ("idle", "predeal", "setup"):
             return  # the DLL deals after the setup placements, the engine before: compare from the first headline on
+        if not self._setup_synced:
+            # Whatever the first compare finds, the setup's records are behind
+            # both programs now: the influence history before this point is
+            # not something the operator still has to infer.
+            self._setup_synced = True
+            self.synced_seq = self._seq
         if e.pending_decision is None or e.pending_decision.kind not in CARD_KINDS:
             return  # mid-action on the engine's side
+        if self._dll_turn != e.turn or e.pending_decision.kind is DecisionKind.HELD_CARD_DISCARD:
+            return  # at the turn's end: the engine has recovered DEFCON, the DLL reports it after its next prompt
         diffs = self.state_diffs(hands=e.pending_decision.kind is DecisionKind.ACTION_ROUND_PLAY)
         text = "; ".join(diffs)
         if diffs and text != self._last_state_diff:
@@ -579,8 +761,8 @@ class Bridge:
         for what, n in self.known.items():
             self.diverge("known", f"{what} ({n}x)")
         self.report.playdek_result = str(self.game.result)
-        self.report.engine_result = (f"winner={self.engine.winner} vp={self.engine.vp} turn={self.engine.turn}" if self.engine.is_terminal
-                                     else f"not over (turn {self.engine.turn})")
+        self.report.engine_result = (f"winner={self.engine.winner} ({getattr(self.engine, '_game_over_reason', '?')}) vp={self.engine.vp} "
+                                     f"turn={self.engine.turn}" if self.engine.is_terminal else f"not over (turn {self.engine.turn})")
         if self.engine.is_terminal and self.game.result is not None:
             pd_winner = self._sides_by_player.get(self.game.result.winner_id)
             if pd_winner != self.engine.winner:
