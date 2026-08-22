@@ -758,6 +758,12 @@ def test_how_i_learned_sets_defcon_and_adds_military_ops():
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "3"}))
     assert engine.defcon == 3
     assert engine.military_ops["US"] == 5
+    # The +5 lands on the capped track: from 3 it reaches 5, not 8.
+    engine = _bare(seed=1)
+    engine.military_ops["US"] = 3
+    engine._fire_event(Side.US, "How_I_Learned_to_Stop_Worrying")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "5"}))
+    assert engine.military_ops["US"] == 5
 
 
 # -- per-turn regional Ops bonus (Vietnam Revolts) ---------------------------
