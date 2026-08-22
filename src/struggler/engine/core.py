@@ -914,7 +914,8 @@ class Engine:
                     self._headline_pending.remove(pair)
                     self._file_card(Side.USSR, pair[1], fired=False, already_removed_from_hand=True)
             return
-        self._award_vp(Side.US, 1)
+        if self._ars_played >= 1 and self._side_for_play_index(self._ars_played - 1) is Side.USSR:
+            self._award_vp(Side.US, 1)  # "during Soviet action round": the US's own Five Year Plan scores nothing
 
     def _maybe_defectors_action_round(self, side: Side, cid: str) -> None:
         """Defectors: printed text -- "If Defectors played by USSR during

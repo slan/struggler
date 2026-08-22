@@ -861,11 +861,20 @@ def test_five_year_plan_revealing_defectors_in_the_headline_cancels_the_ussr_hea
 def test_five_year_plan_revealing_defectors_in_an_action_round_scores_the_us():
     engine = _bare()
     engine.phase = "action_rounds"
+    engine._ars_played = 1  # the USSR's round
     engine.hands["USSR"] = ["Defectors"]
     engine._fire_event(Side.USSR, "Five_Year_Plan")
     engine.step(Action(DecisionKind.RANDOM_DISCARD, {"card": "Defectors"}))
     assert engine.vp == 1  # US +1 VP, as for Defectors played by the USSR
     assert "Defectors" in engine.discard_pile
+    # The US's own Five Year Plan, in the US's round, is not "during Soviet action round".
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine._ars_played = 2  # the US's round
+    engine.hands["USSR"] = ["Defectors"]
+    engine._fire_event(Side.US, "Five_Year_Plan")
+    engine.step(Action(DecisionKind.RANDOM_DISCARD, {"card": "Defectors"}))
+    assert engine.vp == 0
 
 
 def test_five_year_plan_just_discards_a_ussr_card():
