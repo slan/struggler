@@ -1060,7 +1060,7 @@ def play_match(pd: Playdek, player: Player, *, seed: int, side: Side, difficulty
         pass  # the DLL's result stands (held scoring card in the hand the engine cannot see)
     report = op.finish_match()
     fatal = [d for d in report.divergences if d.fatal]
-    void = fatal[0].detail if fatal and all(d.what == "rules" for d in fatal) else None
+    void = fatal[0].detail if fatal and fatal[0].what == "rules" else None  # later fatals are its consequences
     desync = (desync or bool(fatal)) and void is None
     result = op.game.result
     pd_winner = op._sides_by_player.get(result.winner_id) if result is not None else None
