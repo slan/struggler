@@ -36,7 +36,7 @@ from struggler.engine.player import Event, Player
 from struggler.engine.types import Action, Decision, DecisionKind, Observation, Side
 from struggler.runner import play_game
 from wopr.playdek import ids, translate as T
-from wopr.playdek.bridge import CARD_KINDS, CHINA, COUNTRY_KINDS, HAND_OF, HEADLINE_OF, UI_ONLY, UN, Bridge, Move, Report
+from wopr.playdek.bridge import CARD_KINDS, CHINA, COUNTRY_KINDS, HAND_LOCATION, HAND_OF, HEADLINE_OF, UI_ONLY, UN, Bridge, Move, Report
 from wopr.playdek import ffi
 from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
 from wopr.playdek.game import Option, Playdek, Prompt
@@ -204,6 +204,14 @@ class PlaydekOperator(Bridge):
             if use is not None:
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.USE, use=use, label=f"{hint:#x}"), f"use {use}"))
         return True
+
+    def card_that_left_any(self, owner: Side) -> list[str]:
+        """Cards that left `owner`'s hand for the discard or removed pile and
+        have not been accounted for, latest first (not consumed)."""
+        piles = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
+        gone = sorted(((seq, c) for c, (was, now, seq) in self._last_moves.items()
+                       if was == HAND_LOCATION[owner] and now in piles), reverse=True)
+        return [c for _, c in gone]
 
     def last_hand_of(self, card: str) -> Side | None:
         """The hand `card` is in, or the one it last left."""
@@ -425,6 +433,14 @@ class PlaydekOperator(Bridge):
             card = self.card_that_left(self.other, set(choices))
             if card is not None:
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"choice {card}")
+            # A card the DLL let it discard that the engine does not offer
+            # (a threshold the two count differently) is a desync, not a
+            # decline: the decline would punish the seat for a card it paid.
+            others = [c for c in self.card_that_left_any(self.other) if c not in choices]
+            if others:
+                self.diverge("illegal in engine", f"{self.other.value} {d.context.get('event')}: the DLL discarded {others[0]}, "
+                             f"the engine offers {[dict(a.payload) for a in d.options]}", fatal=True)
+                return d.options[0]
             decline = next((a for a in d.options if a.payload["choice"] in DECLINES), None)
             if decline is not None:
                 return decline  # the DLL is at rest and no card left the hand: it declined
