@@ -433,6 +433,17 @@ def test_un_intervention_offered_on_any_card_with_the_opponents_event():
     assert "un_intervention" not in engine._play_modes(Side.USSR, "Defectors")
 
 
+def test_un_intervention_on_defectors_cancels_its_vp_clause():
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine.hands["USSR"] = ["UN_Intervention", "Defectors"]
+    engine.push_action_round_play(Side.USSR) if hasattr(engine, "push_action_round_play") else engine._push_action_round_play(Side.USSR)
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Defectors"}))
+    engine.step(Action(DecisionKind.PLAY_MODE, {"mode": "un_intervention"}))
+    assert engine.vp == 0  # no "US gains 1 VP": the event is cancelled
+    assert "UN_Intervention" in engine.discard_pile
+
+
 def test_un_intervention_cancels_an_opponent_event_played_for_ops():
     engine = _bare()
     engine.defcon = 5
