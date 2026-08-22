@@ -1010,6 +1010,30 @@ def test_olympic_games_boycott_degrades_defcon_and_gives_sponsor_ops():
     assert engine.pending_decision.context["ops"] == 4
 
 
+def test_defcon_one_loses_the_phasing_player_whoever_moved_the_marker():
+    # The USSR's action round: the US wins the Summit contest and degrades
+    # DEFCON from 2 to 1 -- the USSR, the phasing player, loses.
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine._ars_played = 1  # play index 0: the USSR's round
+    engine.defcon = 2
+    engine._change_defcon(-1, caused_by=Side.US)
+    assert engine.is_terminal and engine.winner is Side.US
+    # The US's round: the same move loses the US the game.
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine._ars_played = 2  # play index 1: the US's round
+    engine.defcon = 2
+    engine._change_defcon(-1, caused_by=Side.US)
+    assert engine.is_terminal and engine.winner is Side.USSR
+    # In the headline phase the side whose card did it loses.
+    engine = _bare()
+    engine.phase = "headline"
+    engine.defcon = 2
+    engine._change_defcon(-1, caused_by=Side.US)
+    assert engine.is_terminal and engine.winner is Side.USSR
+
+
 def test_summit_contest_then_winner_adjusts_defcon():
     engine = _bare(seed=3)
     engine.defcon = 3

@@ -2639,11 +2639,22 @@ class Engine:
 
     # -- shared -------------------------------------------------------------
 
+    def _defcon_one_loser(self, caused_by: Side) -> Side:
+        """Who loses when DEFCON reaches 1: the phasing player -- the side
+        whose action round it is, whoever moved the marker (the US winning
+        a Summit the USSR played and degrading DEFCON to 1 loses the USSR
+        the game; a US coup granted by Grain Sales during the USSR's round
+        does too). Outside the action rounds (the headline phase) it is
+        the side whose card did it, `caused_by`."""
+        if self.phase == "action_rounds" and self._ars_played >= 1:
+            return self._side_for_play_index(self._ars_played - 1)
+        return caused_by
+
     def _change_defcon(self, delta: int, caused_by: Side) -> None:
         before = self.defcon
         self.defcon = max(1, min(5, self.defcon + delta))
         if self.defcon == 1:
-            self._win(caused_by.opponent, "defcon_1")
+            self._win(self._defcon_one_loser(caused_by).opponent, "defcon_1")
             return
         # NORAD: "If Canada is US-controlled", each time DEFCON MOVES to level
         # 2 the US adds 1 Influence to a country where it already has some.
