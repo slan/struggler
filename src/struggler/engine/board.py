@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Iterable
+
 import copy
 from dataclasses import dataclass
 
@@ -42,13 +44,23 @@ class Board:
     bug.
     """
 
-    def __init__(self) -> None:
+    # Every optional-rule space the data knows. A space tagged `"variant"`
+    # exists only when its variant is on.
+    VARIANTS: frozenset[str] = frozenset({"chinese_civil_war"})
+
+    def __init__(self, variants: Iterable[str] = ()) -> None:
         raw = load_json("countries.json")
+        self.variants: frozenset[str] = frozenset(variants)
+        unknown = self.variants - self.VARIANTS
+        if unknown:
+            raise ValueError(f"Unknown board variant(s): {sorted(unknown)}")
 
         self.countries: dict[str, CountryInfo] = {}
         self._adjacency: dict[str, set[str]] = {"US": set(), "USSR": set()}
 
         for cid, entry in raw["countries"].items():
+            if entry.get("variant") is not None and entry["variant"] not in self.variants:
+                continue  # an optional-rule space whose variant is off
             self.countries[cid] = CountryInfo(
                 id=cid,
                 name=entry["name"],
@@ -59,12 +71,12 @@ class Board:
             )
             self._adjacency.setdefault(cid, set())
 
+        present = set(self.countries) | {"US", "USSR"}
         for cid, entry in raw["countries"].items():
-            for neighbor in entry["adjacent_to"]:
-                self._adjacency[cid].add(neighbor)
+            if cid in present:
+                self._adjacency[cid].update(n for n in entry["adjacent_to"] if n in present)
         for side_id, entry in raw["superpowers"].items():
-            for neighbor in entry["adjacent_to"]:
-                self._adjacency[side_id].add(neighbor)
+            self._adjacency[side_id].update(n for n in entry["adjacent_to"] if n in present)
 
         self._validate_symmetric()
 

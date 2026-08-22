@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import copy
 import random
 
@@ -47,8 +49,8 @@ SCORING_CARD_REGION: dict[str, Region] = {
 
 
 class Engine:
-    def __init__(self, seed: int, board: Board | None = None) -> None:
-        self.board = board if board is not None else Board()
+    def __init__(self, seed: int, board: Board | None = None, variants: Iterable[str] = ()) -> None:
+        self.board = board if board is not None else Board(variants)
         self.defcon = 5
         self.vp = 0  # US-positive: >0 favors US, <0 favors USSR (matches score_region)
         self.turn = 1
@@ -207,6 +209,7 @@ class Engine:
             # -- full-game state --
             "phase": self.phase,
             "include_optional": self.include_optional,
+            "variants": sorted(self.board.variants),
             "draw_pile": list(self.draw_pile),
             "discard_pile": list(self.discard_pile),
             "removed_cards": list(self.removed_cards),
@@ -237,7 +240,7 @@ class Engine:
 
     @classmethod
     def deserialize(cls, data: dict) -> "Engine":
-        engine = cls(seed=data["seed"])
+        engine = cls(seed=data["seed"], variants=data.get("variants", ()))
         engine._rng.setstate(_decode_rng_state(data["rng_state"]))
         engine.board.load_influence(data["board"])
         engine.defcon = data["defcon"]
@@ -311,6 +314,7 @@ class Engine:
         events: bool = True,
         physical_mode: bool = False,
         physical_side: Side | None = None,
+        variants: Iterable[str] = (),
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -328,7 +332,7 @@ class Engine:
         """
         if physical_mode and physical_side not in (Side.US, Side.USSR):
             raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
-        engine = cls(seed=seed, board=board)
+        engine = cls(seed=seed, board=board, variants=variants)
         engine.include_optional = include_optional
         engine.events_enabled = events
         engine.physical_mode = physical_mode
