@@ -12,8 +12,10 @@ alternate by game index (`--side both`), the seed is `--seed + index`.
 Every game's replay log goes to `<out>/games/` (`GameLogWriter`, the
 engine's record of the game), every result to `<out>/results.jsonl`, and
 the tally to `<out>/summary.json` and stdout: the policy's win rate per
-seat with a Wilson 95% interval, and how many games desynced (the two
-programs disagreed fatally; those games do not count). The AI is not
+seat with a Wilson 95% interval, how many games desynced (the two
+programs disagreed fatally; those games do not count) and how many are
+void (ended on a documented difference between the two rule sets, by
+reason; they do not count either, and are not desyncs). The AI is not
 deterministic for a seed, so this is a sample, not a replay.
 """
 
@@ -108,8 +110,9 @@ def wilson(wins: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 
 def summarize(results: list[dict]) -> dict:
-    out: dict = {"games": len(results), "desyncs": sum(1 for r in results if r["desync"]), "by_side": {}}
-    clean = [r for r in results if not r["desync"] and r["playdek_winner"] is not None]
+    out: dict = {"games": len(results), "desyncs": sum(1 for r in results if r["desync"]),
+                 "void": dict(collections.Counter(r["void"] for r in results if r.get("void"))), "by_side": {}}
+    clean = [r for r in results if not r["desync"] and not r.get("void") and r["playdek_winner"] is not None]
     for side in ("USSR", "US", "both"):
         rows = clean if side == "both" else [r for r in clean if r["side"] == side]
         wins = sum(1 for r in rows if r["playdek_winner"] == r["side"])
@@ -151,7 +154,7 @@ def main(argv: list[str] | None = None) -> None:
     def report(r: dict) -> None:
         results.append(r)
         won = "won" if r["playdek_winner"] == r["side"] else "lost" if r["playdek_winner"] else "draw"
-        print(f"[{len(results)}/{len(jobs)}] seed {r['seed']} as {r['side']}: {'DESYNC' if r['desync'] else won} "
+        print(f"[{len(results)}/{len(jobs)}] seed {r['seed']} as {r['side']}: {'DESYNC' if r['desync'] else 'VOID' if r.get('void') else won} "
               f"({r['win_type']}, score {r['score']}, turn {r['turn']}, {r['seconds']:.0f}s)", flush=True)
         for d in r["divergences"]:
             if "known: " not in d:
@@ -177,7 +180,8 @@ def main(argv: list[str] | None = None) -> None:
         if s["games"]:
             lo, hi = s["wilson95"]
             print(f"{args.policy} as {side}: {s['wins']}/{s['games']} = {s['win_rate']:.3f} [{lo:.2f}, {hi:.2f}], mean turn {s['mean_turn']:.1f}")
-    print(f"desyncs {summary['desyncs']}/{summary['games']}; win types {summary['win_types']}; {summary['wall_seconds'] / 60:.1f} min")
+    print(f"desyncs {summary['desyncs']}/{summary['games']}; void {sum(summary['void'].values())}; win types {summary['win_types']}; "
+          f"{summary['wall_seconds'] / 60:.1f} min")
     for what, n in summary["known"].items():
         print(f"  known: {what} ({n}x)")
 

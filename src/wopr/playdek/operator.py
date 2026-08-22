@@ -87,13 +87,14 @@ class MatchResult:
     score: int  # the DLL's VP track at the end (US-positive)
     turn: int
     desync: bool
+    void: str | None = None  # the game ended on a known difference between the two rule sets: not a desync, not a game either
     divergences: list[str] = field(default_factory=list)
     prompts: int = 0
     seconds: float = 0.0
 
     @property
     def bot_won(self) -> bool | None:
-        if self.desync or self.playdek_winner is None:
+        if self.desync or self.void is not None or self.playdek_winner is None:
             return None
         return self.playdek_winner == self.side
 
@@ -338,7 +339,7 @@ class PlaydekOperator(Bridge):
                         self._grain = None
                         action = self._pick(d, lambda a: a.payload.get("choice") == ("take" if took else "return"), f"Grain Sales {'take' if took else 'return'} {card}")
                     else:
-                        action = self._answer_choice(d)
+                        action = self._answer_grain_sales(d)
                     if action is not None and action.payload.get("choice") == "return":
                         self._taken.clear()  # the drawn card is its owner's own again
                     return action
@@ -565,7 +566,43 @@ class PlaydekOperator(Bridge):
                 return next(a for a in d.options if a.payload["choice"] == want)
         return self._simulate(d)
 
+    def _answer_grain_sales(self, d: Decision) -> Action | None:
+        """The other seat's Grain Sales: take or return, whichever reproduces
+        the DLL's state. The DLL, against its own text ("if returned, use
+        this card to conduct Operations"), conducts Grain Sales' Ops *and*
+        plays the taken card: when neither choice alone reproduces the
+        state but "take" with two more Ops does, the game is void -- known,
+        and not a rules gap of this engine."""
+        before = len(self.report.divergences)
+        action = self._simulate(d)
+        if not (self.stop and len(self.report.divergences) > before):
+            return action
+        if self._simulate_one(next(a for a in d.options if a.payload["choice"] == "take"), extra_ops=2):
+            del self.report.divergences[before:]
+            self.known["Grain Sales: the DLL conducts Grain Sales' Ops as well as playing the taken card (its text: only if returned)"] += 1
+            self.diverge("rules", "Grain Sales: the DLL conducted its 2 Ops and played the taken card; the engine plays the card alone", fatal=True)
+        return action
+
     # -- choices the records do not name: try each, keep what reproduces the DLL --
+
+    def _simulate_one(self, option: Action, extra_ops: int = 0) -> bool:
+        """Whether `option`, played on a copy of the engine, reproduces the
+        DLL's state (`_simulate` for a single option; `extra_ops`: Ops the
+        US is granted on top, once the play is done)."""
+        real, queues = self.engine, self._queues()
+        divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
+        self.engine = Engine.deserialize(real.serialize())
+        self._simulating += 1
+        try:
+            return self._try(option, extra_ops=extra_ops)
+        except Exception:
+            return False
+        finally:
+            self._simulating -= 1
+            self.engine = real
+            self._set_queues(queues)
+            del self.report.divergences[divergences:]
+            self.known, self._last_state_diff = known, last
 
     def _simulate(self, d: Decision) -> Action | None:
         """Play each option on a copy of the engine, the rest of the chunk
@@ -608,11 +645,15 @@ class PlaydekOperator(Bridge):
             self.known[f"{d.context.get('event')}: {len(matches)} choices reproduce the DLL's state, the first taken"] += 1
         return matches[0][2]
 
-    def _try(self, option: Action) -> bool:
+    def _try(self, option: Action, extra_ops: int = 0) -> bool:
         self.engine.step(option)
         while not self.engine.is_terminal:
             d = self.engine.pending_decision
             if d.actor is self.side:
+                if extra_ops:
+                    self.engine.push_event_operations(Side.US, extra_ops)  # the DLL's Grain Sales Ops on top of the taken card
+                    extra_ops = 0
+                    continue
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
             if a is None or self.stop:
@@ -966,7 +1007,9 @@ def play_match(pd: Playdek, player: Player, *, seed: int, side: Side, difficulty
     except PlaydekEnded:
         pass  # the DLL's result stands (held scoring card in the hand the engine cannot see)
     report = op.finish_match()
-    desync = desync or any(d.fatal for d in report.divergences)
+    fatal = [d for d in report.divergences if d.fatal]
+    void = fatal[0].detail if fatal and all(d.what == "rules" for d in fatal) else None
+    desync = (desync or bool(fatal)) and void is None
     result = op.game.result
     pd_winner = op._sides_by_player.get(result.winner_id) if result is not None else None
     return MatchResult(
@@ -975,6 +1018,6 @@ def play_match(pd: Playdek, player: Player, *, seed: int, side: Side, difficulty
         playdek_winner=pd_winner.value if pd_winner is not None else None,
         win_type=result.win_type.name if result is not None else "none",
         score=result.score if result is not None else op.game.score,
-        turn=op.engine.turn, desync=desync, divergences=[str(d) for d in report.divergences],
+        turn=op.engine.turn, desync=desync, void=void, divergences=[str(d) for d in report.divergences],
         prompts=report.prompts, seconds=time.monotonic() - start,
     )

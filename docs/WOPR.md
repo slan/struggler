@@ -903,7 +903,14 @@ Findings from the first four random games, and what became of each:
   Arab-Israeli War under Camp David Accords is 2 VP in the engine and
   nothing in the DLL, and the VP differ for the rest of the game:
   `_flower_power_check` ends it as `known` the moment such a card is
-  played. Two engine
+  played. And the largest: the DLL conducts Grain Sales' 2 Ops *and*
+  plays the taken card, against its own card text ("if returned, use
+  this card to conduct Operations") -- the AI's favourite headline, so
+  one USSR-seat game in ten: when neither take nor return reproduces the
+  state but take with two more Ops does, the game is void. A game ended
+  by such a `rules` difference is `MatchResult.void` (the reason), not a
+  desync: the eval reports `void` by reason beside `desyncs`, and neither
+  counts. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
@@ -1011,7 +1018,8 @@ each), seats alternating by game
 index, seed `--seed + index`, and writes every game's replay log
 (`<out>/games/`), every result (`<out>/results.jsonl`) and the tally
 (`<out>/summary.json`): the policy's win rate per seat with a Wilson 95%
-interval, the endings, the desyncs, the `known` counts. The AI is not
+interval, the endings, the desyncs, the void games by reason, the
+`known` counts. The AI is not
 deterministic for a seed, so it is a sample, not a replay; `--policy
 greedy|random|first` give the yardsticks.
 
