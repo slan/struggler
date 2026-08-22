@@ -948,6 +948,14 @@ class Engine:
         otherwise its ordinary card play."""
         trap_key = self._trap_key_for(side)
         if trap_key is not None:
+            if side is Side.US and self.game_effects.pop("we_will_bury_you", None):
+                # We Will Bury You: the US's next action round is this one,
+                # and a trapped round plays no card -- UN Intervention is not
+                # played, the USSR scores now (see _handle_play_mode for the
+                # ordinary round).
+                self._award_vp(Side.USSR, 3)
+                if self.is_terminal:
+                    return
             self._push_trap_step(side, trap_key)
         else:
             self._push_action_round_play(side)

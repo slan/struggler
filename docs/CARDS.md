@@ -268,7 +268,8 @@ of the turn via `Engine._push_cmc_defuse_offer`), We Will Bury You (DEFCON
 −1; the `we_will_bury_you` game effect resolves on the US's next
 action-round play: UN Intervention as an event cancels it, anything else
 hands the USSR 3 VP before that play resolves — per the FAQ it survives
-the end of the turn and needs a next action round to pay out).
+the end of the turn and needs a next action round to pay out). A US round spent in Quagmire plays no card, so it is a round
+without UN Intervention and the USSR scores at it.
 
 **"Discard a 3+-Ops card or suffer" branch.** Blockade and Latin
 American Debt Crisis, with the US choosing from its own hand the same way
