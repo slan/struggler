@@ -370,6 +370,17 @@ action is also a free cross-check of the two engines' states — every
 desync is a bridge bug or a rules divergence, and either is worth
 knowing.
 
+The obvious follow-up question — if the DLL is a rules engine, should
+it be *the* engine for training? — was measured and answered no. With
+both seats scripted (the app's hotseat mode) and the DLL told to skip
+its animation pauses, it plays random-against-random at ~13.8k prompts
+a second in one process; struggler plays the same matchup at ~17k
+decisions a second. Same order, and struggler is ahead — while the DLL
+is one game per process, has no `observe()` or `serialize()`, and the
+engine is at most a third of a learner step in any case. Its value is
+what struggler does not have: an opponent nobody here wrote, and a
+second opinion on the rules.
+
 ## Open questions and the road ahead
 
 **Next experiment: capacity.** The chain flattened at v10 (two of three

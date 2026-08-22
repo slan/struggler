@@ -1,5 +1,6 @@
 """Drive one Playdek game headless: a local seat answered by us, the other
-seat played by Playdek's AI.
+seat played by Playdek's AI -- or both seats ours (hotseat), which makes the
+DLL a plain rules engine.
 
     pd = Playdek()                       # loads the DLL, Initialize() once
     game = pd.new_game(local_side=Side.USSR, ai_difficulty=AIDifficulty.HARD, seed=1)
@@ -39,6 +40,7 @@ from wopr.playdek.ffi import AIDifficulty, EScenario, EventType, PlayerType
 __all__ = ["AIDifficulty", "GameEvent", "GameResult", "Option", "Playdek", "PlaydekGame", "Prompt"]
 
 LOCAL_ID = 0
+HOTSEAT_ID = 1
 AI_ID = 456  # what the app uses for its AI profile; any id other than the local one works
 _VALID_TYPES = {int(t) for t in EventType}
 
@@ -148,41 +150,52 @@ class Playdek:
         self,
         *,
         local_side: Side,
-        ai_difficulty: AIDifficulty = AIDifficulty.HARD,
+        ai_difficulty: AIDifficulty | None = AIDifficulty.HARD,
         seed: int = 0,
         scenario: EScenario = EScenario.STANDARD,
         additional_card_flags: int = 0,
     ) -> PlaydekGame:
-        """Start a game. `additional_card_flags` is the app's optional-card
-        bit set (optional cards, promo packs); 0 is the base deck."""
+        """Start a game: our seat on `local_side`, the AI on the other.
+
+        `ai_difficulty=None` is the app's hotseat mode instead -- both seats
+        are ours and every prompt comes through `pump`, `Prompt.player_id`
+        telling them apart (`PlaydekGame.sides` maps it to a `Side`); the
+        DLL then has nothing to wait for, so `force_updates` is on.
+        `additional_card_flags` is the app's optional-card bit set (optional
+        cards, promo packs); 0 is the base deck."""
         if self._game is not None:
             self._game.close()
         self._prompts.clear()
+        if ai_difficulty is None:
+            # The app seats the hotseat players this way round; (LOCAL, HOTSEAT)
+            # leaves the second seat unprompted.
+            seats = [(HOTSEAT_ID, PlayerType.HOTSEAT, 0, b"hotseat"), (LOCAL_ID, PlayerType.LOCAL, 0, b"local")]
+            sides = {HOTSEAT_ID: Side.USSR, LOCAL_ID: Side.US}
+            method = ffi.EChooseSidesMethod.CREATORUSSR
+        else:
+            seats = [(LOCAL_ID, PlayerType.LOCAL, 0, b"local"), (AI_ID, PlayerType.AI, int(ai_difficulty), b"playdek")]
+            sides = {LOCAL_ID: local_side, AI_ID: local_side.opponent}
+            method = ffi.EChooseSidesMethod.CREATORUSSR if local_side is Side.USSR else ffi.EChooseSidesMethod.CREATORUS
         params = ffi.GameParameters(
-            additionalCardFlags=additional_card_flags,
-            scenario=int(scenario),
-            chooseSidesMethod=int(ffi.EChooseSidesMethod.CREATORUSSR if local_side is Side.USSR else ffi.EChooseSidesMethod.CREATORUS),
-            additionalInfluence=0,
+            additionalCardFlags=additional_card_flags, scenario=int(scenario), chooseSidesMethod=int(method), additionalInfluence=0
         )
         players = (ffi.AppPlayerData * 2)()
-        for seat, (pid, ptype, diff, name) in enumerate(
-            [(LOCAL_ID, PlayerType.LOCAL, 0, b"local"), (AI_ID, PlayerType.AI, int(ai_difficulty), b"playdek")]
-        ):
+        for seat, (pid, ptype, diff, name) in enumerate(seats):
             players[seat].id = pid
             players[seat].userRatings[0] = players[seat].userRatings[1] = 1500
             players[seat].playerType = int(ptype)
             players[seat].aiDifficultyLevel = diff
             players[seat].name = name
         self.lib.StartGame(C.byref(params), 2, players, seed & 0xFFFFFFFF)
-        self._game = PlaydekGame(self, local_side=local_side)
+        self._game = PlaydekGame(self, sides=sides, force_updates=ai_difficulty is None)
         return self._game
 
 
 class PlaydekGame:
-    def __init__(self, pd: Playdek, *, local_side: Side) -> None:
+    def __init__(self, pd: Playdek, *, sides: dict[int, Side], force_updates: bool = False) -> None:
         self._pd = pd
         self._lib = pd.lib
-        self.local_side = local_side
+        self.sides = sides  # player id -> the side it plays
         self._buf = C.create_string_buffer(ffi.EVENT_BUFFER_BYTES)
         self._state = C.create_string_buffer(ffi.STATE_BUFFER_BYTES)
         self._decoder = EventDecoder()
@@ -190,18 +203,29 @@ class PlaydekGame:
         self.prompt: Prompt | None = None
         self.result: GameResult | None = None
         self._closed = False
+        # Ask the DLL to advance its state machine when an update came back
+        # empty: `UpdateGame` alone paces itself in real time (animation
+        # pauses), which is the app's concern, not ours. Off while an AI seat
+        # thinks on its threads -- there, empty updates just mean "not yet".
+        self.force_updates = force_updates
+        self.update_calls = 0
+        self.idle_seconds = 0.0
 
     # -- the loop ------------------------------------------------------
 
     def pump(self, *, idle_limit: float = 300.0) -> Prompt | None:
-        """Run the DLL until the local seat must decide (returns the prompt)
-        or the game is over (returns `None`; see `result`). Raises if nothing
-        happens for `idle_limit` seconds -- the AI never takes that long."""
+        """Run the DLL until one of our seats must decide (returns the
+        prompt) or the game is over (returns `None`; see `result`). Raises if
+        nothing happens for `idle_limit` seconds -- the AI never takes that
+        long."""
         if self.prompt is not None:
             return self.prompt
         idle_since = time.monotonic()
         while self.result is None:
             n = self._lib.UpdateGame(self._buf, ffi.EVENT_BUFFER_BYTES)
+            self.update_calls += 1
+            if n == 0 and self.force_updates and not self._pd._prompts:
+                n = self._lib.ForceUpdateStateMachineInput(self._buf, ffi.EVENT_BUFFER_BYTES)
             batch = self._decoder.decode(self._buf.raw, n) if n else []
             for ev in batch:
                 self.events.append(ev)
@@ -211,15 +235,17 @@ class PlaydekGame:
                     winner, win_type = ev.payload
                     self.result = GameResult(winner, ffi.GameOverType(win_type), self._lib.GetGameCurrentScore())
             if self._pd._prompts:
-                self.prompt = self._pd._prompts.pop(0)
-                if self._pd._prompts:
-                    raise RuntimeError("more than one pending option list")
+                # Several lists in one update (hotseat headlines) supersede each
+                # other: the app keeps the last one, and so does the DLL.
+                self.prompt = self._pd._prompts[-1]
+                self._pd._prompts.clear()
                 return self.prompt
             if batch:
                 idle_since = time.monotonic()
             elif time.monotonic() - idle_since > idle_limit:
                 raise TimeoutError(f"no events from TwilightLib for {idle_limit:.0f}s")
-            else:
+            elif not self.force_updates:
+                self.idle_seconds += 0.001
                 time.sleep(0.001)
         return None
 

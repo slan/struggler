@@ -86,3 +86,23 @@ def test_local_ussr_setup_prompts_come_from_the_dll():
         assert game.ai_state().isAIPlayer == 1
     finally:
         game.close()
+
+
+def test_hotseat_prompts_both_seats_in_order():
+    pd = _playdek()
+    game = pd.new_game(local_side=Side.USSR, ai_difficulty=None, seed=3)
+    try:
+        asked = []
+        while len(asked) < 14:
+            prompt = game.pump(idle_limit=60)
+            assert prompt is not None
+            entry = (game.sides[prompt.player_id], prompt.text)
+            if not asked or asked[-1] != entry:  # the DLL re-asks the very first prompt once (hotseat start)
+                asked.append(entry)
+            game.choose(prompt.visible[0].index)
+        ussr = [(Side.USSR, "Place 6 Influence")] + [(Side.USSR, f"Place {n} More Influence") for n in range(5, 0, -1)]
+        us = [(Side.US, "Place 7 Influence")] + [(Side.US, f"Place {n} More Influence") for n in range(6, 0, -1)]
+        assert asked == ussr + us + [(Side.US, "Select a Card to Headline")]
+        assert game.hand_count(0) == 8 and game.hand_count(1) == 8
+    finally:
+        game.close()

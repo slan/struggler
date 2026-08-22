@@ -382,11 +382,42 @@ cost something to learn, so they are not learned twice:
 - **State getters** (`GetGamePlayerHandState`, `GetGamePlayerAIState`,
   `GetGameCurrentScore`, `GetPendingDefconLevel`, ...) take the seat's
   `id`, fill a caller buffer and return the bytes written.
+- **Pacing.** `UpdateGame` alone advances in real time — it inserts the
+  app's animation pauses, so a scripted seat gets about two prompts a
+  second. **`ForceUpdateStateMachineInput`** on an empty update skips
+  them (`PlaydekGame.force_updates`); it is on whenever no AI seat is
+  thinking.
+- **Hotseat** (`new_game(ai_difficulty=None)`): both seats ours, the DLL a
+  plain rules engine. The app seats them as `(HOTSEAT, LOCAL)` — the other
+  way round leaves the second seat unprompted — and re-asks the very first
+  prompt once. The moves of a pending action are emitted twice, as the
+  preview and again at commit (`COUNTRY_INFLUENCE` is the state, the
+  `OUTPUT_ANIMATION_*` records are the preview).
 - Time: the hard AI takes a few seconds per decision; a whole game
   against a scripted opponent took 2½ minutes (hard) and 4½ (easy, it
   lasted longer). The process is mostly idle while the AI thinks, so
   several games can run in parallel processes — the DLL is a process-wide
   singleton with one current game.
+
+### As a rules engine: measured, and why not
+
+Random against random, one process, forced updates: the Playdek engine
+answers **~13.8k prompts/s** (50 games, 0% idle; ~4.6 `UpdateGame`
+calls per prompt); the struggler engine plays the same matchup at
+**~17k decisions/s** (`Engine` + `RandomPlayer` through `play_game`).
+Same order, struggler slightly ahead, and a prompt and a decision are
+about the same grain (one influence placement, one card choice). So the
+DLL is not a faster engine, and it could not be the arena's engine
+anyway: it is one game per process with no batching across games, there
+is no `observe()` — a bot's `Observation` would have to be rebuilt from
+the event stream and the state getters, the hand included — no
+`serialize()`/`deserialize()` for search, no guarantee about the seed,
+and it is Windows-only and not redistributable. The profile in
+[JOSHUA.md](JOSHUA.md) says the engine is a third of a learner step at
+most; the rest is encoding and inference, which an engine swap does not
+touch. What the DLL is good for is the two things struggler cannot
+provide: an independent, commercial-grade opponent, and a second
+implementation of the rules to diff against.
 
 ### What this is for
 

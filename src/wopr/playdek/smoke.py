@@ -23,11 +23,12 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--games", type=int, default=1)
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--side", choices=["ussr", "us"], default="ussr", help="the seat we answer; the AI takes the other")
-    p.add_argument("--difficulty", choices=["easy", "hard"], default="hard")
+    p.add_argument("--difficulty", choices=["easy", "hard", "none"], default="hard", help="none: a second local seat instead of the AI")
     p.add_argument("--policy", choices=["first", "random"], default="random")
     p.add_argument("--max-prompts", type=int, default=None, help="abandon each game after this many prompts")
     p.add_argument("--show-prompts", type=int, default=0, help="print the first N prompts of each game with their options")
     p.add_argument("--idle-limit", type=float, default=300.0)
+    p.add_argument("--force", action="store_true", help="ForceUpdateStateMachineInput when idle (skips the DLL's real-time pacing)")
     args = p.parse_args(argv)
 
     pd = Playdek()
@@ -36,16 +37,17 @@ def main(argv: list[str] | None = None) -> None:
     prompts: collections.Counter[str] = collections.Counter()
     hints: collections.Counter[tuple[int, str]] = collections.Counter()
     side = Side.USSR if args.side == "ussr" else Side.US
-    difficulty = AIDifficulty.HARD if args.difficulty == "hard" else AIDifficulty.EASY
+    difficulty = {"hard": AIDifficulty.HARD, "easy": AIDifficulty.EASY, "none": None}[args.difficulty]
 
     for g in range(args.games):
         game = pd.new_game(local_side=side, ai_difficulty=difficulty, seed=args.seed + g)
+        game.force_updates = game.force_updates or args.force
         start = time.monotonic()
         shown = 0
         count = 0
         while (prompt := game.pump(idle_limit=args.idle_limit)) is not None:
             count += 1
-            prompts[prompt.text] += 1
+            prompts[f"{game.sides[prompt.player_id].value:4s} {prompt.text}"] += 1
             for o in prompt.options:
                 hints[(o.hint, o.text.split(" ")[0])] += 1
             if shown < args.show_prompts:
