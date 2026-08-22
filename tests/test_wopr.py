@@ -399,3 +399,23 @@ def test_arena_and_eval_open_games_at_the_handicap():
     # the game: every match still resolves to a Match with a US-first record.
     matches = run_pair(job)
     assert len(matches) == 2 and {m.a for m in matches} == {"random", "first"}
+
+
+def test_margin_reward_grades_the_final_vp_and_stays_zero_sum():
+    from wopr.backend import EpisodeRecord
+
+    def rec(winner, mover, vp, margin):
+        return EpisodeRecord(winner=winner, mover=mover, seats={}, turn=10, vp=vp, seed=0, length=1, margin=margin)
+
+    # Margin 0: the outcome alone.
+    assert rec(Side.USSR, Side.US, -20, 0.0).reward() == -1.0
+    assert rec(None, Side.US, 5, 0.0).reward() == 0.0
+    # Margin on: a loss held to -4 beats a loss at -20; a win on VP is still +1.
+    assert rec(Side.USSR, Side.US, -4, 0.5).reward() == pytest.approx(-0.6)
+    assert rec(Side.USSR, Side.US, -20, 0.5).reward() == pytest.approx(-1.0)
+    assert rec(Side.USSR, Side.USSR, -20, 0.5).reward() == pytest.approx(1.0)
+    # The two seats' rewards sum to zero for every final state.
+    for vp in (-20, -4, 0, 7):
+        us, ussr = rec(Side.USSR, Side.US, vp, 0.5), rec(Side.USSR, Side.USSR, vp, 0.5)
+        assert us.reward() + ussr.reward() == pytest.approx(0.0)
+    assert ArenaSpec(4, 0, margin=0.5).margin == 0.5

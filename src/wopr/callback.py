@@ -34,7 +34,7 @@ from wopr.vec_env import LEARNER, WoprVecEnv
 CSV_COLUMNS = (
     "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s", "rollout_s", "update_s", "wait_s",
     "win_rate", "win_rate_us", "win_rate_ussr", "draw_rate", "win_rate_vs_pool", "win_rate_vs_anchor",
-    "ep_len_mean", "turn_mean",
+    "ep_len_mean", "turn_mean", "vp_mean",
     "entropy", "k_valid", "entropy_ratio", "k_eff",
     "approx_kl", "clip_fraction", "explained_variance", "policy_loss", "value_loss", "entropy_loss",
     "pool_size", "anchor",
@@ -178,6 +178,7 @@ class WoprCallback(BaseCallback):
         by_seat = {"US": [0, 0], "USSR": [0, 0]}
         vs_pool = [0, 0]
         vs_anchor = [0, 0]
+        vps: list[int] = []
         for g in games:
             seats = g["seats"]
             learner_sides = [s for s, p in seats.items() if p == LEARNER]
@@ -186,6 +187,7 @@ class WoprCallback(BaseCallback):
                 continue
             side = learner_sides[0]
             won = g["winner"] == side
+            vps.append(g["vp"] if side == "US" else -g["vp"])
             by_seat[side][0] += int(won)
             by_seat[side][1] += 1
             if g["winner"] is None:
@@ -212,6 +214,7 @@ class WoprCallback(BaseCallback):
             "win_rate_vs_anchor": rate(*vs_anchor),
             "ep_len_mean": round(float(np.mean([g["l"] for g in games])), 1),
             "turn_mean": round(float(np.mean([g["turn"] for g in games])), 2),
+            "vp_mean": round(float(np.mean(vps)), 2) if vps else None,
         }
 
     def _policy_health(self, sample: int = 2048) -> dict[str, Any]:

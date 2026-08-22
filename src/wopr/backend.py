@@ -42,6 +42,9 @@ from wopr.arena import Arena, Opponent, PendingRow, SeatAssigner
 
 LEARNER = "learner"
 
+#: The VP track's end (rules.json `vp_to_win`): the margin reward's scale.
+VP_TO_WIN = 20.0
+
 #: Resolves a non-learner policy id to something that can answer rows.
 OpponentResolver = Callable[[str], Opponent]
 
@@ -56,11 +59,20 @@ class EpisodeRecord(NamedTuple):
     vp: int
     seed: int
     length: int
+    margin: float = 0.0  # weight of the final-VP margin in `reward` (0: the outcome alone)
 
     def reward(self) -> float:
-        if self.winner is None:
-            return 0.0
-        return 1.0 if self.winner is self.mover else -1.0
+        """The terminal reward for the mover: `(1 - margin) * outcome +
+        margin * clip(final VP for the mover / 20, -1, 1)`. With margin 0 it
+        is the outcome alone, +1/-1/0. With margin on, a loss held to -3
+        on the track is worth more than one that reached -20, and a win on
+        VP is still +1; the sum over the two seats is still 0."""
+        outcome = 0.0 if self.winner is None else (1.0 if self.winner is self.mover else -1.0)
+        if not self.margin:
+            return outcome
+        mine = self.vp if self.mover is Side.US else -self.vp
+        track = max(-1.0, min(1.0, mine / VP_TO_WIN))
+        return (1.0 - self.margin) * outcome + self.margin * track
 
     def summary(self) -> dict[str, Any]:
         """The `infos[i]["episode"]` dict: SB3's Monitor keys plus WOPR's."""
@@ -97,8 +109,10 @@ class InProcessBackend:
         *,
         buffers: Mapping[str, np.ndarray] | None = None,
         learner: str = LEARNER,
+        margin: float = 0.0,
     ) -> None:
         self.arena = arena
+        self.margin = margin
         self.n_slots = arena.n_games
         self._resolve = opponents
         self._opponents: dict[str, Opponent] = {}
@@ -187,6 +201,7 @@ class InProcessBackend:
             vp=result.vp,
             seed=result.seed,
             length=int(self._steps[slot]),
+            margin=self.margin,
         )
         self._steps[slot] = 0
         return record
@@ -232,6 +247,7 @@ class ArenaSpec:
     events: bool = True
     include_optional: bool = True
     starting_vp: int = 0
+    margin: float = 0.0  # the terminal reward's final-VP weight (`EpisodeRecord.reward`)
 
 
 @dataclass(frozen=True)
@@ -295,7 +311,7 @@ def worker_main(
         starting_vp=spec.starting_vp,
     )
     backend = InProcessBackend(
-        arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner
+        arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin
     )
     done.release()  # built: the main process may now write the next seats
     try:
@@ -410,6 +426,7 @@ class SharedMemoryBackend:
                 vp=int(shared["ep_vp"][slot]),
                 seed=int(shared["ep_seed"][slot]),
                 length=int(shared["ep_length"][slot]),
+                margin=self.spec.margin,
             )
         if len(finished):
             # Those slots restarted during the step on the seats written

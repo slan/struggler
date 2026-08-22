@@ -259,7 +259,7 @@ generation.
 
 Per update: games, win rates (overall, per seat, vs pool, vs anchor),
 the current anchor, rollout and update seconds (and, with collectors,
-the seconds spent waiting on them), draw rate, episode length and mean final turn, policy health —
+the seconds spent waiting on them), draw rate, episode length, mean final turn, the learner's mean final VP (`vp_mean`, non-self-play games), policy health —
 `entropy`, `k_valid` (mean legal options), `entropy_ratio = H / ln K`
 (≈1: not choosing yet; ≪0.3 with many options: collapsed), `k_eff = e^H`
 — and SB3's `approx_kl`, `clip_fraction`, `explained_variance`, losses.
@@ -325,9 +325,15 @@ larger `N` resumes; a smaller or equal `N` is a no-op.
   control. A GPU pays off for the update phase already at the default
   model size, and for rollouts once several collector processes
   centralise inference into large batches.
-- **Reward.** Terminal only, by design. VP is the game's literal score and
-  a natural dense signal if learning stalls; it is not on by default
-  because shaping a two-player zero-sum game tends to teach the shaping.
+- **Reward.** Terminal only, by design: dense VP shaping of a two-player
+  zero-sum game tends to teach the shaping. `--margin m` keeps it
+  terminal but lets the final score in: each row's reward becomes
+  `(1 - m) * outcome + m * clip(final VP for the mover / 20, -1, 1)`
+  (`EpisodeRecord.reward`), so a loss held to −3 on the track is worth
+  more than one that reached −20, a win on VP is still +1, and the two
+  seats still sum to 0. The default is 0, the outcome alone; `config.json`
+  records the weight, and `metrics.csv` carries `vp_mean`, the learner's
+  mean final VP in its games against the pool and the anchor.
 
 ## What Joshua cannot do yet
 
