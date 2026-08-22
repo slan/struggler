@@ -227,7 +227,8 @@ engine before the August 2026 fixes; version 2 is after the nine of
 them (`b55daf5`); version 3 adds the four the match operator found
 (an opponent's card or an event whose play restriction is unmet is not
 offered "for its event", Independent Reds' targets, the US/Japan Pact
-leaving the USSR's Influence in Japan -- docs/WOPR.md).
+leaving the USSR's Influence in Japan, a war's penalty counting adjacent
+countries only -- docs/WOPR.md).
 
 ## Opening deal order
 

@@ -127,7 +127,9 @@ Saudis.
 
 **War family** (attacker chosen, seeded CHANCE roll). Korean War and
 Arab-Israeli War have fixed targets; Indo-Pakistani War, Iran-Iraq War and
-Brush War let the attacker pick via `WAR_TARGET`.
+Brush War let the attacker pick via `WAR_TARGET`. The roll loses 1 per
+enemy-controlled country adjacent to the target; only Arab-Israeli War
+("and Israel itself") counts the target too.
 
 **Events that conduct Operations** (`push_event_operations`). CIA Created,
 Lone Gunman, ABM Treaty. Glasnost (4 Ops if The Reformer is active) and

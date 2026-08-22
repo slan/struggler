@@ -670,6 +670,26 @@ def test_indo_pakistani_war_target_choice_resolves_to_a_roll():
     assert engine.military_ops["USSR"] == 2
 
 
+def test_war_penalty_counts_adjacent_enemy_control_only():
+    # Indo-Pakistani War by the US on a USSR-controlled Pakistan with one
+    # USSR-controlled neighbour (Afghanistan): "-1 for every enemy-controlled
+    # country adjacent to the target" -- the target itself does not count,
+    # so a 5 is a 4, a win. (Arab-Israeli War's "and Israel itself" is the
+    # one war that counts the target.)
+    engine = _bare()
+    engine.board.influence["Pakistan"] = {"US": 1, "USSR": 3}
+    engine.board.influence["Afghanistan"] = {"US": 0, "USSR": 2}
+    engine.board.influence["Iran"] = {"US": 3, "USSR": 0}
+    engine._fire_event(Side.US, "Indo_Pakistani_War")
+    engine.step(Action(DecisionKind.WAR_TARGET, {"country": "Pakistan"}))
+    roll = engine.pending_decision
+    assert roll.kind is DecisionKind.WAR_ROLL and roll.context["count_target_control"] is False
+    engine._decision_stack.pop()
+    engine._handle_war_roll(roll, Action(DecisionKind.WAR_ROLL, {"value": 5}))
+    assert engine.board.influence["Pakistan"] == {"US": 4, "USSR": 0}
+    assert engine.vp == 2
+
+
 def test_independent_reds_matches_us_to_ussr_influence():
     engine = _bare()
     engine.board.influence["Romania"] = {"US": 0, "USSR": 3}
