@@ -185,3 +185,20 @@ def test_game_log_records_the_starting_vp(tmp_path):
     rebuilt = make_engine(log)
     assert rebuilt.vp == 3 and rebuilt.serialize()["hands"] == engine.serialize()["hands"]
     assert make_engine({"seed": 5, "new_game": True}).vp == 0
+
+
+def test_game_log_records_a_deferred_opening_deal(tmp_path):
+    import json
+
+    from struggler.engine import Engine
+    from struggler.engine.replay import GameLogWriter, make_engine
+
+    engine = Engine.new_game(seed=5, deal_after_setup=True)
+    writer = GameLogWriter(tmp_path / "game.json", engine)
+    writer.finalize(None)
+    log = json.loads((tmp_path / "game.json").read_text())
+    assert log["deal_after_setup"] is True
+    assert make_engine(log).serialize() == engine.serialize()
+    plain = GameLogWriter(tmp_path / "plain.json", Engine.new_game(seed=5))
+    plain.finalize(None)
+    assert "deal_after_setup" not in json.loads((tmp_path / "plain.json").read_text())

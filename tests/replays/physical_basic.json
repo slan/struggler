@@ -1202,6 +1202,7 @@
         "defcon": 5,
         "vp": -2,
         "starting_vp": 0,
+        "deal_after_setup": false,
         "turn": 1,
         "action_round": 2,
         "next_decision_id": 37,

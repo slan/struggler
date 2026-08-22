@@ -68,6 +68,27 @@ def test_full_opening_deal_completes_into_opening_setup():
     assert engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE
     assert engine.pending_decision.actor is Side.USSR
     assert len(engine.hands["US"]) == hand_limit(1)
+
+
+def test_deal_after_setup_places_first_then_deals_both_hands():
+    # Playdek's order: the 6 + 7 opening placements come first, with no
+    # hand in sight, and the opening deal (the bot's DEAL_CARD decisions)
+    # only then, before the first headline.
+    engine = Engine.new_game(seed=2, physical_mode=True, physical_side=Side.US, events=False, deal_after_setup=True)
+    placements = 0
+    while engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE:
+        assert engine.hands["US"] == [] and engine.hands["USSR"] == []
+        engine.step(engine.pending_decision.options[0])
+        placements += 1
+    assert placements == 13
+    deals = 0
+    while engine.pending_decision.kind is DecisionKind.DEAL_CARD:
+        engine.step(engine.pending_decision.options[0])
+        deals += 1
+    assert deals == hand_limit(1)
+    assert len(engine.hands["USSR"]) == hand_limit(1) and len(engine.hands["US"]) == hand_limit(1)
+    assert engine.pending_decision.kind is DecisionKind.HEADLINE_PLAY
+    assert Engine.deserialize(engine.serialize()).deal_after_setup is True
     assert len(engine.hands["USSR"]) == hand_limit(1)
 
 

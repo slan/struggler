@@ -209,3 +209,14 @@ seat gives the US that many VP. Nothing else changes; the printed game is
 handicapped game round-trips and replays like any other (mandate #5).
 The training arena uses it to take the seat out of the result
 (docs/WOPR.md).
+
+## Opening deal order
+
+`Engine.new_game(..., deal_after_setup=True)` deals the opening hands
+after the USSR's 6 and the US's 7 opening placements instead of before
+them, so the placements are made without sight of a hand. The default
+deals first, as the printed setup sequence does; the option is Playdek's
+order, which `wopr.playdek` has to follow in physical mode because its
+`DEAL_CARD` answers come from the other program's deal (docs/WOPR.md).
+`serialize()` carries the flag, and a `new_game` replay log records it
+in its header when set (mandate #5).

@@ -55,6 +55,9 @@ class Engine:
         self.defcon = 5
         self.vp = 0  # US-positive: >0 favors US, <0 favors USSR (matches score_region)
         self.starting_vp = 0  # the VP the game opened at (a handicap); 0 in the printed game
+        # Turn 1 only: deal the opening hands after the opening influence
+        # placement instead of before it (`new_game(deal_after_setup=True)`).
+        self.deal_after_setup = False
         self.turn = 1
         self.action_round = 1
 
@@ -205,6 +208,7 @@ class Engine:
             "defcon": self.defcon,
             "vp": self.vp,
             "starting_vp": self.starting_vp,
+            "deal_after_setup": self.deal_after_setup,
             "turn": self.turn,
             "action_round": self.action_round,
             "next_decision_id": self._next_decision_id,
@@ -251,6 +255,7 @@ class Engine:
         engine.defcon = data["defcon"]
         engine.vp = data["vp"]
         engine.starting_vp = data.get("starting_vp", 0)
+        engine.deal_after_setup = data.get("deal_after_setup", False)
         engine.turn = data["turn"]
         engine.action_round = data["action_round"]
         engine._next_decision_id = data["next_decision_id"]
@@ -322,6 +327,7 @@ class Engine:
         physical_side: Side | None = None,
         starting_vp: int = 0,
         variants: Iterable[str] = (),
+        deal_after_setup: bool = False,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -340,6 +346,13 @@ class Engine:
         `starting_vp`: the VP track's opening value, US-positive — a
         handicap, as a tournament bid gives the US side VP for the USSR
         seat. 0 is the printed game.
+
+        `deal_after_setup`: deal the opening hands only once the opening
+        placement is done, so the placements are made without sight of a
+        hand -- the order of Playdek's edition, which `wopr.playdek`
+        mirrors in physical mode (its DEAL_CARD answers come from the
+        other program's deal, which happens after the placements). The
+        default deals first, as the printed setup sequence does.
         """
         if physical_mode and physical_side not in (Side.US, Side.USSR):
             raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
@@ -352,6 +365,7 @@ class Engine:
         engine.china_card_available = True
         engine.starting_vp = starting_vp
         engine.vp = starting_vp
+        engine.deal_after_setup = deal_after_setup
         engine.turn = 1
         engine._start_turn(initial=True)  # build deck, deal (phase -> predeal until dealt)
         engine._advance()  # drains physical-mode dealing if any, then runs setup -> first headline
@@ -493,7 +507,8 @@ class Engine:
             self._add_period_to_deck(Period.MID_WAR)
         elif self.turn == 8:
             self._add_period_to_deck(Period.LATE_WAR)
-        self._deal_to_limit()
+        if not (initial and self.deal_after_setup):
+            self._deal_to_limit()
         self.phase = "predeal" if initial else "headline"
 
     def _add_military_ops(self, side: Side, amount: int) -> None:
@@ -2233,6 +2248,11 @@ class Engine:
             self._push_setup_influence(Side.US, Subregion.WESTERN_EUROPE)
         else:
             self.phase = "headline"  # setup complete; _advance pushes headline
+            if self.deal_after_setup:
+                # The deferred opening deal: physical mode's DEAL_CARD
+                # decisions land on the stack now, and `_advance` only
+                # pushes the headline once they have drained.
+                self._deal_to_limit()
 
     # -- coup --------------------------------------------------------------
 
