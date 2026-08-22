@@ -756,15 +756,19 @@ class Engine:
     # -- headline phase -----------------------------------------------------
 
     def _push_headline(self, side: Side) -> None:
-        # The China Card cannot be headlined; scoring cards can.
+        # The China Card and UN Intervention cannot be headlined; scoring cards can.
         physical_turn = self.physical_mode and side is self.physical_side
         candidates = (
             self._physical_hand_candidates(side)
             if physical_turn
             else list(self.hands[side.value])
         )
+        # UN Intervention's printed text: it cannot be played during the
+        # headline phase.
         options = tuple(
-            Action(DecisionKind.HEADLINE_PLAY, {"card": cid}) for cid in candidates
+            Action(DecisionKind.HEADLINE_PLAY, {"card": cid})
+            for cid in candidates
+            if cid != RULES["un_intervention_id"]
         )
         if physical_turn and self.discard_pile:
             # The operator's real discard pile can empty and get reshuffled
