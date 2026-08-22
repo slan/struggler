@@ -38,8 +38,8 @@ from struggler.engine.rules import RULES
 from struggler.engine.types import Action, Decision, DecisionKind, Observation, Side
 from struggler.runner import play_game
 from wopr.playdek import ids, translate as T
-from wopr.playdek.bridge import (CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, GRANTED_OPS_PROMPT, HAND_LOCATION, HAND_OF, HEADLINE_OF, UI_ONLY,
-                                 UN, Bridge, Move, Report)
+from wopr.playdek.bridge import (CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, GRANTED_OPS_PROMPT, HAND_LOCATION, HAND_OF, HEADLINE_OF, PILES,
+                                 UI_ONLY, UN, Bridge, Move, Report)
 from wopr.playdek import ffi
 from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
 from wopr.playdek.game import Option, Playdek, Prompt
@@ -603,10 +603,19 @@ class PlaydekOperator(Bridge):
         state but "take" with two more Ops does, the game is void -- known,
         and not a rules gap of this engine."""
         before = len(self.report.divergences)
+        take = next(a for a in d.options if a.payload["choice"] == "take")
+        # Where the DLL filed the card says which: back in the USSR's hand
+        # it was returned, in a pile it was taken and played (taken and
+        # still in the US hand: the same, not yet played).
+        loc = self.card_loc.get(d.context.get("card"))
+        told = ("return" if loc == HAND_LOCATION[Side.USSR] else "take" if loc in PILES or loc == HAND_LOCATION[Side.US] else None)
+        if told is not None:
+            option = next(a for a in d.options if a.payload["choice"] == told)
+            if self._simulate_one(option):
+                return option
         action = self._simulate(d)
         if not (self.stop and len(self.report.divergences) > before):
             return action
-        take = next(a for a in d.options if a.payload["choice"] == "take")
         if self._simulate_one(take, extra_ops=2, extra_first=True) or self._simulate_one(take, extra_ops=2):
             del self.report.divergences[before:]
             self.known["Grain Sales: the DLL conducts Grain Sales' Ops as well as playing the taken card (its text: only if returned)"] += 1
