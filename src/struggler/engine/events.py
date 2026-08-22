@@ -1263,8 +1263,11 @@ def _cuban_missile_crisis_defuse_choice(
 
 @event("We_Will_Bury_You")
 def _we_will_bury_you(engine: "Engine", side: Side) -> None:
-    # Degrade DEFCON one level; the USSR scores 3 VP at end of turn unless the US
-    # plays UN Intervention (which clears the flag, see _handle_play_mode). The
+    # Degrade DEFCON one level; the USSR scores 3 VP when the US's next action
+    # round is not UN Intervention as an event (see _handle_play_mode -- the
+    # FAQ: "the moment the US does not play UN Intervention", and "there has
+    # to be a next Action Round for the VP to be awarded", so it survives the
+    # end of the turn and lapses with the game). The
     # DEFCON degrade is blamed on whoever played the card (`side`), like every
     # other event-driven DEFCON change (Olympic Games, Summit, Salt
     # Negotiations, Cuban Missile Crisis, ...) -- NOT on the card's own
@@ -1272,7 +1275,7 @@ def _we_will_bury_you(engine: "Engine", side: Side) -> None:
     # even when that's the side the card's own effect otherwise favors.
     engine._change_defcon(-1, caused_by=side)
     if not engine.is_terminal:
-        engine.turn_effects["we_will_bury_you"] = True
+        engine.game_effects["we_will_bury_you"] = True
 
 
 # -- Formosan Resolution: Taiwan scores as a Battleground for the US ----------

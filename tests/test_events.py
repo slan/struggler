@@ -1638,17 +1638,22 @@ def test_cuban_missile_crisis_coup_by_the_flagged_side_loses_the_game():
     assert engine.is_terminal and engine.winner is Side.US
 
 
-def test_we_will_bury_you_degrades_defcon_and_scores_at_end_of_turn():
+def test_we_will_bury_you_degrades_defcon_and_scores_on_the_us_next_play():
     engine = Engine.new_game(seed=2, events=True)
     discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     engine.defcon = 5
     engine._fire_event(Side.USSR, "We_Will_Bury_You")
     assert engine.defcon == 4
-    assert engine.turn_effects.get("we_will_bury_you") is True
+    assert engine.game_effects.get("we_will_bury_you") is True
     engine.military_ops = {"US": 9, "USSR": 9}  # silence the required-military-Ops VP
     vp0 = engine.vp
     engine._end_of_turn()
-    assert engine.vp == vp0 - 3  # 3 VP to the USSR (negative on the US-positive track)
+    assert engine.vp == vp0  # nothing at end of turn: it waits for the US's next action round
+    assert engine.game_effects.get("we_will_bury_you") is True
+    engine.hands["US"] = ["Nasser"]
+    _play_card_for(engine, Side.US, "Nasser", "ops")  # not UN Intervention: 3 VP to the USSR, first
+    assert engine.vp == vp0 - 3  # negative on the US-positive track
+    assert "we_will_bury_you" not in engine.game_effects
 
 
 def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
@@ -1665,10 +1670,12 @@ def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
 def test_we_will_bury_you_defused_by_us_un_intervention():
     engine = _bare()
     engine.defcon = 5
-    engine.turn_effects["we_will_bury_you"] = True
+    engine.game_effects["we_will_bury_you"] = True
     engine.hands["US"] = ["Fidel", "UN_Intervention"]  # Fidel is a USSR (opponent) event
+    vp0 = engine.vp
     _play_card_for(engine, Side.US, "Fidel", "un_intervention")
-    assert "we_will_bury_you" not in engine.turn_effects
+    assert "we_will_bury_you" not in engine.game_effects
+    assert engine.vp == vp0  # cancelled: no VP
 
 
 def test_formosan_makes_taiwan_a_battleground_for_asia_scoring():
