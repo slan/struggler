@@ -1348,10 +1348,11 @@ def test_events_game_serializes_and_never_leaks(seed, driver_seed):
 
 def test_kitchen_debates_unmet_is_discarded_not_removed():
     engine = _bare()
-    engine.hands["US"] = ["Kitchen_Debates"]
     engine.board.influence["Poland"] = {"US": 0, "USSR": 4}  # the USSR leads in Battlegrounds
-    _play_card_for(engine, Side.US, "Kitchen_Debates", "event")
-    assert engine.vp == 0
+    _headline_setup(engine, "Duck_and_Cover", "Kitchen_Debates")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Kitchen_Debates"}))
+    assert engine.vp == 1  # Duck and Cover's VP only
     assert "Kitchen_Debates" in engine.discard_pile and "Kitchen_Debates" not in engine.removed_cards
 
 
