@@ -113,3 +113,15 @@ def test_coup_requires_opponent_influence_in_target():
     assert "Guatemala" in offered
     assert not engine.is_terminal
     assert engine.winner is None
+
+
+def test_military_ops_track_stops_at_five():
+    # 8.2: the Military Operations track has spaces 0-5. A 4-Ops coup with the
+    # marker on 3 lands on 5, not 7, and a second one stays there.
+    engine = Engine(seed=1)
+    engine.military_ops["US"] = 3
+    engine._add_military_ops(Side.US, 4)
+    assert engine.military_ops["US"] == 5
+    engine._add_military_ops(Side.US, 4)
+    assert engine.military_ops["US"] == 5
+    assert engine.serialize()["military_ops"]["US"] == 5

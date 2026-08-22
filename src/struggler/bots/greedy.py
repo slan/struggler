@@ -66,7 +66,7 @@ from struggler.engine import (
 )
 from struggler.engine.board import Board, CountryInfo
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine.core import SCORING_CARD_REGION, REALIGNMENT_STOP
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
 
@@ -333,6 +333,8 @@ def _score_realignment_target(
     side = observation.side
     opponent = side.opponent
     country = action.payload["country"]
+    if country == REALIGNMENT_STOP:
+        return 0.0  # stop once no remaining attempt is worth more than nothing
     own_bonus = _realignment_bonus(board, side, country)
     opp_bonus = _realignment_bonus(board, opponent, country)
     expected_margin = own_bonus - opp_bonus + _realignment_modifier(observation, side)
@@ -505,7 +507,7 @@ class GreedyPlayer:
 
     def __init__(self, weights: GreedyWeights | None = None) -> None:
         self.weights = weights or GreedyWeights()
-        self._board = Board()
+        self._board = Board(variants=Board.VARIANTS)  # every space, whatever the game's variants: synced by key
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         decision: Decision = observation.pending_decision

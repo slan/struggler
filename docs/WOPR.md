@@ -116,13 +116,21 @@ seats, and a self-play game trains both perspectives at once.
 | `opt_card` | `[96]` | int64 | the option's card, `110` = none |
 | `opt_mask` | `[96]` | int8 | 1 for each legal option; the action is an index into this |
 
+The 85 country rows are every space the data knows, optional-rule ones
+included (`Board(variants=Board.VARIANTS)`): the vocabulary must not
+change with a game's variants. In a standard game the Chinese Civil War
+row is simply always zero.
+
 `K_MAX = 96` bounds the option count (the largest legal set is "every
 country"); exceeding it raises rather than truncates, because it would
 mean a decision is decomposed wrong. An engine effect flag missing from
 `TURN_EFFECTS`/`GAME_EFFECTS` also raises, and
 `tests/test_joshua_features.py` greps the engine source so that drift is
 caught by the suite, not by a rare event mid-game. Payload words outside
-`OPTION_VOCAB` degrade to the `other` flag plus position.
+`OPTION_VOCAB` degrade to the `other` flag plus position — by design for
+exactly one value a standard game produces, realignment's
+`{"country": "stop"}` (the `other` flag on a `REALIGNMENT_TARGET`
+option *is* that meaning), so adding it cost no layout change.
 
 **Hidden information is represented, not guessed at.** The `unseen` card
 location is the union of the draw pile and the opponent's hand — which is
@@ -419,6 +427,282 @@ taken its run directory past it.
   seats still sum to 0. The default is 0, the outcome alone; `config.json`
   records the weight, and `metrics.csv` carries `vp_mean`, the learner's
   mean final VP in its games against the pool and the anchor.
+
+## Playdek's AI as an opponent (`wopr/playdek/`)
+
+Joshua's opponents so far all come from this repository. The Steam
+edition of Twilight Struggle (Playdek) ships a real AI, and it turns out
+to be reachable headless: the Unity app is only a front end, and the
+rules engine, the card database (Lua, statically linked) and the AI all
+live in one native library, `TwilightStruggle_Data/Plugins/x86_64/TwilightLib.dll`,
+behind a flat C API of 117 exports. `wopr.playdek` loads that DLL with
+`ctypes` from the user's own install — nothing of the game is copied
+into this repository — and drives it one decision at a time:
+
+```
+pd = Playdek()                                    # loads the DLL, Initialize() once per process
+game = pd.new_game(local_side=Side.USSR, ai_difficulty=AIDifficulty.HARD, seed=1)
+while (prompt := game.pump()) is not None:        # runs the DLL until we must decide
+    game.choose(prompt.options[0].index)          # answer by option index
+game.result                                       # GameResult(winner_id, win_type, score)
+```
+
+`python -m wopr.playdek.smoke --games 2 --policy random` plays scripted
+games and tallies every prompt and selection hint it saw. The install is
+found by `ffi.find_install()` (`$STRUGGLER_PLAYDEK_DIR`, else the usual
+Steam library roots); `tests/test_playdek.py` skips its live checks
+without it. Windows only, like the DLL.
+
+### What the DLL's API looks like
+
+Nothing here is documented by Playdek. The signatures and struct layouts
+were recovered from the app's IL2CPP metadata (the C# `[DllImport]`
+declarations and the structs they marshal) and then settled against the
+live DLL — `ffi.py` is the binding, `game.py` the loop. The facts that
+cost something to learn, so they are not learned twice:
+
+- **`Initialize(data_path, processorCount)`** loads the Lua database:
+  `data_path` is the flat `StreamingAssets/Lua` directory (the DLL strips
+  the `twilight/database/` prefix its own Lua files use). `processorCount`
+  sizes the AI's thread pool.
+- **`StartGame(GameParameters*, 2, AppPlayerData[2], seed)`.** The
+  native `AppPlayerData` is **52 bytes**: the C# struct's `ushort[]`
+  fields marshal *by value* (two entries each) and the name *inline*
+  (`char[32]`) — declared as pointers, `StartGame` crashes. Seats are
+  found by `id`; `playerType` **0 is the local seat** whose decisions go
+  to the options listener (1 is the second human of a hotseat game, 2 the
+  AI), and an AI seat takes `aiDifficultyLevel` **0 (easy) or 2 (hard)**
+  — what the app's "Create Game" screen sets; 1 is not a level and
+  crashes. `chooseSidesMethod` 0/1 seats the first player as USSR/US.
+- **`SetGameOptionsListener(cb)`**: `cb(playerID, prompt, n, GameOption*)`
+  is invoked *on the calling thread, inside `UpdateGame`*, when the local
+  seat must choose. `GameOption` is a **64-byte** record — `optionIndex`,
+  `selectionID` (the card or country id of the Lua database), a
+  `selectionHint` (`ffi.SelectionHint`: what kind of thing is being
+  selected), `isHidden`, and the label inline. The list stays valid until
+  answered with `SelectGameOption(index)` on a later call; answering from
+  inside the callback deadlocks.
+- **`UpdateGame(buffer, size)`** fills the buffer with `{int32 type;
+  int32 payload[]}` records and returns their count; payload sizes are
+  the `GameEvent.*` structs of the metadata (`ffi._PAYLOADS`). A whole
+  action is confirmed with **`CommitTemporaryMoveBuffer()`** when
+  `COMMIT_PLAYER_DECISION` arrives — the app's "Commit" button, without
+  which the game waits forever. The AI thinks on its own threads: empty
+  updates while `GetGamePlayerAIState(id).isAIThinking` is set just mean
+  "not yet"; `pump` sleeps a millisecond between them.
+- **State getters** (`GetGamePlayerHandState`, `GetGamePlayerAIState`,
+  `GetGameCurrentScore`, `GetPendingDefconLevel`, ...) take the seat's
+  `id`, fill a caller buffer and return the bytes written.
+- **Pacing.** `UpdateGame` alone advances in real time — it inserts the
+  app's animation pauses, so a scripted seat gets about two prompts a
+  second. **`ForceUpdateStateMachineInput`** on an empty update skips
+  them (`PlaydekGame.force_updates`); it is on whenever no AI seat is
+  thinking.
+- **Hotseat** (`new_game(ai_difficulty=None)`): both seats ours, the DLL a
+  plain rules engine. The app seats them as `(HOTSEAT, LOCAL)` — the other
+  way round leaves the second seat unprompted — and re-asks the very first
+  prompt once. The moves of a pending action are emitted twice, as the
+  preview and again at commit (`COUNTRY_INFLUENCE` is the state, the
+  `OUTPUT_ANIMATION_*` records are the preview).
+- **The AI's time is a search budget, not pacing.** Its setup placements
+  are instant; every other decision takes **exactly 15.0 s** of wall
+  clock, busy on one core (process CPU time equals wall time). It is the
+  same for easy and hard, for `processorCount` 1 or 32, with the
+  animation delays zeroed, and even when the process is pinned to one
+  core with busy threads stealing most of it — so it is a deadline the
+  search runs up to, not a fixed amount of work: a faster CPU means a
+  stronger AI, not a faster game. The constant is not a literal in the
+  binary (not as seconds, ms, µs, 100 ns ticks or a float), so it is
+  computed, presumably through the CRT clock. A whole game against a
+  scripted opponent is therefore ~2½ minutes (hard) to 4½ (easy, it
+  lasted longer), one core each; with 32 cores that is ~10 games a
+  minute in parallel processes — the DLL is a process-wide singleton
+  with one current game. The AI is not deterministic for a given `seed`
+  and a fixed opponent (two runs of the same scripted game differed from
+  the AI's first decision on), so an eval against it is a sample, not a
+  replay.
+- The pacing mechanism, for the record: the state machine looks up a
+  minimum delay per option kind (a table in the DLL, 0.6 s by default)
+  and compares it with the DLL's own seconds clock; patching that table
+  to zero gives the same speed as forced updates (~10k prompts/s), so
+  `ForceUpdateStateMachineInput` is the right switch and no patching is
+  needed. Playdek's own tests presumably go through `StartTutorial`,
+  which takes a scripted deck, dice and AI steps and no search at all.
+
+### As a rules engine: measured, and why not
+
+Random against random, one process, forced updates: the Playdek engine
+answers **~13.8k prompts/s** (50 games, 0% idle; ~4.6 `UpdateGame`
+calls per prompt); the struggler engine plays the same matchup at
+**~17k decisions/s** (`Engine` + `RandomPlayer` through `play_game`).
+Same order, struggler slightly ahead, and a prompt and a decision are
+about the same grain (one influence placement, one card choice). So the
+DLL is not a faster engine, and it could not be the arena's engine
+anyway: it is one game per process with no batching across games, there
+is no `observe()` — a bot's `Observation` would have to be rebuilt from
+the event stream and the state getters, the hand included — no
+`serialize()`/`deserialize()` for search, no guarantee about the seed,
+and it is Windows-only and not redistributable. The profile in
+[JOSHUA.md](JOSHUA.md) says the engine is a third of a learner step at
+most; the rest is encoding and inference, which an engine swap does not
+touch. What the DLL is good for is the two things struggler cannot
+provide: an independent, commercial-grade opponent, and a second
+implementation of the rules to diff against.
+
+### What this is for, and the pieces
+
+The bridge to Joshua is the engine's physical mode (`docs/BOTS.md`): the
+struggler engine mirrors the Playdek game as referee, Joshua sees only its
+`Observation`, and a `PlaydekOperator` replaces the human operator —
+translating the DLL's events (the AI's card plays, placements, rolls) into
+the operator's answers and Joshua's `Action` into `SelectGameOption`.
+Every action is a chance to compare the two engines' states; a desync is
+either a bridge bug or a rules divergence worth a line in
+`LIMITATIONS.md`. The same translation, driven by a random policy in
+hotseat mode, is a lockstep differ of the two rules engines — thousands
+of random games an hour exercise every card event — and, on identical
+games, a matched per-decision benchmark of the two.
+
+The pure parts exist:
+
+- `ids.py` — the vocabularies. A card option's `selectionID` is
+  `100 + GMT number` (the same `number` as `cards.json`); a country's is
+  Playdek's `country_index` (1 USSR, 2 USA, 3 Canada … 87 Chinese Civil
+  War), also the `id` of `COUNTRY_INFLUENCE` events. Numbers above 110
+  are Playdek-only (promos 121–128, Turn Zero 129–146, the AI's Ops
+  proxies 201–204).
+- `translate.py` — what an option *means* (`Meaning.CARD / USE / COUNTRY
+  / CHOICE`, plus the UI-only `CANCEL`, `SWITCH_CARD` and `BLANK`), the struggler
+  actions a "use" option stands for (one Playdek "Place Influence" is
+  `PLAY_MODE` ops + `OPS_TYPE` influence, with `EVENT_OPS_ORDER` in
+  between on an opponent's card — "Resolve Event First" is its own
+  option), lookups the other way (`find_card/find_country/find_use`),
+  and `rolls_from_event`, which turns the DLL's `COUP_ROLL`, `WAR_ROLL`,
+  `REALIGNMENT`, `SPACE_RACE_ROLL`, `TRAP_ROLL` and `EFFECT_ROLL` records
+  into physical mode's CHANCE answers. A country option's struggler
+  *kind* (`PLACE_INFLUENCE`, `EVENT_INFLUENCE`, `COUP_TARGET`, …) is
+  whatever the engine is asking; only the bridge knows that.
+
+### The lockstep differ (`lockstep.py`)
+
+`python -m wopr.playdek.lockstep --games 4 --seed 1 [--trace]` plays
+hotseat games with a random policy and replays them on the struggler
+engine in physical mode, on demand: every engine decision is answered
+from a per-side queue of translated Playdek moves, its CHANCE decisions
+from the DLL's roll records, its `DEAL_CARD`s from the DLL's hand
+contents (absolute `CARD_LOCATION` state — the DLL deals, undoes and
+re-deals at commit, so a queue of deal events is wrong). When the engine
+asks something the queues cannot answer, the DLL is advanced first.
+Option sets are compared whenever the engine asks a card or country
+choice; state (influence, DEFCON, VP, mil ops, hand sizes) whenever both
+sides are between actions — the two engines apply the same action at
+different moments, so comparing mid-action only measures that.
+Everything else it learned about the DLL's protocol is in its comments:
+the first hotseat prompt is re-asked once, turn-2+ headline prompts
+arrive under the local seat's id whoever is picking (the cards say whose
+hand), and the `*_player_index` of roll records is the seat's id. Two
+that cost a wrong diagnosis each:
+
+- **Records are emitted twice, and the second time is late.** Each choice
+  emits its records as it is made (the preview); when the action is
+  committed the DLL re-emits *every* record since the previous commit,
+  verbatim and in order — and the commit is the next action boundary,
+  so a headline's realignment rolls are replayed only after the first
+  action round's own records, pumps after the engine consumed the
+  originals. Absolute state (`COUNTRY_INFLUENCE`, `CARD_LOCATION`) is
+  idempotent under this; roll records are not, so `_absorb` keeps a FIFO
+  of un-replayed roll records and drops a record equal to its head.
+  Deduplicating within one pump only (the first version) re-queued the
+  replay of a multi-roll action and fed the next realignment on the same
+  country stale dice.
+- **A yes/no event choice lists a third, blank entry** (`selectionHint`
+  `0xA0FF`, `selectionID` the card, `isHidden` *false*, empty label)
+  beside "Participate"/"Boycott". Selecting it makes the DLL skip the
+  event altogether — no roll, no DEFCON change — which the app's UI never
+  offers; `translate` calls it `Meaning.BLANK` and no policy picks it.
+
+Findings from the first four random games, and what became of each:
+
+- **Fixed upstream** (branches off `upstream/main`, merged here): the
+  engine's Military Ops counted past 5 (the track stops there); the
+  game did not end when a scoring card was held past the end of the
+  turn (the engine forbade holding instead — now it offers the whole
+  hand and `_end_of_turn` decides); realignment could not stop after
+  the first attempt (now `{"country": "stop"}`); the Chinese Civil War
+  space was a country of the standard game (now a variant-only space
+  behind `Engine.new_game(variants=...)`, the layout unchanged);
+  Containment/Brezhnev Doctrine took a 4-Ops card to 5 (the cards say
+  "to a maximum of 4" — `fix/ops-modifier-cap`; seed 2's "extra
+  `PLACE_INFLUENCE`" was NATO under Containment); Five Year Plan fired a
+  discarded *USSR* event and discarded a US one, the reverse of the card
+  (`fix/five-year-plan-us-event`; seed 3's DEFCON/VP drift after the
+  discard of Duck and Cover); How I Learned to Stop Worrying's +5 wrote
+  past the Military Ops cap (now on `fix/military-ops-cap` too); an
+  event's "conduct Operations as if they played an N Ops card" ignored
+  Containment/Brezhnev/Red Scare (7.4.3, and 7.4.2's example 3 is
+  literally CIA Created under Containment — `fix/event-ops-modifiers`);
+  We Will Bury You paid the USSR at the end of the turn where the card
+  and FAQ pay "the moment the US does not play UN Intervention in their
+  next Action Round", which may be next turn, and never without a next
+  round (`fix/we-will-bury-you-timing`; Joshua's layout keeps the flag's
+  turn slot via `features.RELOCATED`, so `LAYOUT_VERSION` stays 1).
+- **Documented, DLL-stricter**: De-Stalinization will not relocate
+  influence back into a country it was just removed from; the card
+  text has no such clause, so the engine allows it. The harness counts
+  it under `known`.
+- **Harness false alarms, removed**: "Done Removing" / "Do Not Relocate"
+  / "Do Not Discard" — the engine had those choices all along.
+- **Harness bugs, fixed** (the three "open" items of the first pass,
+  `--games 4 --seed 1`, all turned out to be the harness): the
+  realignment whose outcome "differed" (seed 1) had been given stale
+  dice — the replay of an earlier multi-roll action, re-queued because
+  the dedup only looked within one pump (the `REALIGNMENT` fields *are*
+  `USSR_roll_result`/`US_roll_result`, checked against ten realignments
+  with their before/after influence); the "diverged hand" (seed 3) was
+  `RANDOM_DISCARD` picking the *first* card whose latest move was
+  hand→discard, which after a few action rounds is some card played
+  long ago — it now takes the latest such move among the cards the
+  engine offers, and `compare_state` also diffs the visible hand's
+  contents, card by card, at every action-round sync, so a real hand
+  divergence would show at once; and the blank yes/no entry above,
+  which a random policy picked one game in two. Eight more seeds
+  (`--games 8 --seed 5`) added: Olympic Games' `EFFECT_ROLL` is
+  (USSR die, US die), not (sponsor, defender) — the engine's
+  `CONTEST_ROLL` context says who sponsors, the bridge maps; Summit's
+  "Improve / Degrade / Pass" (hints `0xA073/71/72`) carry an explicit
+  `raise/lower/none` because no label word matches; and UN Intervention,
+  which Playdek plays as its own card ("Play Event", then "Select
+  Opponent Event Card to Play", hint `0xA012`) where the engine plays
+  the opponent's card with mode `un_intervention` — the bridge looks
+  two moves ahead. State is compared only when no translated move is
+  still queued (the lookahead made the engine wait at a card prompt the
+  DLL had already answered).
+- **Harness bugs, third batch** (seeds 13–20 and the rest of 5–12):
+  `DEAL_CARD` answers from the cards the DLL dealt *this turn* (a card
+  dealt, headlined and resolved in one pump is in the discard pile
+  before the engine deals; the current hand alone stalled the engine a
+  whole turn); a lone "Do Not Discard" the engine never asks (Blockade
+  with nothing to discard) is dropped; once the DLL's game is over the
+  engine's single-option decisions are taken; Grain Sales' drawn card
+  comes from the "Play <card>?" prompt's own `selectionID` and
+  take/return from which option was picked (a returned card never
+  leaves the hand, so the discard heuristic fed the engine some other
+  card); the DEFCON hints decode as `0xA070 + n` = "set DEFCON to n"
+  (How I Learned lists 1–5, Summit the three reachable levels), mapped
+  to the engine's level or raise/lower/none.
+- **DLL behaviour, counted under `known`**: a UN-Intervened card may be
+  spent on the Space Race (the engine's `un_intervention` mode is Ops
+  only; the same play is available by spacing the card itself, so the
+  differ never picks it); Defectors played "event first" by the USSR,
+  where the engine has no event to order (both give the US 1 VP).
+- **Reported, not resolved**: either/or choices matched by label words;
+  the word match has been right every time so far.
+- All twenty random games (seeds 1–20: `--games 4 --seed 1`, `--games 8
+  --seed 5`, `--games 8 --seed 13`) run to the end with nothing but the
+  known entries above and the word-matched choices; where both engines
+  finish, the winner agrees.
+
+Then the `PlaydekOperator` for Joshua and the eval.
 
 ## What Joshua cannot do yet
 

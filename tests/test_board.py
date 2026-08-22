@@ -1,5 +1,7 @@
 """Board mechanics: adjacency, control, region scoring."""
 
+import pytest
+
 from struggler.engine import Region, ScoringTier, Side
 from struggler.engine.board import Board
 from struggler.engine.rules import RULES
@@ -138,3 +140,22 @@ def test_score_region_europe_control_raises_instead_of_guessing():
         board.influence[cid]["US"] = board.countries[cid].stability
     with pytest.raises(RuntimeError):
         board.score_region(Region.EUROPE)
+
+
+def test_variant_spaces_exist_only_with_their_variant():
+    # The Chinese Civil War space belongs to an optional rule; the standard
+    # map has no such country, so neither does the standard board -- not as a
+    # target, not in Asia, not adjacent to the USSR.
+    standard = Board()
+    assert "Chinese_Civil_War" not in standard.countries
+    assert "Chinese_Civil_War" not in standard.influence
+    assert not standard.is_adjacent("USSR", "Chinese_Civil_War")
+    assert "Chinese_Civil_War" not in standard.countries_in(Region.ASIA)
+
+    variant = Board(variants={"chinese_civil_war"})
+    assert variant.countries["Chinese_Civil_War"].stability == 3
+    assert variant.is_adjacent("USSR", "Chinese_Civil_War")
+    assert variant.is_adjacent("Chinese_Civil_War", "USSR")
+
+    with pytest.raises(ValueError):
+        Board(variants={"no_such_variant"})

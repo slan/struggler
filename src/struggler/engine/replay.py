@@ -72,6 +72,7 @@ def make_engine(log: dict[str, Any]) -> Engine:
             starting_vp=log.get("starting_vp", 0),
             physical_mode=log.get("physical_mode", False),
             physical_side=Side(physical_side) if physical_side else None,
+            variants=log.get("variants", ()),
         )
     engine = Engine(seed=log["seed"])
     apply_setup(engine, log["setup"])
@@ -266,6 +267,7 @@ class GameLogWriter:
         state = engine.serialize()
         self._seed = state["seed"]
         self._include_optional = engine.include_optional
+        self._variants = sorted(engine.board.variants)
         self._events_enabled = engine.events_enabled
         self._starting_vp = engine.starting_vp
         self._physical_mode = engine.physical_mode
@@ -287,6 +289,7 @@ class GameLogWriter:
             "seed": self._seed,
             "new_game": True,
             "include_optional": self._include_optional,
+            "variants": self._variants,
             "events": self._events_enabled,
             "starting_vp": self._starting_vp,
             "physical_mode": self._physical_mode,

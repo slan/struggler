@@ -149,8 +149,8 @@ Battleground Coup there still degrades DEFCON as normal; that is a
 separate check in `_handle_coup_roll`, untouched by this.
 
 **Forced random discard** (`RANDOM_DISCARD`, a seeded CHANCE decision that
-reveals only the drawn card). Five Year Plan (a discarded USSR event
-fires), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
+reveals only the drawn card). Five Year Plan (a discarded US event
+fires; a USSR or neutral one is just discarded), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
 
 **Per-turn coup/realign modifiers.** Nuclear Subs (US Battleground coups
 skip the DEFCON degrade — on top of the base rule that only Battleground
@@ -203,7 +203,12 @@ up to 4 USSR Influence, then replace it in non-US-controlled countries, max
 2 each).
 
 **Persistent per-turn modifiers.** Containment, Brezhnev Doctrine, Red
-Scare/Purge — consulted via `_effective_ops`, cleared at end of turn.
+Scare/Purge — consulted via `_effective_ops` for a card played for Ops and
+via `push_event_operations` for an event's "conduct Operations as if they
+played an N Ops card" (7.4.3; CIA Created under Containment is 2 Ops);
+both clamp the modified value to 1–4 (`ops_modifier_min`/`ops_modifier_max`
+in `rules.json`: a 4-Ops card under Containment is still 4). Cleared at
+end of turn.
 
 **Persistent game-long legality** (`game_effects`). NATO (eligible only
 after Marshall Plan or Warsaw Pact; the USSR may no longer coup, realign,
@@ -243,8 +248,10 @@ the flagged side loses the game, checked in `_handle_coup_roll`; the
 at-risk side may defuse — Cuba for the USSR, West Germany or Turkey for the
 US — offered fresh at the start of each of its action rounds for the rest
 of the turn via `Engine._push_cmc_defuse_offer`), We Will Bury You (DEFCON
-−1; USSR +3 VP at end of turn unless the US plays UN Intervention, which
-clears the `we_will_bury_you` turn effect).
+−1; the `we_will_bury_you` game effect resolves on the US's next
+action-round play: UN Intervention as an event cancels it, anything else
+hands the USSR 3 VP before that play resolves — per the FAQ it survives
+the end of the turn and needs a next action round to pay out).
 
 **"Discard a printed-3+-Ops card or suffer" branch.** Blockade and Latin
 American Debt Crisis, with the US choosing from its own hand the same way
@@ -304,8 +311,8 @@ branch of `_advance_once`, replace the trapped side's normal
 card (`QUAGMIRE_DISCARD`) followed by a seeded `QUAGMIRE_ROLL` CHANCE die
 that frees the side on a 1–4. With no legal card to discard, that action
 round is simply wasted with no roll at all — except that a scoring card in
-hand must still be played, since a scoring card may never be held past end
-of turn.
+hand may still be played -- holding one past the end of the turn loses
+the game (`_end_of_turn`).
 
 ## Space Race boxes
 

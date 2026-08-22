@@ -55,7 +55,7 @@ def board_from_observation(observation: Observation) -> Board:
     """A `Board` loaded with the observation's influence -- the same trick
     `GreedyPlayer._sync_board` uses. Country metadata and adjacency are
     static public data, so building one costs nothing hidden."""
-    board = Board()
+    board = Board(variants=Board.VARIANTS)  # every space, whatever the game's variants: synced by key
     for cid, values in observation.influence.items():
         board.influence[cid]["US"] = values.get("US", 0)
         board.influence[cid]["USSR"] = values.get("USSR", 0)

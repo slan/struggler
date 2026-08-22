@@ -459,6 +459,47 @@ reordered it:
   once the rollout is collected by eight processes over shared memory
   (3.7 s → 1.7 s), after which the update is two thirds of the loop.
 
+### An outside yardstick: Playdek's AI (August 2026)
+
+Every number above is Joshua against opponents from this repository —
+itself, Greedy, Random — which says how far the chain has come and
+nothing about how far it has to go. The Steam edition of the game ships
+a real AI, and it is reachable without the game: its Unity app is a
+front end over one native DLL that holds the rules, the card database
+and the AI, with a C API that `wopr.playdek` now drives from Python
+(the recovered contract is in [WOPR.md](WOPR.md#playdeks-ai-as-an-opponent-woprplaydek)).
+The first headless games ran a scripted seat — first legal option every
+time — against it: the hard AI won on VP in 2½ minutes, the easy one in
+4½, each decision of the AI a few seconds of its own threads. That
+settles the loop; what is missing is the bridge that puts Joshua in the
+local seat. It is the engine's physical mode with a program at the
+operator's console: the struggler engine mirrors the Playdek game as
+referee, the DLL's events become the operator's answers for the AI's
+moves and rolls, Joshua's action becomes a `SelectGameOption`. Each
+action is also a free cross-check of the two engines' states — every
+desync is a bridge bug or a rules divergence, and either is worth
+knowing.
+
+The obvious follow-up question — if the DLL is a rules engine, should
+it be *the* engine for training? — was measured and answered no. With
+both seats scripted (the app's hotseat mode) and the DLL told to skip
+its animation pauses, it plays random-against-random at ~13.8k prompts
+a second in one process; struggler plays the same matchup at ~17k
+decisions a second. Same order, and struggler is ahead — while the DLL
+is one game per process, has no `observe()` or `serialize()`, and the
+engine is at most a third of a learner step in any case. Its value is
+what struggler does not have: an opponent nobody here wrote, and a
+second opinion on the rules.
+
+The second opinion arrived first. `wopr.playdek.lockstep` replays
+random hotseat games on the struggler engine in physical mode and
+compares option sets and state as it goes; its first four games
+(WOPR.md lists what it found) already disagree about a Military Ops
+track that keeps counting past 5, a game the DLL ends when a scoring
+card is held, De-Stalinization's legal targets, and the early-stop
+options the engine never offers — and agree on the winner of the one
+game both finished.
+
 ## Open questions and the road ahead
 
 **Three experiments closed, one ceiling.** Capacity: a `--hidden 256`
@@ -536,6 +577,12 @@ In rough order of expected value per effort:
    discards does not. A "discarded this turn" card location is the
    cheap half; sequence features are the other. Behind capacity and
    search in expected value.
+7. **The Playdek bridge.** `wopr.playdek` plays the Steam edition's AI
+   headless; the `PlaydekOperator` that seats Joshua in that game
+   through physical mode is the remaining piece, and then an eval that
+   reports win rate and VP margin per difficulty and per seat next to
+   the ladder. Independent of the capacity A/B, and the first number
+   that means something outside this repository.
 
 ## Reproducing
 

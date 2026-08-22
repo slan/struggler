@@ -160,3 +160,35 @@ def test_realignment_blocked_by_defcon_same_as_coup():
     offered = {a.payload["country"] for a in engine._realignment_target_options(Side.US)}
     assert "Egypt" not in offered  # Middle East now below its threshold
     assert "Guatemala" in offered  # Central America stays unrestricted throughout
+
+
+def _resolve_rolls(engine):
+    while engine.pending_decision is not None and engine.pending_decision.actor is Side.CHANCE:
+        engine.step(engine.pending_decision.options[0])
+
+
+def test_realignment_may_stop_after_the_first_attempt():
+    # 6.3: Ops *may* be used for realignment rolls, one each. The first
+    # attempt is mandatory once realignment was chosen; after it, a player may
+    # leave the remaining Ops unused instead of rolling on.
+    engine = Engine(seed=4)
+    engine.board.influence["Guatemala"]["USSR"] = 5
+    engine.board.influence["Panama"]["USSR"] = 2
+    engine.begin_realignment_operations(Side.US, ops=3)
+
+    first = engine.pending_decision
+    assert first.kind is DecisionKind.REALIGNMENT_TARGET
+    assert all(a.payload["country"] != "stop" for a in first.options)
+
+    engine.step(next(a for a in first.options if a.payload["country"] == "Guatemala"))
+    _resolve_rolls(engine)
+
+    second = engine.pending_decision
+    assert second.kind is DecisionKind.REALIGNMENT_TARGET
+    assert second.context["spent"] == 1
+    stop = next(a for a in second.options if a.payload["country"] == "stop")
+    after_first = {c: dict(v) for c, v in engine.board.influence.items()}
+    engine.step(stop)
+    # Nothing further happens: no roll is pending and the board is untouched.
+    assert engine.pending_decision is None or engine.pending_decision.kind is not DecisionKind.REALIGNMENT_TARGET
+    assert {c: dict(v) for c, v in engine.board.influence.items()} == after_first

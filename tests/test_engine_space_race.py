@@ -3,6 +3,7 @@
 from struggler.engine import Action, DecisionKind, Engine, Side
 
 from conftest import bare_engine as _bare
+from conftest import discard_scoring_cards
 from conftest import headline_setup as _headline_setup
 
 
@@ -40,6 +41,7 @@ def test_reaching_box_8_grants_extra_action_round_cancelled_when_opponent_catche
 
 def test_reaching_box_6_offers_held_card_discard_at_end_of_turn():
     engine = Engine.new_game(seed=1, events=False)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     _advance_to(engine, Side.USSR, 6)
     assert engine.game_effects["space_race_discard_holder"] == "USSR"
 
@@ -60,6 +62,7 @@ def test_reaching_box_6_offers_held_card_discard_at_end_of_turn():
 
 def test_held_card_discard_can_be_declined():
     engine = Engine.new_game(seed=1, events=False)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     _advance_to(engine, Side.USSR, 6)
     hand_before = list(engine.hands["USSR"])
     engine._end_of_turn()
@@ -72,6 +75,7 @@ def test_held_card_discard_can_be_declined():
 
 def test_held_card_discard_not_offered_without_the_ability_or_an_empty_hand():
     engine = Engine.new_game(seed=1, events=False)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     engine._end_of_turn()
     assert engine.pending_decision is None or engine.pending_decision.kind != (
         DecisionKind.HELD_CARD_DISCARD

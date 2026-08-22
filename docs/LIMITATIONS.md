@@ -17,6 +17,14 @@ way.
   it properly would add a new hidden/shared-visibility field to the public
   `Observation` API, which is a larger change than a card-logic fix.
 
+- **The Chinese Civil War variant is only a space.** `countries.json`
+  tags it `"variant": "chinese_civil_war"`; the standard game
+  (`Engine.new_game` with no `variants`) has no such country, as the map
+  does not. Turning the variant on (`variants={"chinese_civil_war"}`)
+  puts the space on the board and nothing else: none of the variant's
+  rules (the China Card starting there, the USSR earning it by control)
+  are implemented.
+
 ## Data
 
 - **`event_summary` can drift.** The field is a hand-maintained paraphrase
@@ -30,11 +38,12 @@ way.
 Physical mode makes one seat a real human playing the physical board, with
 the engine as referee. Some things the engine simply cannot know.
 
-- **The must-play-a-scoring-card rule is not enforced** for a hand the
-  engine cannot see. Every not-yet-accounted-for card is offered at
-  `ACTION_ROUND_PLAY`, and the physical player — who can see their own hand
-  — is trusted to honor the rule, the same trust model any human player
-  already gets for rules `HumanPlayer` does not independently re-verify.
+- **A scoring card held past the end of the turn is not detected** in a
+  hand the engine cannot see. `_end_of_turn` ends the game against the
+  holder of a known scoring card; a physical hand's unrevealed cards are
+  `HIDDEN_CARD`, so the physical player — who can see their own hand — is
+  trusted to honor the rule, the same trust model any human player already
+  gets for rules `HumanPlayer` does not independently re-verify.
 
   The one place it *is* enforced: a trapped side's Ops-2+-less round
   (`_push_trap_step`'s fallback) offers any scoring-card candidates as a

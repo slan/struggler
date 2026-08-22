@@ -15,6 +15,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from conftest import assert_invariants
+from conftest import discard_scoring_cards
 from struggler.engine import DecisionKind, Engine, Region, ScoringTier, Side
 from struggler.engine.replay import run_with_checkpoints
 from struggler.engine.rules import RULES
@@ -80,6 +81,7 @@ def test_action_round_resets_to_1_at_the_start_of_a_new_turns_headline():
     # undercounts how many rounds are actually left and can wrongly mark most
     # of the hand 'hold'.
     engine = Engine.new_game(seed=1, events=False)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     while engine.turn == 1:
         engine.step(engine.legal_actions()[0])
     assert engine.turn == 2
@@ -218,29 +220,36 @@ def test_golden_full_game_replay_matches_checkpoints():
         assert rec["state"] == checkpoint["state"]  # exact, diffable equality
 
 
-def test_last_action_round_forces_a_held_scoring_card():
-    # A scoring card cannot be carried out of a turn: when a side has as many
-    # scoring cards as action rounds left, those rounds must spend them.
+def test_scoring_cards_never_narrow_the_action_round_choice():
+    # Holding a scoring card past the end of the turn loses the game
+    # (test_end_of_turn_with_a_scoring_card_in_hand_loses); the engine does
+    # not take the choice away, even on the last play of the turn.
     engine = Engine.new_game(seed=2, events=False)
     engine.phase = "action_rounds"
     engine.turn = 1  # 6 action rounds/side -> 12 plays total
     engine._decision_stack = []
-
-    # Last play of the turn (index 11 -> US), holding one scoring card.
-    engine._ars_played = 12
-    engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
-    engine._push_action_round_play(Side.US)
-    options = engine.legal_actions()
-    assert [a.payload["card"] for a in options] == ["Asia_Scoring"]
-
-    # Early in the turn (index 1 -> US, five rounds still to come) the same
-    # single scoring card imposes no restriction.
-    engine._decision_stack = []
-    engine._ars_played = 2
+    engine._ars_played = 12  # last play of the turn (index 11 -> US)
     engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
     engine._push_action_round_play(Side.US)
     cards = {a.payload["card"] for a in engine.legal_actions()}
-    assert "Duck_and_Cover" in cards and "Asia_Scoring" in cards
+    assert cards == {"Asia_Scoring", "Duck_and_Cover"}
+
+
+def test_end_of_turn_with_a_scoring_card_in_hand_loses():
+    engine = Engine.new_game(seed=2, events=False)
+    engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
+    engine.hands["USSR"] = ["Fidel"]
+    engine._end_of_turn()
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.serialize()["game_over_reason"] == "held_scoring_card"
+
+    # Both holding one: nobody wins.
+    engine = Engine.new_game(seed=2, events=False)
+    engine.hands["US"] = ["Asia_Scoring"]
+    engine.hands["USSR"] = ["Europe_Scoring"]
+    engine._end_of_turn()
+    assert engine.is_terminal and engine.winner is None
+
 
 
 def _give_europe_control_tier(engine: Engine, holder: Side) -> None:

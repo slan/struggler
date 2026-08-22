@@ -21,6 +21,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from conftest import assert_invariants as _assert_invariants
+from conftest import discard_scoring_cards
 from conftest import bare_engine as _bare
 from conftest import headline_setup as _headline_setup
 from struggler.engine import Action, Decision, DecisionKind, Engine, Region, Side, Subregion
@@ -166,6 +167,43 @@ def test_containment_boosts_us_ops_only():
     assert engine._effective_ops(Side.USSR, duck) == 3  # opponent unaffected
 
 
+def test_ops_modifiers_never_take_a_card_above_four():
+    # Containment: "+1 ... to a maximum of 4". A 4-Ops card played for Ops
+    # under it must still buy exactly four placements.
+    engine = _bare()
+    engine._fire_event(Side.US, "Containment")
+    nato = engine.cards["NATO"]  # 4 ops
+    assert engine._effective_ops(Side.US, nato) == 4
+    engine.turn_effects["brezhnev"] = True
+    assert engine._effective_ops(Side.USSR, nato) == 4
+    engine.phase = "action_round"
+    engine.hands["US"] = ["NATO"]
+    engine._push(Side.US, DecisionKind.ACTION_ROUND_PLAY, (Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "NATO"}),), {})
+    engine.step(engine.pending_decision.options[0])
+    engine.step(Action(DecisionKind.PLAY_MODE, {"mode": "ops"}))
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+    assert engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE
+    assert engine.pending_decision.context["ops_remaining"] == 4
+
+
+def test_event_granted_ops_take_the_turn_modifiers():
+    # 7.4.2 example 3: "If the US player played Containment earlier in the
+    # turn, he could play CIA Created subsequently and use 2 Ops." Red Scare
+    # cuts Lone Gunman's 1 Op for the USSR to... still 1 (never below 1).
+    engine = _bare()
+    engine._fire_event(Side.US, "Containment")
+    engine._fire_event(Side.US, "CIA_Created")
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert engine.pending_decision.context["ops"] == 2
+    engine = _bare()
+    engine._fire_event(Side.US, "Red_Scare_Purge")
+    engine._fire_event(Side.US, "Lone_Gunman")
+    assert engine.pending_decision.context["ops"] == 1
+    engine = _bare()
+    engine._fire_event(Side.US, "Lone_Gunman")
+    assert engine.pending_decision.context["ops"] == 1  # no modifier: unchanged
+
+
 def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
     engine = _bare()
     engine._fire_event(Side.US, "Red_Scare_Purge")  # US plays it -> hurts USSR
@@ -176,6 +214,7 @@ def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
 
 def test_turn_effects_lapse_at_end_of_turn():
     engine = Engine.new_game(seed=3, events=True)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     engine.turn_effects["containment"] = True
     engine._end_of_turn()
     assert engine.turn_effects == {}
@@ -643,27 +682,28 @@ def test_puppet_governments_only_targets_empty_countries():
 # -- forced random discard subsystem (CHANCE) -------------------------------
 
 
-def test_five_year_plan_fires_a_discarded_ussr_event():
+def test_five_year_plan_fires_a_discarded_us_event():
     engine = _bare(seed=2)
-    engine.hands["USSR"] = ["Fidel"]  # single card -> deterministic draw
-    engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # single card -> deterministic draw
+    engine.defcon = 5
     engine._fire_event(Side.US, "Five_Year_Plan")
     d = engine.pending_decision
     assert d.kind is DecisionKind.RANDOM_DISCARD and d.actor is Side.CHANCE
     assert len(d.options) == 1  # only the drawn card, never the rest of the hand
     engine.step(d.options[0])
-    assert engine.board.control("Cuba") is Side.USSR  # Fidel fired
-    assert "Fidel" in engine.removed_cards
+    assert engine.defcon == 4  # Duck and Cover fired
+    assert engine.vp == 1  # 5 - DEFCON to the US
+    assert "Duck_and_Cover" in engine.discard_pile
 
 
-def test_five_year_plan_just_discards_a_non_ussr_card():
+def test_five_year_plan_just_discards_a_ussr_card():
     engine = _bare(seed=2)
-    engine.hands["USSR"] = ["Duck_and_Cover"]  # a US event: discarded, not fired
-    engine.defcon = 5
+    engine.hands["USSR"] = ["Fidel"]  # a USSR event: discarded, not fired
+    engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
     engine._fire_event(Side.US, "Five_Year_Plan")
     engine.step(engine.pending_decision.options[0])
-    assert engine.defcon == 5  # Duck and Cover did NOT fire
-    assert "Duck_and_Cover" in engine.discard_pile
+    assert engine.board.influence["Cuba"] == {"US": 2, "USSR": 0}  # Fidel did NOT fire
+    assert "Fidel" in engine.discard_pile and "Fidel" not in engine.removed_cards
 
 
 def test_random_discard_leaks_only_the_drawn_card():
@@ -771,6 +811,12 @@ def test_how_i_learned_sets_defcon_and_adds_military_ops():
     }
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "3"}))
     assert engine.defcon == 3
+    assert engine.military_ops["US"] == 5
+    # The +5 lands on the capped track: from 3 it reaches 5, not 8.
+    engine = _bare(seed=1)
+    engine.military_ops["US"] = 3
+    engine._fire_event(Side.US, "How_I_Learned_to_Stop_Worrying")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "5"}))
     assert engine.military_ops["US"] == 5
 
 
@@ -1428,17 +1474,18 @@ def test_missile_envy_forces_the_recipient_to_use_it_for_ops_next_round():
     assert "missile_envy_forced" not in engine.game_effects
 
 
-def test_missile_envy_forced_play_yields_to_a_scoring_deadline():
+def test_missile_envy_forced_play_holds_even_against_a_scoring_card():
     # turn=1 (default): 12 total plays, USSR at even indices. Starting at
-    # index 10 leaves exactly one USSR round this turn -- matching its one
-    # scoring card, so the deadline (not Missile Envy) must win the choice.
+    # index 10 leaves exactly one USSR round this turn and a scoring card in
+    # hand: Missile Envy's forced play still stands -- the scoring card is
+    # held past the end of the turn and `_end_of_turn` decides the game.
     engine = _bare()
     engine.game_effects["missile_envy_forced"] = "USSR"
     engine.hands["USSR"] = ["Missile_Envy", "Asia_Scoring"]
     engine._ars_played = 11
     engine._push_action_round_play(Side.USSR)
     d = engine.pending_decision
-    assert {a.payload["card"] for a in d.options} == {"Asia_Scoring"}  # deadline wins
+    assert {a.payload["card"] for a in d.options} == {"Missile_Envy"}
 
 
 def test_star_wars_requires_us_space_race_lead():
@@ -1591,16 +1638,22 @@ def test_cuban_missile_crisis_coup_by_the_flagged_side_loses_the_game():
     assert engine.is_terminal and engine.winner is Side.US
 
 
-def test_we_will_bury_you_degrades_defcon_and_scores_at_end_of_turn():
+def test_we_will_bury_you_degrades_defcon_and_scores_on_the_us_next_play():
     engine = Engine.new_game(seed=2, events=True)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     engine.defcon = 5
     engine._fire_event(Side.USSR, "We_Will_Bury_You")
     assert engine.defcon == 4
-    assert engine.turn_effects.get("we_will_bury_you") is True
+    assert engine.game_effects.get("we_will_bury_you") is True
     engine.military_ops = {"US": 9, "USSR": 9}  # silence the required-military-Ops VP
     vp0 = engine.vp
     engine._end_of_turn()
-    assert engine.vp == vp0 - 3  # 3 VP to the USSR (negative on the US-positive track)
+    assert engine.vp == vp0  # nothing at end of turn: it waits for the US's next action round
+    assert engine.game_effects.get("we_will_bury_you") is True
+    engine.hands["US"] = ["Nasser"]
+    _play_card_for(engine, Side.US, "Nasser", "ops")  # not UN Intervention: 3 VP to the USSR, first
+    assert engine.vp == vp0 - 3  # negative on the US-positive track
+    assert "we_will_bury_you" not in engine.game_effects
 
 
 def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
@@ -1617,10 +1670,12 @@ def test_we_will_bury_you_defcon_1_blames_whoever_played_it():
 def test_we_will_bury_you_defused_by_us_un_intervention():
     engine = _bare()
     engine.defcon = 5
-    engine.turn_effects["we_will_bury_you"] = True
+    engine.game_effects["we_will_bury_you"] = True
     engine.hands["US"] = ["Fidel", "UN_Intervention"]  # Fidel is a USSR (opponent) event
+    vp0 = engine.vp
     _play_card_for(engine, Side.US, "Fidel", "un_intervention")
-    assert "we_will_bury_you" not in engine.turn_effects
+    assert "we_will_bury_you" not in engine.game_effects
+    assert engine.vp == vp0  # cancelled: no VP
 
 
 def test_formosan_makes_taiwan_a_battleground_for_asia_scoring():
@@ -2180,3 +2235,11 @@ def test_golden_events_replay_actually_fires_events():
         for a in log["actions"]
     )
     assert fired
+
+
+def test_un_intervention_cannot_be_headlined():
+    # Its printed text: "This Event cannot be played during the headline phase."
+    engine = _bare()
+    engine.hands["US"] = ["UN_Intervention", "Duck_and_Cover"]
+    engine._push_headline(Side.US)
+    assert {a.payload["card"] for a in engine.pending_decision.options} == {"Duck_and_Cover"}

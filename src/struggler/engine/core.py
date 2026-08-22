@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 import copy
 import random
 
@@ -26,6 +28,7 @@ _DEFAULT_MIN_DEFCON = 1
 # not yet known to the engine (see Engine.physical_mode). No real card id in
 # data/cards.json ever looks like this, so it can never collide with one.
 HIDDEN_CARD = "?"
+REALIGNMENT_STOP = "stop"  # the REALIGNMENT_TARGET option that ends the attempts early
 
 # Physical-mode headline option: the operator's real discard pile ran out
 # and got reshuffled at the table before the engine's own bookkeeping
@@ -47,8 +50,8 @@ SCORING_CARD_REGION: dict[str, Region] = {
 
 
 class Engine:
-    def __init__(self, seed: int, board: Board | None = None) -> None:
-        self.board = board if board is not None else Board()
+    def __init__(self, seed: int, board: Board | None = None, variants: Iterable[str] = ()) -> None:
+        self.board = board if board is not None else Board(variants)
         self.defcon = 5
         self.vp = 0  # US-positive: >0 favors US, <0 favors USSR (matches score_region)
         self.starting_vp = 0  # the VP the game opened at (a handicap); 0 in the printed game
@@ -211,6 +214,7 @@ class Engine:
             # -- full-game state --
             "phase": self.phase,
             "include_optional": self.include_optional,
+            "variants": sorted(self.board.variants),
             "draw_pile": list(self.draw_pile),
             "discard_pile": list(self.discard_pile),
             "removed_cards": list(self.removed_cards),
@@ -241,7 +245,7 @@ class Engine:
 
     @classmethod
     def deserialize(cls, data: dict) -> "Engine":
-        engine = cls(seed=data["seed"])
+        engine = cls(seed=data["seed"], variants=data.get("variants", ()))
         engine._rng.setstate(_decode_rng_state(data["rng_state"]))
         engine.board.load_influence(data["board"])
         engine.defcon = data["defcon"]
@@ -317,6 +321,7 @@ class Engine:
         physical_mode: bool = False,
         physical_side: Side | None = None,
         starting_vp: int = 0,
+        variants: Iterable[str] = (),
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -338,7 +343,7 @@ class Engine:
         """
         if physical_mode and physical_side not in (Side.US, Side.USSR):
             raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
-        engine = cls(seed=seed, board=board)
+        engine = cls(seed=seed, board=board, variants=variants)
         engine.include_optional = include_optional
         engine.events_enabled = events
         engine.physical_mode = physical_mode
@@ -491,7 +496,31 @@ class Engine:
         self._deal_to_limit()
         self.phase = "predeal" if initial else "headline"
 
+    def _add_military_ops(self, side: Side, amount: int) -> None:
+        """Advance a side's Military Operations marker. The track ends at 5
+        (`military_ops_max`): Ops spent beyond it are not recorded."""
+        self.military_ops[side.value] = min(
+            self.military_ops[side.value] + amount, RULES["military_ops_max"]
+        )
+
     def _end_of_turn(self) -> None:
+        # A scoring card still in hand at the end of the turn loses the game
+        # for its holder (scoring cards must be played the turn they are
+        # held). Holding one each is a draw. A physical hand's unrevealed
+        # cards (HIDDEN_CARD) cannot be checked.
+        holders = [
+            side
+            for side in (Side.US, Side.USSR)
+            if any(cid != HIDDEN_CARD and self.cards[cid].scoring for cid in self.hands[side.value])
+        ]
+        if len(holders) == 1:
+            self._win(holders[0].opponent, "held_scoring_card")
+            return
+        if len(holders) == 2:
+            self._game_over_reason = "held_scoring_card"
+            self.phase = "complete"  # draw: terminal with no winner
+            self._decision_stack.clear()
+            return
         # Required military operations: a side that spent fewer military Ops
         # (coups) than the current DEFCON hands the deficit to its opponent.
         for side in (Side.US, Side.USSR):
@@ -500,12 +529,6 @@ class Engine:
                 self._award_vp(side.opponent, deficit)
                 if self.is_terminal:
                     return
-        # We Will Bury You: the USSR scores 3 VP at the end of the turn unless
-        # the US cancelled it (by playing UN Intervention, see _handle_play_mode).
-        if self.turn_effects.get("we_will_bury_you"):
-            self._award_vp(Side.USSR, 3)
-            if self.is_terminal:
-                return
         # DEFCON recovers by one at the end of every turn.
         self._change_defcon(+1, caused_by=Side.US)
         # A China Card passed this turn becomes available to its new owner.
@@ -768,15 +791,19 @@ class Engine:
     # -- headline phase -----------------------------------------------------
 
     def _push_headline(self, side: Side) -> None:
-        # The China Card cannot be headlined; scoring cards can.
+        # The China Card and UN Intervention cannot be headlined; scoring cards can.
         physical_turn = self.physical_mode and side is self.physical_side
         candidates = (
             self._physical_hand_candidates(side)
             if physical_turn
             else list(self.hands[side.value])
         )
+        # UN Intervention's printed text: it cannot be played during the
+        # headline phase.
         options = tuple(
-            Action(DecisionKind.HEADLINE_PLAY, {"card": cid}) for cid in candidates
+            Action(DecisionKind.HEADLINE_PLAY, {"card": cid})
+            for cid in candidates
+            if cid != RULES["un_intervention_id"]
         )
         if physical_turn and self.discard_pile:
             # The operator's real discard pile can empty and get reshuffled
@@ -926,34 +953,20 @@ class Engine:
                 self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
             return
         hand = self.hands[side.value]
-        scoring_in_hand = [cid for cid in hand if self.cards[cid].scoring]
-        # A scoring card may not be held past the end of the turn. Once a side
-        # has as many scoring cards as it has action rounds left, every
-        # remaining round must spend one (the China Card is not offered then).
-        must_play_scoring = bool(scoring_in_hand) and len(
-            scoring_in_hand
-        ) >= self._remaining_action_rounds(side)
-
+        # A scoring card held past the end of the turn loses the game
+        # (`_end_of_turn`); the choice to risk that is the player's, so the
+        # whole hand is offered.
         # Missile Envy: "next round your opponent must use this card for
-        # Operations" -- the scoring deadline still takes priority if both
-        # apply at once, since carrying a scoring card past end of turn isn't
-        # legal at all.
+        # Operations".
         forced_missile_envy = (
-            not must_play_scoring
-            and self.game_effects.get("missile_envy_forced") == side.value
-            and "Missile_Envy" in hand
+            self.game_effects.get("missile_envy_forced") == side.value and "Missile_Envy" in hand
         )
-
-        if forced_missile_envy:
-            playable = ["Missile_Envy"]
-        else:
-            playable = scoring_in_hand if must_play_scoring else list(hand)
+        playable = ["Missile_Envy"] if forced_missile_envy else list(hand)
         options = [
             Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in playable
         ]
         if (
-            not must_play_scoring
-            and not forced_missile_envy
+            not forced_missile_envy
             and side.value == self.china_card_owner
             and self.china_card_available
         ):
@@ -1059,6 +1072,15 @@ class Engine:
         card = self.cards[cid]
         mode = action.payload["mode"]
 
+        if side is Side.US and self.game_effects.pop("we_will_bury_you", None):
+            # We Will Bury You: "unless UN Intervention is played as an Event
+            # on the US player's next action round, the USSR gains 3 VP prior
+            # to any US VP award" -- this is that round, whatever it plays.
+            if mode != "un_intervention":
+                self._award_vp(Side.USSR, 3)
+                if self.is_terminal:
+                    return
+
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
             self._maybe_defectors_action_round(side, cid)
@@ -1081,10 +1103,8 @@ class Engine:
 
         if mode == "un_intervention":
             # Cancel the opponent card's event; use it purely for its Ops. UN
-            # Intervention itself is spent to the discard pile. Playing it also
-            # defuses We Will Bury You's end-of-turn VP for the US.
-            if side is Side.US:
-                self.turn_effects.pop("we_will_bury_you", None)
+            # Intervention itself is spent to the discard pile. (We Will Bury
+            # You's VP were settled above.)
             un_id = RULES["un_intervention_id"]
             # Mirrors _file_card's own declare-then-remove sequence: for the
             # physical side this is still a HIDDEN_CARD placeholder, not the
@@ -1187,7 +1207,7 @@ class Engine:
             # Coups count toward the turn's required military operations. A
             # region-bonus coup gets its +1 only against a target in that region
             # (resolved at target selection, in _handle_coup_target).
-            self.military_ops[side.value] += ops
+            self._add_military_ops(side, ops)
             self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
             # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
@@ -1267,15 +1287,23 @@ class Engine:
 
     def _effective_ops(self, side: Side, card: Card) -> int:
         """The card's Ops value for `side` after persistent per-turn modifiers
-        (Containment/Brezhnev +1, Red Scare -1). Never below 1."""
-        ops = card.ops
+        (Containment/Brezhnev +1, Red Scare -1). A modified value is never
+        below 1 or above 4 (the cards say so; the China Card's own +1 for
+        all-Asia Ops is a separate bonus, applied on top in `_handle_ops_type`)."""
+        return self._modified_ops(side, card.ops)
+
+    def _modified_ops(self, side: Side, ops: int) -> int:
+        """`ops` Operations for `side` after the persistent per-turn modifiers,
+        clamped to 1-4. Applies to a card played for Ops and, per 7.4.3, to an
+        event's "conduct Operations as if they played an N Ops card" (7.4.2
+        example 3: CIA Created under Containment is 2 Ops)."""
         if self.turn_effects.get("containment") and side is Side.US:
             ops += 1
         if self.turn_effects.get("brezhnev") and side is Side.USSR:
             ops += 1
         if self.turn_effects.get("red_scare") == side.value:
             ops -= 1
-        return max(1, ops)
+        return max(RULES["ops_modifier_min"], min(RULES["ops_modifier_max"], ops))
 
     def _fire_event(self, side: Side, cid: str) -> None:
         """Resolve `cid`'s event for the phasing `side`. Unimplemented events
@@ -1542,7 +1570,7 @@ class Engine:
         the spend to Influence/Realignment only (Glasnost, KAL-007's printed
         text names only those two, never Coup)."""
         if ops > 0:
-            self._push_ops_type(side, ops, allow_coup=allow_coup)
+            self._push_ops_type(side, self._modified_ops(side, ops), allow_coup=allow_coup)
 
     def set_defcon(self, level: int, caused_by: Side) -> None:
         """Set DEFCON to `level` (How I Learned to Stop Worrying, ...). Routed
@@ -1591,10 +1619,11 @@ class Engine:
         owner = Side(ctx["owner"])
         card = action.payload["card"]
         if ctx["purpose"] == "five_year_plan":
-            # A discarded USSR-associated event fires (even against the USSR's
-            # own interest); anything else is just discarded.
+            # A discarded US-associated event fires (the card text: "If the
+            # card has a US associated event, the event occurs immediately");
+            # a USSR or neutral event, or a scoring card, is just discarded.
             info = self.cards[card]
-            if not info.scoring and info.side.value == owner.value and self._has_event(card):
+            if not info.scoring and info.side.value == owner.opponent.value and self._has_event(card):
                 self._file_card(owner, card, fired=True)
                 self._fire_event(owner, card)
             else:
@@ -1757,7 +1786,7 @@ class Engine:
     ) -> None:
         """Start a war event: it always counts toward the attacker's required
         military operations, then a logged CHANCE roll decides the outcome."""
-        self.military_ops[attacker.value] += military_ops
+        self._add_military_ops(attacker, military_ops)
         self._push(
             Side.CHANCE,
             DecisionKind.WAR_ROLL,
@@ -2203,7 +2232,7 @@ class Engine:
         bonus = decision.context.get("bonus")
         if bonus and self._in_bonus_region(country, bonus):
             ops += 1
-            self.military_ops[side.value] += 1
+            self._add_military_ops(side, 1)
         self._push(
             Side.CHANCE,
             DecisionKind.COUP_ROLL,
@@ -2576,6 +2605,10 @@ class Engine:
         options = self._realignment_target_options(side)
         if not options:
             return
+        if spent >= 1:
+            # 6.3: each Op *may* be used for a roll. Once at least one has
+            # been, the rest may be left unused.
+            options += (Action(DecisionKind.REALIGNMENT_TARGET, {"country": REALIGNMENT_STOP}),)
         self._push(
             side,
             DecisionKind.REALIGNMENT_TARGET,
@@ -2586,6 +2619,8 @@ class Engine:
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         country = action.payload["country"]
+        if country == REALIGNMENT_STOP:
+            return  # the remaining Ops are forfeited; the action round moves on
         self._push(
             Side.CHANCE,
             DecisionKind.REALIGNMENT_ACTOR_ROLL,

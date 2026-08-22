@@ -109,7 +109,19 @@ def test_every_engine_effect_key_is_in_the_layout():
             found[store].add(key)
     assert found["turn_effects"], "expected the engine to reference turn_effects keys"
     assert found["turn_effects"] <= set(F.TURN_EFFECTS)
-    assert found["game_effects"] <= set(F.GAME_EFFECTS)
+    assert found["game_effects"] <= set(F.GAME_EFFECTS) | {k for k, p in F.RELOCATED.items() if p == "turn"}
+
+
+def test_relocated_effect_keeps_its_slot():
+    # We Will Bury You is a game effect in the engine but encodes in the turn
+    # slot it was allocated: the layout, and LAYOUT_VERSION, are unchanged.
+    engine = bare_engine()
+    engine.game_effects["we_will_bury_you"] = True
+    engine.phase = "action_rounds"
+    engine._advance()
+    row = _encode(engine, engine.pending_decision.actor)["globals"][0]
+    assert row[F.GLOBAL_INDEX["turn_we_will_bury_you"]] == 1.0
+    assert "game_we_will_bury_you" not in F.GLOBAL_INDEX
 
 
 @pytest.mark.parametrize("seed", [11, 12])
@@ -123,7 +135,14 @@ def test_every_decision_of_a_random_game_encodes(seed: int):
             F.encode_into(observation, buffers, 0)
             decision = observation.pending_decision
             assert buffers["opt_mask"][0].sum() == len(decision.options) <= F.K_MAX
-            assert not buffers["opt_feats"][0, :, other].any(), "payload value outside OPTION_VOCAB"
+            # The one sanctioned out-of-vocabulary value: realignment's "stop"
+            # (`{"country": "stop"}`), which rides the `other` flag so the
+            # layout did not have to change for it.
+            others = [i for i in range(len(decision.options)) if buffers["opt_feats"][0, i, other]]
+            assert all(
+                decision.kind is DecisionKind.REALIGNMENT_TARGET and decision.options[i].payload.get("country") == "stop"
+                for i in others
+            ), "payload value outside OPTION_VOCAB"
             seen_kinds.add(decision.kind)
             return super().choose_action(observation, history)
 

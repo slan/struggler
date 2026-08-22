@@ -24,6 +24,17 @@ def bare_engine(seed: int = 0) -> Engine:
     return engine
 
 
+def discard_scoring_cards(engine: Engine) -> None:
+    """Move every scoring card out of both hands. Dealt hands hold some,
+    and a scoring card still in hand at `_end_of_turn` loses the game --
+    for tests about everything else that happens at end of turn."""
+    for side, hand in engine.hands.items():
+        scoring = [cid for cid in hand if cid != HIDDEN_CARD and engine.cards[cid].scoring]
+        for cid in scoring:
+            hand.remove(cid)
+            engine.discard_pile.append(cid)
+
+
 def headline_setup(engine: Engine, ussr_card: str, us_card: str) -> None:
     """Put a controlled headline in front of a bare, events-on engine."""
     engine.phase = "headline"
