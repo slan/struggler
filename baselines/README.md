@@ -315,3 +315,50 @@ Commit `363c5d4` — run `h256-e4`, 20,000 games trained.
 - vs v7: 0.802 (US 0.637 / USSR 0.967)
 - vs v8: 0.650 (US 0.397 / USSR 0.903)
 - vs v9: 0.566 (US 0.278 / USSR 0.853)
+
+## v14
+
+Commit `90fa0b3` — run `h256-e4`, 24,000 games trained.
+
+- Loop generation 1: v13 continued for 4,000 games; gate 0.55 cleared at 0.550 (worst seed) against v13.
+- Elo vs random: **+1466 ± 4** over seeds [0, 1, 2]
+- vs random: 1.000 (US 1.000 / USSR 1.000)
+- vs first: 0.993 (US 0.997 / USSR 0.990)
+- vs greedy: 0.984 (US 0.982 / USSR 0.987)
+- vs v1: 0.975 (US 0.950 / USSR 1.000)
+- vs v10: 0.468 (US 0.157 / USSR 0.778)
+- vs v11: 0.831 (US 0.688 / USSR 0.973)
+- vs v12: 0.689 (US 0.428 / USSR 0.950)
+- vs v13: 0.571 (US 0.302 / USSR 0.840)
+- vs v2: 0.995 (US 0.993 / USSR 0.997)
+- vs v3: 0.990 (US 0.983 / USSR 0.997)
+- vs v4: 0.937 (US 0.893 / USSR 0.980)
+- vs v5: 0.943 (US 0.913 / USSR 0.973)
+- vs v6: 0.847 (US 0.740 / USSR 0.953)
+- vs v7: 0.811 (US 0.658 / USSR 0.963)
+- vs v8: 0.637 (US 0.373 / USSR 0.900)
+- vs v9: 0.552 (US 0.252 / USSR 0.852)
+
+## v15
+
+Commit `90fa0b3` — run `h256-e4`, 32,000 games trained.
+
+- Loop generation 3: v14 continued for 4,000 games; gate 0.55 cleared at 0.568 (worst seed) against v14.
+- Elo vs random: **+1461 ± 33** over seeds [0, 1, 2]
+- vs random: 0.998 (US 0.997 / USSR 1.000)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.985 (US 0.970 / USSR 1.000)
+- vs v1: 0.958 (US 0.923 / USSR 0.993)
+- vs v10: 0.473 (US 0.170 / USSR 0.777)
+- vs v11: 0.787 (US 0.580 / USSR 0.993)
+- vs v12: 0.720 (US 0.463 / USSR 0.977)
+- vs v13: 0.634 (US 0.330 / USSR 0.938)
+- vs v14: 0.569 (US 0.288 / USSR 0.850)
+- vs v2: 0.992 (US 0.983 / USSR 1.000)
+- vs v3: 0.983 (US 0.967 / USSR 1.000)
+- vs v4: 0.902 (US 0.825 / USSR 0.980)
+- vs v5: 0.960 (US 0.923 / USSR 0.997)
+- vs v6: 0.863 (US 0.737 / USSR 0.990)
+- vs v7: 0.788 (US 0.590 / USSR 0.987)
+- vs v8: 0.696 (US 0.435 / USSR 0.957)
+- vs v9: 0.605 (US 0.315 / USSR 0.895)

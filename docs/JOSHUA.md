@@ -139,6 +139,8 @@ Details, trajectories and checkpoints per version are in
 | v11 | 8,000 games from scratch, **hidden 256**, 4 epochs (the capacity A/B winner; 47 min) | +1244 ± 31 | 0.99 (0.99 / 1.00) | **0.91** (0.85 / 0.97) |
 | v12 | v11 + 4,000 games by the loop (gate 0.79 vs v11); 12,000 games | +1452 ± 15 | 1.00 | **0.98** (0.97 / 0.99) |
 | v13 | v12 + 8,000 (one failed gate at 0.547, then 0.625 vs v12); 20,000 games | +1460 ± 14 | 1.00 | **0.98** (0.98 / 0.97) |
+| v14 | v13 + 4,000 (gate 0.571 vs v13, worst seed 0.550); 24,000 games | +1466 ± 4 | 1.00 | **0.98** (0.98 / 0.99) |
+| v15 | v14 + 8,000 (one failed gate at 0.489, then 0.569 vs v14); 32,000 games | +1461 ± 33 | 1.00 | **0.99** (0.97 / 1.00) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -321,6 +323,17 @@ What the capacity experiment taught (hidden 256, August 2026):
   off v10 — 20,000 games of 256 are worth about 30,000 of 128. The gap
   to v10 is the US seat alone (0.07 as US, 0.73 as USSR).
 
+- **Then it flattens — at the same place.** Three more generations:
+  v14 at 24,000 games (0.571 vs v13, worst seed 0.550 against the 0.55
+  gate), a miss at 28,000 (0.489), v15 at 32,000 (0.569 vs v14). Against
+  v10 the line stops: 0.40 (v13) → 0.47 (v14) → 0.47 (v15; per seed
+  0.46–0.49), Elo +1466 → +1461. At 32,000 games the wider network is
+  level with what the narrower one was at 32,000 games, clearing its
+  own gates by a hair, as v10 did. Two widths, the same ceiling, and
+  the same shape to it: v15 against v10 is 0.17 as US and 0.78 as
+  USSR. Width bought speed along the chain, not height; the ceiling is
+  not the network's capacity.
+
 ### Reading v9's games
 
 Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
@@ -394,21 +407,34 @@ reordered it:
 
 ## Open questions and the road ahead
 
-**Next experiment: capacity, through the loop.** The chain flattened at
-v10 (two of three gates failed) with the network still at ~270k
-parameters, and the A/B (above) found a `--hidden 256` network well
-ahead at equal budget: v11. The question now is whether it keeps
-climbing where 128 flattened: v11 continues through the loop with
-itself as the champion (`--hidden 256 --n-epochs 4`, 4,000 games a
-generation), so every promotion is frozen and rated against the whole
-chain, v10 included. The marks to watch: the generation where it passes
-v10 (the 128 chain needed 24,000 games past v5 to get there; v13 at
-20,000 takes 0.40 off it), and whether the gate keeps clearing past
-36,000 games. If it flattens too,
-a third graph layer is next before concluding capacity is not the
-limit. A note on epochs: 2 is the default because it matched 4 when
-continuing a trained run; a fresh run wants 4, and the 256 line is
-being continued at 4 to keep one variable at a time.
+**The capacity experiment is closed** (above): a `--hidden 256` network
+climbs the chain faster — 20,000 games worth 30,000 of the old — and
+then flattens at 32,000 games exactly where the 128 line did, level
+with v10, with the same USSR-heavy shape to its losses. The lines are
+`runs/pure` (v5–v10, 128) and `runs/h256-e4` (v11–v15, 256); either
+can be continued, and the 256 line is the stronger per game. What the
+ceiling is made of is now the question, and capacity is the one
+explanation the data rules out. The candidates, in the order the games
+themselves suggest:
+
+1. **The US seat** (item 2 below). Every version since v8, on both
+   lines, loses the US seat against an equal opponent — v15 vs v10 is
+   0.17 as US and 0.78 as USSR — and the gate measures the pooled rate,
+   so a challenger that only finds a sharper USSR blitz clears it
+   without the US defence ever improving. A USSR VP handicap in
+   training games is the cheapest way to make the US seat's rows say
+   something other than "you drew the short side"; the first thing to
+   measure is whether the USSR edge between equal policies moves.
+2. **What the network sees** (item 6): order and recency — the
+   "discarded this turn" location first.
+3. **A third graph layer** — cheap to A/B at 8,000 games now that the
+   control is known (v11), but the data above makes depth the least
+   likely lever.
+
+A note on epochs: 2 is the default because it matched 4 when
+continuing a trained run; a fresh run wants 4, and the 256 line was
+continued at 4 to keep one variable at a time — the continuation A/B
+at 256 has not been run.
 
 In rough order of expected value per effort:
 
