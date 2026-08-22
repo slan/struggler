@@ -109,8 +109,22 @@ class Lockstep(Bridge):
             prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
         if self._un_ops[side] and T.uses_offered(prompt):
             self._un_ops[side] = False
+        if prompt.text == "Remove Cuban Missile Crisis?" and not self.engine.turn_effects.get("cuban_missile_crisis"):
+            # The DLL's crisis outlives the engine's: seen after the USSR played
+            # the card for Ops, which fires no event in either program, yet
+            # the DLL asked the US to pay its way out of a coup.
+            self.known["Cuban Missile Crisis: the DLL asks the opponent to cancel a crisis the engine has no record of"] += 1
+            prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).meaning is T.Meaning.STOP))
         option = self.policy(prompt)
         m = T.meaning(option)
+        if (option.hint == SelectionHint.TRAP_PASS and side is not self.engine.physical_side
+                and not any(self.engine.cards[c].scoring for c in self.engine.hands[side.value])):
+            # "You May Play a Scoring Card" -> "Pass": the DLL lets the trapped
+            # seat keep its scoring card for a later round; the engine (which
+            # sees this hand) has played it already.
+            self.known["trap step: the DLL lets the trapped seat keep its scoring card, the engine plays it"] += 1
+            self.diverge("rules", f"{side.value} is trapped with no 2+-Ops card: the DLL offers to keep the scoring card (Pass), "
+                         "the engine played it", fatal=True)
         drawn = [o for o in prompt.visible if o.hint == SelectionHint.SWITCH_CARD]
         if drawn and prompt.text.endswith("?") and any(o.hint == SelectionHint.STOP for o in prompt.visible):
             # Grain Sales: "Play <the drawn card>?" / "Return It". The card

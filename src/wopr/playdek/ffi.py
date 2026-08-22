@@ -417,6 +417,7 @@ class SelectionHint(IntEnum):
     # Summit's "You May Adjust DEFCON Level" lists the three reachable levels (at DEFCON 2: Degrade 0xA071, Pass 0xA072, Improve 0xA073)
     DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)
     FORCED_DISCARD_CARD = 0xA09A  # "Discard <card>" when a discard is required (Bear Trap / Quagmire)
+    TRAP_SCORING_CARD = 0xA09B  # "Play <scoring card>" in "You May Play a Scoring Card": selecting it does nothing, the prompt returns with "Pass" alone
     TRAP_PASS = 0xA09C  # "Pass" in "You May Play a Scoring Card": a trapped seat with no 2+-Ops card keeps its scoring card
     FORCED_DISCARD_BLANK = 0xA09F  # the entry labelled "TRAP" (selectionID 0) beside them: selecting it re-asks the prompt
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")

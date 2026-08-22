@@ -36,7 +36,8 @@ from struggler.engine.player import Event, Player
 from struggler.engine.types import Action, Decision, DecisionKind, Observation, Side
 from struggler.runner import play_game
 from wopr.playdek import ids, translate as T
-from wopr.playdek.bridge import CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, HAND_LOCATION, HAND_OF, HEADLINE_OF, UI_ONLY, UN, Bridge, Move, Report
+from wopr.playdek.bridge import (CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, GRANTED_OPS_PROMPT, HAND_LOCATION, HAND_OF, HEADLINE_OF, UI_ONLY,
+                                 UN, Bridge, Move, Report)
 from wopr.playdek import ffi
 from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
 from wopr.playdek.game import Option, Playdek, Prompt
@@ -261,7 +262,7 @@ class PlaydekOperator(Bridge):
             self._pump()
             return True
         if self.prompt_side(prompt) is self.other and self.emulate is not None:
-            self._choose(prompt, self._reasked(prompt) or self.emulate(prompt))
+            self._choose(prompt, self._reasked(prompt) or self.emulate(self._emulated(prompt)))
             return True
         option = self._reply(prompt)
         if option is None:
@@ -448,6 +449,14 @@ class PlaydekOperator(Bridge):
     def _answer_choice(self, d: Decision) -> Action | None:
         choices = [a.payload["choice"] for a in d.options]
         if all(c in ids.NUMBER_BY_CARD or c in DECLINES for c in choices):
+            # A card taken back from the discard pile (SALT Negotiations):
+            # the one that moved there into this seat's hand.
+            taken = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
+                     if was == int(ffi.ECardLocation.DISCARDED) and now == HAND_LOCATION[self.other] and c in choices]
+            if taken:
+                card = max(taken)[1]
+                del self._last_moves[card]
+                return self._pick(d, lambda a: a.payload["choice"] == card, f"took back {card}")
             # Discard a card or decline (Blockade): the card that left the hand.
             card = self.card_that_left(self.other, set(choices))
             if card is not None:
@@ -547,6 +556,8 @@ class PlaydekOperator(Bridge):
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
     def before_bot_decision(self, d: Decision) -> None:
+        if self.engine.phase == "headline":
+            self.mark_setup_done()
         if d.kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY) and not self.outgoing and not self.moves[self.other]:
             self.compare_state()
 
@@ -624,12 +635,23 @@ class PlaydekOperator(Bridge):
             if prompt is None:
                 return
             if self.prompt_side(prompt) is self.other and self.emulate is not None:
-                self._choose(prompt, self._reasked(prompt) or self.emulate(prompt))
+                self._choose(prompt, self._reasked(prompt) or self.emulate(self._emulated(prompt)))
                 continue
             option = self._reply(prompt)
             if option is None:
                 return
             self._choose(prompt, option)
+
+    def _emulated(self, prompt: Prompt) -> Prompt:
+        """The prompt as the emulated seat's policy sees it: without the
+        Space Race for Ops the engine gives as Ops only (a UN-Intervened
+        card's, Missile Envy's exchanged card's, the forced play of Missile
+        Envy itself -- the differ counts these under `known`, the AI may
+        pick them and desync)."""
+        if T.uses_offered(prompt) and any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible) and (
+                prompt.text == GRANTED_OPS_PROMPT or self.engine.game_effects.get("missile_envy_forced") == self.other.value):
+            return Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
+        return prompt
 
     def _reply(self, prompt: Prompt) -> Option | None:
         """The option of the bot's seat's prompt that its queued actions
@@ -783,10 +805,7 @@ class PlaydekOperator(Bridge):
     @staticmethod
     def _grain_card(prompt: Prompt) -> str | None:
         """Grain Sales' "Play <the drawn card>?" / "Return It": the card."""
-        drawn = [o for o in prompt.visible if o.hint == SelectionHint.SWITCH_CARD]
-        if drawn and prompt.text.endswith("?") and any(o.hint == SelectionHint.STOP for o in prompt.visible):
-            return ids.card_id(drawn[0].selection_id)
-        return None
+        return Bridge.grain_card(prompt)
 
     # -- the end ----------------------------------------------------------
 

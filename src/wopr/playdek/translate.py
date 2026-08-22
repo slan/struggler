@@ -120,7 +120,7 @@ def meaning(option: Option) -> OptionMeaning:
         return OptionMeaning(Meaning.STOP, label=option.text)
     if hint == SelectionHint.SWITCH_CARD:
         return OptionMeaning(Meaning.SWITCH_CARD, label=option.text)
-    if hint in (SelectionHint.EVENT_CHOICE_BLANK, SelectionHint.FORCED_DISCARD_BLANK):
+    if hint in (SelectionHint.EVENT_CHOICE_BLANK, SelectionHint.FORCED_DISCARD_BLANK, SelectionHint.TRAP_SCORING_CARD):
         return OptionMeaning(Meaning.BLANK, label=option.text)
     if hint in _CARD_HINTS:
         return OptionMeaning(Meaning.CARD, card=ids.card_id(option.selection_id), label=option.text)

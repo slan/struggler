@@ -323,11 +323,29 @@ class Bridge:
         side = self._sides_by_player[prompt.player_id]
         if prompt.text == SCORING_PROMPT:
             return Side.USSR if self.engine.game_effects.get("bear_trap") else Side.US  # the trapped seat's, whoever's id it carries
+        if self.grain_card(prompt) is not None:
+            return Side.US  # Grain Sales' "Play <card>?": the US's decision, the card shown is the USSR's
         owners = {self.hand_of(T.meaning(o).card) for o in prompt.visible if T.meaning(o).meaning is T.Meaning.CARD}
         owners.discard(None)
         if len(owners) == 1:
             side = owners.pop()
         return side
+
+    @staticmethod
+    def grain_card(prompt: Prompt) -> str | None:
+        """Grain Sales' "Play <the drawn card>?" / "Return It": the card."""
+        drawn = [o for o in prompt.visible if o.hint in (SelectionHint.SWITCH_CARD, SelectionHint.PLAY_SCORING_CARD)]
+        if drawn and prompt.text.endswith("?") and any(o.hint == SelectionHint.STOP for o in prompt.visible):
+            return ids.card_id(drawn[0].selection_id)  # a scoring card is listed with its own hint
+        return None
+
+    def mark_setup_done(self) -> None:
+        """Once both programs are past the setup, its records are behind
+        them: the influence history before this point is nothing the
+        operator still has to infer."""
+        if not self._setup_synced:
+            self._setup_synced = True
+            self.synced_seq = self._seq
 
     def queue(self, side: Side, move: Move) -> None:
         self.moves[side].append(move)
@@ -685,6 +703,8 @@ class Bridge:
         if any(T.meaning(o).meaning is T.Meaning.STOP for o in mv.prompt.visible):
             theirs.add("stop")  # "No More Realignment" is the engine's {"country": "stop"}
         ours = {a.payload["country"] for a in d.options}
+        if d.kind is DecisionKind.COUP_TARGET and theirs - ours == {"stop"}:
+            theirs.discard("stop")  # an event's free coup: the DLL declines at the target, the engine asked before
         if d.kind is DecisionKind.EVENT_INFLUENCE and d.context.get("event") == "De_Stalinization" and ours > theirs:
             # Known: the DLL will not relocate influence back into a country it
             # was just removed from; the card text has no such clause.
@@ -735,12 +755,7 @@ class Bridge:
         e = self.engine
         if e.phase in ("idle", "predeal", "setup"):
             return  # the DLL deals after the setup placements, the engine before: compare from the first headline on
-        if not self._setup_synced:
-            # Whatever the first compare finds, the setup's records are behind
-            # both programs now: the influence history before this point is
-            # not something the operator still has to infer.
-            self._setup_synced = True
-            self.synced_seq = self._seq
+        self.mark_setup_done()
         if e.pending_decision is None or e.pending_decision.kind not in CARD_KINDS:
             return  # mid-action on the engine's side
         if self._dll_turn != e.turn or e.pending_decision.kind is DecisionKind.HELD_CARD_DISCARD:
@@ -766,6 +781,10 @@ class Bridge:
         if self.engine.is_terminal and self.game.result is not None:
             pd_winner = self._sides_by_player.get(self.game.result.winner_id)
             if pd_winner != self.engine.winner:
-                self.diverge("winner", f"Playdek {pd_winner}, engine {self.engine.winner}")
+                if (self.game.result.win_type is ffi.GameOverType.HELD_CARDS and pd_winner is not self.engine.physical_side
+                        and getattr(self.engine, "_game_over_reason", None) == "held_scoring_card"):
+                    self.known["held scoring card in both hands: the DLL's loser is the one the engine cannot see"] += 1
+                else:
+                    self.diverge("winner", f"Playdek {pd_winner}, engine {self.engine.winner}")
         self.game.close()
         return self.report
