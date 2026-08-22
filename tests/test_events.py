@@ -1220,6 +1220,27 @@ def test_an_opponents_card_is_not_offered_for_its_event_alone():
     assert "event" in engine._play_modes(Side.USSR, "Olympic_Games")
 
 
+def test_a_card_with_its_play_restriction_unmet_is_not_offered_for_its_event():
+    # NATO: "play only after Marshall Plan or Warsaw Pact Formed". Until one
+    # is played it is Ops (or the Space Race) only; then its event too.
+    engine = _bare()
+    engine.hands["US"] = ["NATO", "Special_Relationship"]
+    assert "event" not in engine._play_modes(Side.US, "NATO")
+    assert "ops" in engine._play_modes(Side.US, "NATO")
+    engine.game_effects["marshall_or_warsaw"] = True
+    assert "event" in engine._play_modes(Side.US, "NATO")
+    # Special Relationship's "if the UK is US-controlled" is the effect's
+    # condition, not a play restriction: playable, and nothing happens.
+    assert engine.board.control("UK") is not Side.US
+    assert "event" in engine._play_modes(Side.US, "Special_Relationship")
+    # One Small Step: "if you are behind on the Space Race, play this card to...".
+    engine.hands["USSR"] = ["One_Small_Step"]
+    engine.space_race = {"US": 1, "USSR": 1}
+    assert "event" not in engine._play_modes(Side.USSR, "One_Small_Step")
+    engine.space_race = {"US": 2, "USSR": 1}
+    assert "event" in engine._play_modes(Side.USSR, "One_Small_Step")
+
+
 def test_owner_event_play_fires_the_event():
     engine = _bare()
     engine.defcon = 5

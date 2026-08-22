@@ -39,10 +39,16 @@ class Event:
     `resolve` applies the effect for the given phasing side. `eligible` gates
     whether the event is allowed to happen; it defaults to "always" and exists
     for events (and future rule-modifiers) whose text has a precondition.
+    `restricts_play` says the precondition is a play restriction ("play only
+    if", "may no longer be played as an event"): the card is then not offered
+    for its event in an action round while it is unmet, only for Ops or the
+    Space Race. Off for a precondition that is the effect's own condition
+    (Special Relationship), where the event is playable and does nothing.
     """
 
     resolve: Callable[["Engine", Side], None]
     eligible: Callable[["Engine", Side], bool] = lambda engine, side: True
+    restricts_play: bool = True
 
 
 EVENTS: dict[str, Event] = {}
@@ -52,11 +58,12 @@ def event(
     card_id: str,
     *,
     eligible: Callable[["Engine", Side], bool] | None = None,
+    restricts_play: bool = True,
 ) -> Callable[[Callable[["Engine", Side], None]], Callable[["Engine", Side], None]]:
     """Register the decorated function as `card_id`'s event resolver."""
 
     def register(fn: Callable[["Engine", Side], None]) -> Callable[["Engine", Side], None]:
-        EVENTS[card_id] = Event(resolve=fn, eligible=eligible or Event.eligible)
+        EVENTS[card_id] = Event(resolve=fn, eligible=eligible or Event.eligible, restricts_play=restricts_play)
         return fn
 
     return register
@@ -469,13 +476,15 @@ def _reagan_bombs_libya(engine: "Engine", side: Side) -> None:
     engine._award_vp(Side.US, engine.board.influence["Libya"]["USSR"] // 2)
 
 
-@event("One_Small_Step")
+@event(
+    "One_Small_Step",
+    eligible=lambda engine, side: engine.space_race[side.value] < engine.space_race[side.opponent.value],
+)
 def _one_small_step(engine: "Engine", side: Side) -> None:
-    # If you are behind on the Space Race, jump two boxes; get VP for the
-    # second step only (the printed card's own wording).
-    if engine.space_race[side.value] < engine.space_race[side.opponent.value]:
-        engine.advance_space_race_box(side, award_vp=False)
-        engine.advance_space_race_box(side)
+    # "If you are behind on the Space Race, play this card to": jump two
+    # boxes, VP for the second step only (the printed card's own wording).
+    engine.advance_space_race_box(side, award_vp=False)
+    engine.advance_space_race_box(side)
 
 
 @event("AWACS_Sale_to_Saudis")
@@ -1539,6 +1548,7 @@ def _norad(engine: "Engine", side: Side) -> None:
 @event(
     "Special_Relationship",
     eligible=lambda engine, side: engine.board.control("UK") is Side.US,
+    restricts_play=False,  # "if the UK is US-controlled": the effect's condition, not the play's
 )
 def _special_relationship(engine: "Engine", side: Side) -> None:
     # Physical card text, confirmed: while the UK is US-controlled --

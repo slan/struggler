@@ -999,10 +999,13 @@ class Engine:
         # but nonsensical no-op discard. An opponent's card cannot be played for
         # its event alone either (5.2): it is played for Ops, and the event
         # happens as part of that play (`EVENT_OPS_ORDER`), or for the Space
-        # Race, or with UN Intervention. (With events off every "event" play is
-        # the same no-op discard, and the choice stays enumerated as before.)
+        # Race, or with UN Intervention. Nor can a card whose event's play
+        # restriction is unmet (NATO before Marshall Plan or Warsaw Pact,
+        # Socialist Governments after The Iron Lady, ...): Ops or the Space
+        # Race only, until it is. (With events off every "event" play is the
+        # same no-op discard, and the choice stays enumerated as before.)
         if cid not in (RULES["china_card_id"], RULES["un_intervention_id"]) and not (
-            self.events_enabled and self._is_opponent_event(side, card)
+            self.events_enabled and (self._is_opponent_event(side, card) or self._event_play_restricted(side, cid))
         ):
             modes.append("event")
         if self._can_space_race(side, card):
@@ -1020,6 +1023,12 @@ class Engine:
         ):
             modes.append("un_intervention")
         return tuple(modes)
+
+    def _event_play_restricted(self, side: Side, cid: str) -> bool:
+        """Whether `cid`'s event may not be played now: an implemented event
+        with a play restriction (`Event.restricts_play`) that is unmet."""
+        ev = EVENTS.get(cid)
+        return ev is not None and ev.restricts_play and not ev.eligible(self, side)
 
     def _holds_un_intervention(self, side: Side, cid: str) -> bool:
         """Whether `side` may plausibly be holding UN Intervention *in
