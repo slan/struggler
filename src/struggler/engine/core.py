@@ -1703,7 +1703,7 @@ class Engine:
         win_from: int,
         vp: int,
         military_ops: int,
-        count_target_control: bool = True,
+        count_target_control: bool = False,
     ) -> None:
         """A war whose attacker chooses the target (Brush War, Indo-Pakistani
         War, Iran-Iraq War). Resolves to begin_war once the target is picked."""
@@ -1768,7 +1768,9 @@ class Engine:
         roll = action.payload["value"]
 
         # -1 per defender-controlled country adjacent to the target, plus the
-        # target itself when the war counts it (e.g. Arab-Israeli War).
+        # target itself only where the card says so (Arab-Israeli War: "and
+        # Israel itself"); the wars that pick their target (Indo-Pakistani,
+        # Iran-Iraq, Brush War) and Korean War count adjacent countries only.
         penalty = sum(
             1 for n in self.board.neighbors(target) if self.board.control(n) is defender
         )
