@@ -203,9 +203,12 @@ up to 4 USSR Influence, then replace it in non-US-controlled countries, max
 2 each).
 
 **Persistent per-turn modifiers.** Containment, Brezhnev Doctrine, Red
-Scare/Purge — consulted via `_effective_ops`, which clamps the modified
-value to 1–4 (`ops_modifier_min`/`ops_modifier_max` in `rules.json`: a
-4-Ops card under Containment is still 4), cleared at end of turn.
+Scare/Purge — consulted via `_effective_ops` for a card played for Ops and
+via `push_event_operations` for an event's "conduct Operations as if they
+played an N Ops card" (7.4.3; CIA Created under Containment is 2 Ops);
+both clamp the modified value to 1–4 (`ops_modifier_min`/`ops_modifier_max`
+in `rules.json`: a 4-Ops card under Containment is still 4). Cleared at
+end of turn.
 
 **Persistent game-long legality** (`game_effects`). NATO (eligible only
 after Marshall Plan or Warsaw Pact; the USSR may no longer coup, realign,

@@ -1279,7 +1279,13 @@ class Engine:
         (Containment/Brezhnev +1, Red Scare -1). A modified value is never
         below 1 or above 4 (the cards say so; the China Card's own +1 for
         all-Asia Ops is a separate bonus, applied on top in `_handle_ops_type`)."""
-        ops = card.ops
+        return self._modified_ops(side, card.ops)
+
+    def _modified_ops(self, side: Side, ops: int) -> int:
+        """`ops` Operations for `side` after the persistent per-turn modifiers,
+        clamped to 1-4. Applies to a card played for Ops and, per 7.4.3, to an
+        event's "conduct Operations as if they played an N Ops card" (7.4.2
+        example 3: CIA Created under Containment is 2 Ops)."""
         if self.turn_effects.get("containment") and side is Side.US:
             ops += 1
         if self.turn_effects.get("brezhnev") and side is Side.USSR:
@@ -1553,7 +1559,7 @@ class Engine:
         the spend to Influence/Realignment only (Glasnost, KAL-007's printed
         text names only those two, never Coup)."""
         if ops > 0:
-            self._push_ops_type(side, ops, allow_coup=allow_coup)
+            self._push_ops_type(side, self._modified_ops(side, ops), allow_coup=allow_coup)
 
     def set_defcon(self, level: int, caused_by: Side) -> None:
         """Set DEFCON to `level` (How I Learned to Stop Worrying, ...). Routed
