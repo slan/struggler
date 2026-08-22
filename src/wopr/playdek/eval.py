@@ -47,6 +47,7 @@ class Job:
     out: str | None
     deterministic: bool = True
     max_divergences: int = 40
+    trace: bool = False
 
 
 def build_player(spec: str, *, seed: int, deterministic: bool) -> Player:
@@ -89,10 +90,10 @@ def run_job(job: Job) -> dict:
         log_path = str(games / f"{job.index:04d}_seed{job.seed}_{job.side}.json")
     if job.difficulty == "hotseat":
         result = play_match(pd, player, seed=job.seed, side=side, emulate=random_policy(random.Random(job.seed)),
-                            log_path=log_path, max_divergences=job.max_divergences)
+                            log_path=log_path, max_divergences=job.max_divergences, trace=job.trace)
     else:
         result = play_match(pd, player, seed=job.seed, side=side, difficulty=AIDifficulty[job.difficulty.upper()],
-                            log_path=log_path, max_divergences=job.max_divergences)
+                            log_path=log_path, max_divergences=job.max_divergences, trace=job.trace)
     return {"index": job.index, **dataclasses.asdict(result)}
 
 
@@ -133,10 +134,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--sample", action="store_true", help="sample the network policy instead of taking its argmax")
     p.add_argument("--out", default=None, help="directory for the replay logs, results.jsonl and summary.json")
     p.add_argument("--max-divergences", type=int, default=40)
+    p.add_argument("--trace", action="store_true", help="print every record, prompt, reply and inference (one game at a time: --workers 1)")
     args = p.parse_args(argv)
 
     sides = {"ussr": ["USSR"], "us": ["US"], "both": ["USSR", "US"]}[args.side]
-    jobs = [Job(i, args.seed + i, sides[i % len(sides)], args.policy, args.difficulty, args.out, not args.sample, args.max_divergences)
+    jobs = [Job(i, args.seed + i, sides[i % len(sides)], args.policy, args.difficulty, args.out, not args.sample, args.max_divergences, args.trace)
             for i in range(args.games)]
     workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 4) // 4)
     out = Path(args.out) if args.out else None
