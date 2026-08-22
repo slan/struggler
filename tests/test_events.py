@@ -1143,6 +1143,21 @@ def test_ask_not_discards_chosen_cards_and_redraws_the_same_number():
     assert "Containment" not in engine.hands["US"]
 
 
+def test_ask_not_may_discard_a_scoring_card():
+    # "The US may discard up to their entire hand (including scoring cards)".
+    engine = _bare(seed=5)
+    engine.draw_pile = ["Blockade", "Defectors", "Quagmire"]
+    engine.hands["US"] = ["Asia_Scoring", "NATO"]
+    engine._fire_event(Side.US, "Ask_Not_What_Your_Country_Can_Do_For_You")
+    d = engine.pending_decision
+    assert "Asia_Scoring" in {a.payload["choice"] for a in d.options}
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "Asia_Scoring"}))
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "stop"}))
+    assert "Asia_Scoring" in engine.discard_pile
+    assert "Asia_Scoring" not in engine.hands["US"]
+    assert len(engine.hands["US"]) == 2  # NATO plus one replacement
+
+
 def test_ask_not_always_benefits_the_us_even_when_ussr_plays_it():
     # US-associated: the event favors the US regardless of who plays the
     # card, the same way Duck and Cover always favors the US.
