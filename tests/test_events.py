@@ -2184,3 +2184,11 @@ def test_golden_events_replay_actually_fires_events():
         for a in log["actions"]
     )
     assert fired
+
+
+def test_un_intervention_cannot_be_headlined():
+    # Its printed text: "This Event cannot be played during the headline phase."
+    engine = _bare()
+    engine.hands["US"] = ["UN_Intervention", "Duck_and_Cover"]
+    engine._push_headline(Side.US)
+    assert {a.payload["card"] for a in engine.pending_decision.options} == {"Duck_and_Cover"}
