@@ -702,7 +702,10 @@ Findings from the first four random games, and what became of each:
   and FAQ pay "the moment the US does not play UN Intervention in their
   next Action Round", which may be next turn, and never without a next
   round (`fix/we-will-bury-you-timing`; Joshua's layout keeps the flag's
-  turn slot via `features.RELOCATED`, so `LAYOUT_VERSION` stays 1).
+  turn slot via `features.RELOCATED`, so `LAYOUT_VERSION` stays 1; a
+  legality flag the bot already sees through its options, Tear Down
+  This Wall's, is listed in `features.UNENCODED_GAME_EFFECTS` and not
+  encoded, for the same reason).
 - **Documented, DLL-stricter**: De-Stalinization will not relocate
   influence back into a country it was just removed from; the card
   text has no such clause, so the engine allows it. The harness counts

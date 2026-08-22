@@ -109,7 +109,8 @@ def test_every_engine_effect_key_is_in_the_layout():
             found[store].add(key)
     assert found["turn_effects"], "expected the engine to reference turn_effects keys"
     assert found["turn_effects"] <= set(F.TURN_EFFECTS)
-    assert found["game_effects"] <= set(F.GAME_EFFECTS) | {k for k, p in F.RELOCATED.items() if p == "turn"}
+    assert found["game_effects"] <= set(F.GAME_EFFECTS) | {k for k, p in F.RELOCATED.items() if p == "turn"} | F.UNENCODED_GAME_EFFECTS
+    assert not F.UNENCODED_GAME_EFFECTS & set(F.GAME_EFFECTS)
 
 
 def test_relocated_effect_keeps_its_slot():

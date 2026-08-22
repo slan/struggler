@@ -148,6 +148,11 @@ TURN_EFFECTS: dict[str, str] = {
 # round (it still lasts a round or two). Maps the key to the layout prefix
 # that holds it; the encoder routes the value there.
 RELOCATED: dict[str, str] = {"we_will_bury_you": "turn"}
+# Keys the engine keeps that the layout does not encode: legality flags
+# whose only consequence the bot already sees in the options it is offered
+# (Tear Down This Wall prevents Willy Brandt's event: the card is then never
+# offered "for its event"). A slot for one would bump LAYOUT_VERSION.
+UNENCODED_GAME_EFFECTS: frozenset[str] = frozenset({"tear_down_this_wall"})
 GAME_EFFECTS: dict[str, str] = {
     "formosan_resolution": "flag",
     "degaulle_france": "flag",
@@ -411,6 +416,8 @@ def encode_into(observation: Observation, buffers: dict[str, np.ndarray], i: int
     turn_fx = dict(observation.turn_effects)
     game_fx = {}
     for key, value in observation.game_effects.items():
+        if key in UNENCODED_GAME_EFFECTS:
+            continue
         (turn_fx if RELOCATED.get(key) == "turn" else game_fx)[key] = value
     _write_effects(g, "turn", TURN_EFFECTS, turn_fx, me)
     _write_effects(g, "game", GAME_EFFECTS, game_fx, me)
