@@ -831,8 +831,29 @@ Findings from the first four random games, and what became of each:
   as before. A 4-Ops card under Containment or Brezhnev Doctrine is 5 in
   the DLL where the cards say "to a maximum of 4" — seen once as a coup
   result, not yet handled.
-- After the pass: 280 seeds with nothing but the `known` entries, the
-  hotseat emulation 32/32 clean.
+- **DLL behaviour, counted under `known`** (later in the pass): the
+  crisis outlives the engine's record of it -- after the USSR played
+  Cuban Missile Crisis for Ops (no event fired in either program) the
+  DLL still asked the US to pay its way out of a coup; when both hands
+  hold a scoring card at the turn's end the DLL's loser is the one the
+  engine cannot see (the engine names the one it can); the forced play
+  of Missile Envy itself may go to the Space Race. And one more engine
+  fix: the two end-of-turn Military Operations penalties are netted
+  before the marker moves (the engine declared a victory on the first of
+  the two); Kitchen Debates' condition is its precondition (unmet, the
+  card is discarded, not removed).
+- After the pass: 278 of the 280 seeds show nothing but `known` entries
+  (the other two: the trap's kept scoring card, a `known` fatal; and one
+  turn-9 drift, a US point in Gulf States the engine does not have after
+  a USSR event -- seed 157, `--physical us`, open). The hotseat emulation
+  is 31/32 (seed 2 as US, turn 8: Aldrich Ames Remix's choice does not
+  reproduce the DLL's state after an East Germany drift at turn 7, open).
+  Against the AI itself (`--difficulty hard --policy greedy --seed 300`,
+  30 games, in progress at hand-over) the first 12 are 8 clean and 4
+  desyncs, every one an influence drift of the AI's placements by turn 3
+  (seeds 303 as US, 306/308/300 as USSR): the placement inference still
+  misreads a chunk the AI plays in one go. Those are the next thing to
+  trace (`eval --games 1 --workers 1 --trace --seed N --side ussr|us`).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
