@@ -1958,6 +1958,21 @@ def test_cuban_missile_crisis_coup_by_the_flagged_side_loses_the_game():
     assert engine.is_terminal and engine.winner is Side.US
 
 
+def test_we_will_bury_you_pays_at_the_forced_missile_envy_play():
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine._ars_played = 1
+    engine.hands["US"] = ["Missile_Envy", "Containment"]
+    engine.hands["USSR"] = ["Fidel"]
+    engine.game_effects["missile_envy_forced"] = "US"
+    engine._fire_event(Side.USSR, "We_Will_Bury_You")
+    vp = engine.vp
+    engine._dispatch_action_round(Side.US)
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "Missile_Envy"}))
+    assert engine.vp == vp - 3  # the forced play is the US's round, without UN Intervention
+    assert "we_will_bury_you" not in engine.game_effects
+
+
 def test_we_will_bury_you_pays_when_the_us_round_is_a_quagmire_step():
     # The US's next action round is spent discarding to Quagmire: no card is
     # played, so UN Intervention is not, and the USSR scores at that round.
