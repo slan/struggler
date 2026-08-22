@@ -880,10 +880,16 @@ Findings from the first four random games, and what became of each:
   the AI's De-Stalinization then moved, were read again as the AI's
   placements -- `_resync` now moves the window up to the latest card-play
   boundary (`play_log`) at which the DLL's board, reconstructed from the
-  influence history, is the engine's board now. One engine fix from the
-  differ's seed 157: Marine Barracks Bombing removed the whole of two
-  Middle East countries where the card removes two points
-  (`fix/marine-barracks-two-points`).
+  influence history, is the engine's board now. A sixth, from the traced
+  batch: when several simulated choices reproduce the DLL's board (Junta's
+  free Realignment that removed nothing, and declining it), the one that
+  consumed the DLL's records is taken -- left queued, the realignment's
+  dice passed for ABM Treaty's granted Ops two turns later. Two engine
+  fixes: Marine Barracks Bombing removed the whole of two Middle East
+  countries where the card removes two points (the differ's seed 157,
+  `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
+  Down This Wall, which the card says prevents it
+  (`fix/willy-brandt-after-tear-down-this-wall`).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

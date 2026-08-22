@@ -539,14 +539,15 @@ class PlaydekOperator(Bridge):
         """Play each option on a copy of the engine, the rest of the chunk
         answered from the same facts, and keep the ones that leave the copy
         in the DLL's state. Nested choices recurse."""
-        matches = []
-        for option in d.options:
+        matches = []  # (facts left unconsumed, option order, option)
+        for i, option in enumerate(d.options):
             real, queues = self.engine, self._queues()
             divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
             self.engine = Engine.deserialize(real.serialize())
             self._simulating += 1
             try:
                 ok = self._try(option)
+                left = len(self.rolls) + sum(len(q) for q in self.moves.values())
             except Exception:  # an option the engine rejects downstream is simply not it
                 ok = False
             finally:
@@ -556,14 +557,19 @@ class PlaydekOperator(Bridge):
                 del self.report.divergences[divergences:]
                 self.known, self._last_state_diff = known, last
             if ok:
-                matches.append(option)
+                matches.append((left, i, option))
         if not matches:
             self.diverge("choice", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: none of {[dict(a.payload) for a in d.options]} "
                          f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}", fatal=True)
             return d.options[0]
-        if len(matches) > 1:
+        # Several may leave the same board (Junta's free Realignment that
+        # removed nothing, and declining it): the one that consumed the
+        # DLL's records (the rolls) is it -- left queued, those dice would
+        # pass for a later action's.
+        matches.sort()
+        if len(matches) > 1 and matches[0][0] == matches[1][0]:
             self.known[f"{d.context.get('event')}: {len(matches)} choices reproduce the DLL's state, the first taken"] += 1
-        return matches[0]
+        return matches[0][2]
 
     def _try(self, option: Action) -> bool:
         self.engine.step(option)
