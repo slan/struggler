@@ -57,6 +57,7 @@ REPLAY_FIFO_LIMIT = 400  # stable records outstanding: past this the re-emission
 HAND_OF = {int(ffi.ECardLocation.USSRHAND): Side.USSR, int(ffi.ECardLocation.USHAND): Side.US}
 HEADLINE_OF = {int(ffi.ECardLocation.USSRHEADLINE): Side.USSR, int(ffi.ECardLocation.USAHEADLINE): Side.US}
 HAND_LOCATION = {Side.USSR: int(ffi.ECardLocation.USSRHAND), Side.US: int(ffi.ECardLocation.USHAND)}
+PILES = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
 
 
 @dataclass
@@ -116,6 +117,16 @@ class Bridge:
         self._dll_turn = 0
         self._last_moves: dict[str, tuple[int, int, int]] = {}  # card -> (from, to, sequence no.) of its latest move
         self._move_seq = 0
+        # Every move from a hand to the discard or removed pile, in order,
+        # until the engine's own discard accounts for it (`card_that_left`):
+        # not the card's latest move, which may already be its re-deal after
+        # a reshuffle in the same pump (the AI's Blockade discard, reshuffled
+        # and dealt to the other hand before the engine asked which card).
+        self._exits: list[tuple[int, str, int]] = []  # (move seq, card, the hand it left)
+        # Entries before this index left before the DLL's latest reshuffle:
+        # stale once the engine has reshuffled too (the card may be in a
+        # hand again, and offered again), still wanted until then.
+        self._exits_before_reshuffle = 0
         self.defcon = 5
         self.vp = 0
         self.milops = (0, 0)
@@ -293,12 +304,15 @@ class Bridge:
                 # engine gets to the deal (not now: it may still be playing
                 # out the previous turn, discarding into the pile).
                 self.reshuffled = True
+                self._exits_before_reshuffle = len(self._exits)
             for side, hand in HAND_LOCATION.items():
                 if loc == hand and was in (None, int(ffi.ECardLocation.DECK)):
                     self._dealt[side].add(card)
             if was is not None and was != loc:
                 self._move_seq += 1
                 self._last_moves[card] = (was, loc, self._move_seq)
+                if was in HAND_OF and loc in PILES:
+                    self._exits.append((self._move_seq, card, was))
             if was != loc:
                 self.recent.append(f"card {card}: {ffi.ECardLocation(was).name if was is not None else '?'} -> {ffi.ECardLocation(loc).name}")
                 if self.trace:
@@ -374,7 +388,7 @@ class Bridge:
             # before the pick (the headline offers `RESHUFFLE_NOW` for that).
             # Not offered when the engine's own deck ran out at the same time
             # (it reshuffled by itself): nothing to fold, the flag lapses.
-            self.reshuffled = False
+            self._engine_reshuffled()
             again = next((a for a in d.options if a.payload["card"] == RESHUFFLE_NOW), None)
             if again is not None and self.engine.discard_pile:
                 return again
@@ -528,7 +542,7 @@ class Bridge:
             # told about yet (the DLL deals, undoes and re-deals at commit).
             side = Side(d.context["side"])
             if self.reshuffled:
-                self.reshuffled = False
+                self._engine_reshuffled()
                 self.engine._reshuffle_discard_into_draw()  # the DLL's reshuffle, at the engine's deal (see `_absorb`)
             # The hand as the DLL has it, plus what it dealt this turn: a
             # card dealt, headlined and resolved in one pump is in the
@@ -624,14 +638,21 @@ class Bridge:
     def card_that_left(self, owner: Side, offered: set[str]) -> str | None:
         """The latest card to leave `owner`'s hand for the discard or removed
         pile, among `offered`; consumed once named."""
-        piles = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
-        gone = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
-                if was == HAND_LOCATION[owner] and now in piles and c in offered]
-        if not gone:
-            return None
-        card = max(gone)[1]
-        del self._last_moves[card]
-        return card
+        for i in range(len(self._exits) - 1, -1, -1):
+            seq, card, was = self._exits[i]
+            if was == HAND_LOCATION[owner] and card in offered:
+                del self._exits[i]
+                if i < self._exits_before_reshuffle:
+                    self._exits_before_reshuffle -= 1
+                return card
+        return None
+
+    def _engine_reshuffled(self) -> None:
+        """The engine has folded its discards back as the DLL did: the
+        exits before the DLL's reshuffle are accounted for or stale."""
+        self.reshuffled = False
+        del self._exits[:self._exits_before_reshuffle]
+        self._exits_before_reshuffle = 0
 
     @staticmethod
     def _compatible(d: Decision, mv: Move) -> bool:

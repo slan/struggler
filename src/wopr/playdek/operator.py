@@ -128,7 +128,7 @@ class PlaydekOperator(Bridge):
         self.outgoing: collections.deque[tuple[Decision, Action]] = collections.deque()  # the bot's actions not yet told to the DLL
         self._un_target: str | None = None  # the opponent's card to name once UN Intervention's "Play Event" is answered
         self._played: tuple[str, int] | None = None  # (card, turn) of the other seat's last queued play: its further use records add no card
-        self._headlined: str | None = None
+        self._headlined: tuple[str, int] | None = None  # (card, turn) of the other seat's headline: reshuffled and headlined again next turn, it is queued again
         self._plays_seen: set[str] = set()  # the other seat's cards seen played: they left its hand, but not as a discard
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
@@ -167,8 +167,8 @@ class PlaydekOperator(Bridge):
                 return
             if f["location"] not in HAND_OF:
                 self._taken.pop(card, None)
-            if HEADLINE_OF.get(f["location"]) is self.other and self._headlined != card:
-                self._headlined = card
+            if HEADLINE_OF.get(f["location"]) is self.other and self._headlined != (card, self._dll_turn):
+                self._headlined = (card, self._dll_turn)
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"headline {card}"))
         elif ev.kind == EventType.PUSH_RESOLVE_CARD:
             self.play_log.append(self._seq)  # an action boundary: a card entering the resolve slot
@@ -215,9 +215,8 @@ class PlaydekOperator(Bridge):
     def card_that_left_any(self, owner: Side) -> list[str]:
         """Cards that left `owner`'s hand for the discard or removed pile and
         have not been accounted for, latest first (not consumed)."""
-        piles = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
-        gone = sorted(((seq, c) for c, (was, now, seq) in self._last_moves.items()
-                       if was == HAND_LOCATION[owner] and now in piles and c not in self._plays_seen and c != self._headlined
+        gone = sorted(((seq, c) for seq, c, was in self._exits
+                       if was == HAND_LOCATION[owner] and c not in self._plays_seen and (c, self._dll_turn) != self._headlined
                        and seq > self._synced_move_seq), reverse=True)
         return [c for _, c in gone]
 
@@ -305,6 +304,7 @@ class PlaydekOperator(Bridge):
 
     def _answer(self, d: Decision) -> Action | None:
         if d.actor is self.other:
+            self._resync()
             if d.kind in COUNTRY_KINDS:
                 return self._answer_country(d)
             if d.kind is DecisionKind.EVENT_CHOICE:
@@ -330,12 +330,15 @@ class PlaydekOperator(Bridge):
             offered = {a.payload["card"] for a in d.options}
             purpose = d.context.get("purpose")
             if purpose == "grain_sales" and self._grain is None:
-                # The other seat's Grain Sales: the card revealed out of the
-                # bot's hand, which stays there when returned.
-                card = next((c for c in reversed(self._revealed) if c in offered), None)
-                if card is not None:
-                    self._revealed.remove(card)
-                    return self._pick(d, lambda a: a.payload["card"] == card, f"Grain Sales drew {card}")
+                # The other seat's Grain Sales: the card shown out of the
+                # bot's hand (a reveal record, or the card pushed into the
+                # resolve slot as "fired" by the event), which stays in the
+                # hand when returned.
+                for shown in (self._revealed, self._fired):
+                    card = next((c for c in reversed(shown) if c in offered), None)
+                    if card is not None:
+                        shown.remove(card)
+                        return self._pick(d, lambda a: a.payload["card"] == card, f"Grain Sales drew {card}")
                 return None
             if purpose != "grain_sales":
                 # Five Year Plan's discard firing as a US event resolves before
@@ -345,6 +348,31 @@ class PlaydekOperator(Bridge):
                     self._fired.remove(card)
                     return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card} (fired)")
         return super()._answer(d)
+
+    def _resync(self) -> None:
+        """Move the inference window (`synced_seq`) up to the latest card
+        play whose board, as the DLL had it then, is the engine's board
+        now. The states are compared at the bot's card prompts only; the
+        bot's own action and the other seat's whole chunk lie between two
+        of those, and the history of the bot's action (a Liberation
+        Theology point the bot's coup then removed) must not be read as
+        the other seat's placements when the engine gets to its chunk."""
+        e = self.engine
+        for s in reversed(self.play_log):
+            if s <= self.synced_seq:
+                return
+            if all(self._dll_influence_at(c, s) == (inf["USSR"], inf["US"]) for c, inf in e.board.influence.items() if c in self.influence):
+                self.synced_seq = s
+                return
+
+    def _dll_influence_at(self, country: str, seq: int) -> tuple[int, int] | None:
+        """The DLL's (USSR, US) Influence in `country` as of record `seq`."""
+        value = None
+        for q, v in self.influence_history.get(country, ()):
+            if q > seq:
+                break
+            value = v
+        return value
 
     def first_change(self, country: str, side: Side, op: str) -> int | None:
         """When, since the two states last agreed, the DLL's influence of
@@ -478,16 +506,20 @@ class PlaydekOperator(Bridge):
             if decline is not None:
                 return decline  # the DLL is at rest and no card left the hand: it declined
         if all(c in ids.INDEX_BY_COUNTRY or c in DECLINES for c in choices):
-            # Countries (De-Stalinization's sources, Cuban Missile Crisis'
-            # defusing): the ones where the DLL has less of the chooser's
-            # influence than the engine, i.e. a removal; failing that, more;
-            # the decline ("Done Removing") once none is left.
+            # Countries: a removal's source (De-Stalinization, the Cuban
+            # Missile Crisis defusing) is one where the DLL has less of the
+            # chooser's influence than the engine; an addition's target
+            # (Independent Reds' match) one where it has more -- never the
+            # other way round, or a De-Stalinization that removed two and
+            # placed two would go on removing from where it placed. The
+            # decline ("Done Removing") once none is left.
             down = sorted((seq, i, a) for i, a in enumerate(d.options)
                           if a.payload["choice"] in ids.INDEX_BY_COUNTRY and (seq := self.first_change(a.payload["choice"], self.other, "remove")) is not None)
-            up = sorted((seq, i, a) for i, a in enumerate(d.options)
-                        if a.payload["choice"] in ids.INDEX_BY_COUNTRY and (seq := self.first_change(a.payload["choice"], self.other, "place")) is not None)
-            if down or up:
-                return (down or up)[0][2]
+            if not down and not str(d.context.get("event")).startswith(("De_Stalinization", CMC_DEFUSE)):
+                down = sorted((seq, i, a) for i, a in enumerate(d.options)
+                              if a.payload["choice"] in ids.INDEX_BY_COUNTRY and (seq := self.first_change(a.payload["choice"], self.other, "place")) is not None)
+            if down:
+                return down[0][2]
             decline = next((a for a in d.options if a.payload["choice"] in DECLINES), None)
             return decline  # None: nothing moved yet and no way to decline -- the DLL is advanced
         if set(choices) <= {"raise", "lower", "none"} or all(c.isdigit() for c in choices):
@@ -550,13 +582,15 @@ class PlaydekOperator(Bridge):
         # deque is copied shallowly, everything else deeply.
         return (list(self.rolls), copy.deepcopy((self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
                                                  self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired,
-                                                 self._revealed, self._taken)))
+                                                 self._revealed, self._taken, self._exits, self._exits_before_reshuffle, self.reshuffled,
+                                                 self.synced_seq)))
 
     def _set_queues(self, queues: tuple) -> None:
         rolls, rest = queues
         self.rolls = collections.deque(rolls)
         (self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
-         self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken) = copy.deepcopy(rest)
+         self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken,
+         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq) = copy.deepcopy(rest)
 
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
