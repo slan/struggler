@@ -317,10 +317,16 @@ def _us_japan_pact(engine: "Engine", side: Side) -> None:
     engine.game_effects["us_japan_pact"] = True
 
 
-@event("Willy_Brandt")
+@event(
+    "Willy_Brandt",
+    eligible=lambda engine, side: not engine.game_effects.get("tear_down_this_wall"),
+)
 def _willy_brandt(engine: "Engine", side: Side) -> None:
     # USSR gains 1 VP and 1 Influence in West Germany, and NATO no longer
-    # protects West Germany (persistent).
+    # protects West Germany (persistent). "This Event is prevented /
+    # cancelled by Tear Down This Wall": once that has happened, the event
+    # cannot be played at all (the card played for Ops is Ops alone, and is
+    # discarded, not removed).
     engine._award_vp(Side.USSR, 1)
     if not engine.is_terminal:
         engine.add_influence("West_Germany", Side.USSR, 1)
@@ -431,6 +437,7 @@ def _tear_down_wall(engine: "Engine", side: Side) -> None:
     # In East Germany: +3 US Influence. In Europe: the US gets 3 Ops for a
     # free Coup attempt or Realignment (not Influence).
     engine.game_effects.pop("willy_brandt", None)  # cancels Willy Brandt
+    engine.game_effects["tear_down_this_wall"] = True  # ...and prevents it from now on
     engine.add_influence("East_Germany", Side.US, 3)
     engine.push_free_coup_or_realign(
         Side.US, "Tear_Down_This_Wall", ops=3,
