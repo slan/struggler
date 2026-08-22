@@ -623,6 +623,9 @@ def _solidarity(engine: "Engine", side: Side) -> None:
 
 @event("Marine_Barracks_Bombing")
 def _marine_barracks(engine: "Engine", side: Side) -> None:
+    # Remove all US Influence from Lebanon, then "2 additional US Influence
+    # from anywhere in the Middle East": two points, one country or two --
+    # not the whole of two countries (that is Muslim Revolution's wording).
     engine.remove_all_influence("Lebanon", Side.US)
     middle_east = [
         cid for cid, info in engine.board.countries.items()
@@ -630,7 +633,7 @@ def _marine_barracks(engine: "Engine", side: Side) -> None:
     ]
     engine.push_event_influence(
         event="Marine_Barracks_Bombing", op="remove", choose_side=Side.USSR,
-        inf_side=Side.US, remaining=2, candidates=middle_east, whole=True,
+        inf_side=Side.US, remaining=2, candidates=middle_east,
     )
 
 

@@ -250,6 +250,24 @@ def test_truman_doctrine_only_offers_uncontrolled_europe():
     assert engine.pending_decision is None  # single-country event is done
 
 
+def test_marine_barracks_bombing_removes_two_points_not_two_countries():
+    engine = _bare()
+    engine.board.influence["Lebanon"] = {"US": 2, "USSR": 0}
+    engine.board.influence["Gulf_States"] = {"US": 3, "USSR": 0}
+    engine.board.influence["Iraq"] = {"US": 1, "USSR": 0}
+    engine._fire_event(Side.USSR, "Marine_Barracks_Bombing")
+    assert engine.board.influence["Lebanon"]["US"] == 0  # all of Lebanon, at once
+    # "2 additional US Influence": one point per pick, the same country twice if wanted.
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Gulf_States"}))
+    assert engine.board.influence["Gulf_States"]["US"] == 2
+    offered = [a.payload["country"] for a in engine.pending_decision.options]
+    assert "Gulf_States" in offered and "Iraq" in offered and "Lebanon" not in offered
+    engine.step(Action(DecisionKind.EVENT_INFLUENCE, {"country": "Gulf_States"}))
+    assert engine.board.influence["Gulf_States"]["US"] == 1
+    assert engine.board.influence["Iraq"]["US"] == 1
+    assert engine.pending_decision is None
+
+
 def test_warsaw_pact_remove_branch_clears_us_from_eastern_europe():
     engine = _bare()
     engine.board.influence["East_Germany"] = {"US": 3, "USSR": 0}

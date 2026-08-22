@@ -179,7 +179,10 @@ Reds (match-influence branch), East European Unrest and South African
 Unrest (which use `push_event_influence`'s per-selection `amount` for the
 Late-War 2-per-country removal), De-Stalinization (a relocate flow: remove
 up to 4 USSR Influence, then replace it in non-US-controlled countries, max
-2 each).
+2 each). A removal clears a country whole (`whole=True`) only where the
+card says "all": Truman Doctrine, Warsaw Pact Formed, Muslim Revolution;
+Marine Barracks Bombing's "2 additional US Influence" after Lebanon is two
+points, from one country or two.
 
 **Persistent per-turn modifiers.** Containment, Brezhnev Doctrine, Red
 Scare/Purge — consulted via `_effective_ops`, cleared at end of turn.
