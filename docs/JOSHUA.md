@@ -381,6 +381,15 @@ engine is at most a third of a learner step in any case. Its value is
 what struggler does not have: an opponent nobody here wrote, and a
 second opinion on the rules.
 
+The second opinion arrived first. `wopr.playdek.lockstep` replays
+random hotseat games on the struggler engine in physical mode and
+compares option sets and state as it goes; its first four games
+(WOPR.md lists what it found) already disagree about a Military Ops
+track that keeps counting past 5, a game the DLL ends when a scoring
+card is held, De-Stalinization's legal targets, and the early-stop
+options the engine never offers — and agree on the winner of the one
+game both finished.
+
 ## Open questions and the road ahead
 
 **Next experiment: capacity.** The chain flattened at v10 (two of three

@@ -472,11 +472,49 @@ The pure parts exist:
   *kind* (`PLACE_INFLUENCE`, `EVENT_INFLUENCE`, `COUP_TARGET`, …) is
   whatever the engine is asking; only the bridge knows that.
 
-Still to build: the bridge itself (`lockstep.py`: Playdek drives, the
-struggler engine replays each committed action with the DLL's rolls and
-deals as CHANCE answers, legality sets and state compared every step,
-with a known-divergence list), then the `PlaydekOperator` for Joshua and
-the eval.
+### The lockstep differ (`lockstep.py`)
+
+`python -m wopr.playdek.lockstep --games 4 --seed 1 [--trace]` plays
+hotseat games with a random policy and replays them on the struggler
+engine in physical mode, on demand: every engine decision is answered
+from a per-side queue of translated Playdek moves, its CHANCE decisions
+from the DLL's roll records, its `DEAL_CARD`s from the DLL's hand
+contents (absolute `CARD_LOCATION` state — the DLL deals, undoes and
+re-deals at commit, so a queue of deal events is wrong). When the engine
+asks something the queues cannot answer, the DLL is advanced first.
+Option sets are compared whenever the engine asks a card or country
+choice; state (influence, DEFCON, VP, mil ops, hand sizes) whenever both
+sides are between actions — the two engines apply the same action at
+different moments, so comparing mid-action only measures that.
+Everything else it learned about the DLL's protocol is in its comments:
+records are emitted twice (preview and commit), the first hotseat prompt
+is re-asked once, turn-2+ headline prompts arrive under the local seat's
+id whoever is picking (the cards say whose hand), and the `*_player_index`
+of roll records is the seat's id.
+
+Findings so far (random play, a handful of games — candidates until
+confirmed and triaged into a fix, a `LIMITATIONS.md` line, or "Playdek
+is wrong"):
+
+- The engine's Military Ops keep counting past 5; the DLL's track stops
+  at 5.
+- The DLL ends the game at the end of a turn in which a scoring card was
+  held; the engine plays on.
+- De-Stalinization: the engine offers Austria, East Germany and North
+  Korea as relocation targets where the DLL does not (and the Chinese
+  Civil War space everywhere, as a country of the standard game).
+- The DLL lets a player stop early — "No More Realignment", "Done
+  Removing", "Do Not Relocate", "Do Not Discard"; the engine has no such
+  option in those decisions.
+- One realignment (Cameroon, USSR 1 / US 0, DLL rolls USSR 6 / US 5, no
+  neighbour controlled) removed the USSR influence in the DLL but not in
+  the engine; either the DLL's roll fields are not what they look like
+  or a modifier differs. More samples needed.
+- Events the engine does not fire (Defectors played event-first) and
+  either/or choices matched by label words rather than a shared
+  vocabulary are reported, not yet resolved.
+
+Then the `PlaydekOperator` for Joshua and the eval.
 
 ## What Joshua cannot do yet
 

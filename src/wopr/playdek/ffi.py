@@ -394,8 +394,10 @@ class SelectionHint(IntEnum):
     Collected from live games (`wopr.playdek.smoke` tallies them); the
     values read as `0xA000 | (kind << 4) | variant`."""
 
+    STOP = 0xA000  # "No More Realignment": end an optional repetition early
     CANCEL = 0xA001
     PLAY_CARD = 0xA010  # "Play <card>" in "Play Your Action Round"
+    PLAY_SCORING_CARD = 0xA011  # the same for a scoring card (also "Headline <scoring card>")
     SWITCH_CARD = 0xA013  # "Play <card>" offered again inside "Select Use For Event Card"
     HEADLINE_CARD = 0xA020
     PLAY_EVENT = 0xA021
@@ -404,10 +406,13 @@ class SelectionHint(IntEnum):
     INFLUENCE_COUNTRY = 0xA031  # "Place Influence in <country>" with Ops
     SETUP_INFLUENCE_COUNTRY = 0xA032  # "Place Influence in <country>" for setup / an event
     REMOVE_INFLUENCE_COUNTRY = 0xA033
+    RELOCATE_FROM_COUNTRY = 0xA034  # De-Stalinization: "Relocate Influence from <country>"
     OPS_REALIGNMENT = 0xA040
     OPS_COUP = 0xA050
     WAR_COUNTRY = 0xA052  # "War in <country>" (Indo-Pakistani War)
     OPS_SPACE_RACE = 0xA060
+    DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)
+    FORCED_DISCARD_CARD = 0xA09A  # "Discard <card>" when a discard is required (Bear Trap / Quagmire)
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")
     EVENT_CHOICE_HIDDEN = 0xA0FF  # the blank hidden entry that accompanies it
 

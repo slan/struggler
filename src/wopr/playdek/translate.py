@@ -33,6 +33,7 @@ class Meaning(Enum):
     USE = auto()  # how to use the played card
     COUNTRY = auto()  # a country target (place, remove, coup, realign, war)
     CHOICE = auto()  # an event's either/or
+    STOP = auto()  # end an optional repetition early ("No More Realignment")
     CANCEL = auto()  # Playdek UI: back out; no struggler equivalent
     SWITCH_CARD = auto()  # Playdek UI: pick a different card instead; no struggler equivalent
     UNKNOWN = auto()
@@ -60,9 +61,10 @@ _COUNTRY_HINTS = {
     SelectionHint.INFLUENCE_COUNTRY,
     SelectionHint.SETUP_INFLUENCE_COUNTRY,
     SelectionHint.REMOVE_INFLUENCE_COUNTRY,
+    SelectionHint.RELOCATE_FROM_COUNTRY,
     SelectionHint.WAR_COUNTRY,
 }
-_CARD_HINTS = {SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD}
+_CARD_HINTS = {SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD}
 _COUNTRY_BY_NAME = {name: i + 1 for i, name in enumerate(ids.PLAYDEK_COUNTRIES)}
 _LABEL_COUNTRY = re.compile(r" in (.+)$")
 
@@ -80,6 +82,8 @@ def meaning(option: Option) -> OptionMeaning:
     hint = option.hint
     if hint == SelectionHint.CANCEL:
         return OptionMeaning(Meaning.CANCEL, label=option.text)
+    if hint == SelectionHint.STOP:
+        return OptionMeaning(Meaning.STOP, label=option.text)
     if hint == SelectionHint.SWITCH_CARD:
         return OptionMeaning(Meaning.SWITCH_CARD, label=option.text)
     if hint in _CARD_HINTS:
@@ -184,6 +188,8 @@ def rolls_from_event(event: GameEvent, side_of: dict[int, Side]) -> list[Roll]:
             Roll(DecisionKind.REALIGNMENT_OPPONENT_ROLL, {"value": by_side[actor.opponent]}, side=actor.opponent, country=ids.country_id(f["country"])),
         ]
     if event.kind == EventType.SPACE_RACE_ROLL:
+        if f["space_race_required_roll"] == 0:
+            return []  # a free advance (Captured Nazi Scientist), reported as a "roll" of 9: no die
         return [Roll(DecisionKind.SPACE_RACE_ROLL, {"value": f["roll"]})]
     if event.kind == EventType.TRAP_ROLL:
         return [Roll(DecisionKind.QUAGMIRE_ROLL, {"value": f["roll"]})]
