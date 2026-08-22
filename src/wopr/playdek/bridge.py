@@ -670,6 +670,8 @@ class Bridge:
         m = mv.meaning
         k = d.kind
         opts = d.options
+        if mv.option.hint == SelectionHint.TRAP_PASS:
+            return k is DecisionKind.QUAGMIRE_DISCARD  # the trapped seat keeping its scoring card: `_answer` classifies it
         if m.meaning is T.Meaning.CARD:
             if k is DecisionKind.ACTION_ROUND_PLAY and m.card == UN:
                 return True  # played as the opponent card's mode; see `_answer`
