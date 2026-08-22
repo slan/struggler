@@ -393,15 +393,30 @@ cost something to learn, so they are not learned twice:
   prompt once. The moves of a pending action are emitted twice, as the
   preview and again at commit (`COUNTRY_INFLUENCE` is the state, the
   `OUTPUT_ANIMATION_*` records are the preview).
-- Time: the hard AI takes a few seconds per decision; a whole game
-  against a scripted opponent took 2½ minutes (hard) and 4½ (easy, it
-  lasted longer), and forced updates change none of that — the time is
-  the AI's thinking, not pacing. The process is mostly idle while the AI
-  thinks, so several games can run in parallel processes — the DLL is a
-  process-wide singleton with one current game. The AI is not
-  deterministic for a given `seed` and a fixed opponent (two runs of the
-  same scripted game differed from the AI's first decision on), so an
-  eval against it is a sample, not a replay.
+- **The AI's time is a search budget, not pacing.** Its setup placements
+  are instant; every other decision takes **exactly 15.0 s** of wall
+  clock, busy on one core (process CPU time equals wall time). It is the
+  same for easy and hard, for `processorCount` 1 or 32, with the
+  animation delays zeroed, and even when the process is pinned to one
+  core with busy threads stealing most of it — so it is a deadline the
+  search runs up to, not a fixed amount of work: a faster CPU means a
+  stronger AI, not a faster game. The constant is not a literal in the
+  binary (not as seconds, ms, µs, 100 ns ticks or a float), so it is
+  computed, presumably through the CRT clock. A whole game against a
+  scripted opponent is therefore ~2½ minutes (hard) to 4½ (easy, it
+  lasted longer), one core each; with 32 cores that is ~10 games a
+  minute in parallel processes — the DLL is a process-wide singleton
+  with one current game. The AI is not deterministic for a given `seed`
+  and a fixed opponent (two runs of the same scripted game differed from
+  the AI's first decision on), so an eval against it is a sample, not a
+  replay.
+- The pacing mechanism, for the record: the state machine looks up a
+  minimum delay per option kind (a table in the DLL, 0.6 s by default)
+  and compares it with the DLL's own seconds clock; patching that table
+  to zero gives the same speed as forced updates (~10k prompts/s), so
+  `ForceUpdateStateMachineInput` is the right switch and no patching is
+  needed. Playdek's own tests presumably go through `StartTutorial`,
+  which takes a scripted deck, dice and AI steps and no search at all.
 
 ### As a rules engine: measured, and why not
 
