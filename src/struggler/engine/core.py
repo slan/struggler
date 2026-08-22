@@ -1001,15 +1001,15 @@ class Engine:
             modes.append("event")
         if self._can_space_race(side, card):
             modes.append("space_race")
-        # UN Intervention: if this is an opponent's (implemented, eligible) event
-        # card and the player is holding UN Intervention, they may play the card
-        # for Ops with its event cancelled (discarding UN Intervention).
+        # UN Intervention: "play this card simultaneously with a card
+        # containing your opponent's associated Event" -- any such card,
+        # whether or not its event could happen right now (Defectors in an
+        # action round, NATO before Marshall Plan): the play is legal and
+        # spends UN Intervention, the event is cancelled, the Ops are used.
         if (
             self.events_enabled
             and cid != RULES["un_intervention_id"]
             and self._is_opponent_event(side, card)
-            and self._has_event(cid)
-            and EVENTS[cid].eligible(self, side)
             and self._holds_un_intervention(side, cid)
         ):
             modes.append("un_intervention")
