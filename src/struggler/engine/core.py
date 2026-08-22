@@ -2688,6 +2688,11 @@ class Engine:
         if not (spent < card_ops or (bonus and non_bonus == 0 and spent < card_ops + 1)):
             return
         options = self._realignment_target_options(side)
+        if bonus and spent >= card_ops:
+            # Only the bonus attempt is left, and it exists only if every
+            # attempt stays inside the region: a target outside it would be
+            # an Op the card does not have.
+            options = tuple(a for a in options if self._in_bonus_region(a.payload["country"], bonus))
         if not options:
             return
         if spent >= 1:

@@ -548,6 +548,25 @@ def test_china_card_grants_extra_realignment_attempt_used_entirely_in_asia():
     assert attempts == 5  # 4 base + 1 Asia bonus
 
 
+def test_china_card_bonus_realignment_attempt_is_offered_in_asia_only():
+    # Four attempts anywhere; the fifth, the Asia bonus, only inside Asia.
+    engine = _bare()
+    engine.board.influence["Mexico"]["US"] = 1
+    asian_targets = ["North_Korea", "South_Korea", "Japan", "Taiwan", "Thailand"]
+    for cid in asian_targets:
+        engine.board.influence[cid]["US"] = 1
+    _play_china_realignment(engine, Side.USSR)
+    for attempt in range(4):
+        opts = engine.pending_decision.options
+        assert any(a.payload["country"] == "Mexico" for a in opts)  # a base attempt: anywhere
+        target = next(a for a in opts if a.payload["country"] == asian_targets[attempt])
+        _resolve_one_realignment_attempt(engine, target)
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.REALIGNMENT_TARGET
+    offered = {a.payload["country"] for a in d.options}
+    assert "Mexico" not in offered and "Thailand" in offered
+
+
 def test_china_card_realignment_bonus_forfeited_by_leaving_asia():
     engine = _bare()
     engine.board.influence["Mexico"]["US"] = 1  # a non-Asian target too
