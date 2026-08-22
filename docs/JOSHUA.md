@@ -88,6 +88,34 @@ closed without an experiment, and the first r2 question is simply how
 far the recipe climbs. Into the loop from v1 until the gate misses
 twice in three. Ledger: row `engine-fixes`.
 
+### 2026-08-22 — the loop from r2/v1, and the seat edge returns
+
+**Question.** How far does the recipe climb on this engine, and does
+the seat edge stay even as the policies strengthen?
+
+**Setup.** `wopr.loop --run engine-fixes --champion v1`, recipe v11,
+4,000 games a generation, gate 0.55 on the worst seed. `wopr.diagnose`
+on each promoted version.
+
+**Result.** v2 at 12,000 games (0.837 vs v1, worst seed 0.825), v3 at
+16,000 (0.651 vs v2, worst seed 0.642), then 0.551 at 20,000 against v3
+with the worst seed at 0.540 — one miss. Against Greedy 0.90 → 0.95 →
+0.965. **The seat edge is back with strength:** v3 against itself wins
+0.695 as USSR (v1: 0.44–0.52), 90 of its 139 USSR wins by reaching 20
+VP at a mean turn of 6.1, the track at −5.2 by turn 4; Europe Scoring
+is now the USSR's biggest card (1,057 vs 234), Asia has swung back
+toward the USSR (825 vs 567 — v1: 154 vs 937). Holding a scoring card
+still ends 10% of games (15 USSR, 5 US — turn 3, the early hand).
+
+**Decision.** The r1 seat edge was *partly* the bug: at equal strength
+the seats start even and diverge as the policies learn the USSR's
+early-war scoring, now through Europe rather than Asia. That is the
+game, not the rule. Stopped after one miss to decide the next
+experiment with the diagnosis in hand rather than spend generations
+first (the batch gated against v3 was started and cancelled; nothing
+from it is kept). Open: whether a plateau comes where r1's did, and
+what to do about a seat edge that is the game's own.
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is
