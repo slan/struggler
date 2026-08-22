@@ -97,9 +97,15 @@ slogan and self-play as a training signal.
 
 Pure self-play against the latest policy cycles — rock learns to beat
 scissors, forgets paper. The plan borrows the standard remedies and adds
-what the engine offers for free:
+what the engine offers for free. (Written before the first run; what
+the runs kept of it is the pool with PFSP, per-seat accounting and the
+terminal reward. The anchors were retired at v5 — the pool alone does
+their job, and a fixed opponent is a constant reward, v2 and v4 below —
+and the events-off curriculum was never needed. The process as it
+actually runs is WOPR.md, "The training process, end to end".)
 
-- **A checkpoint pool with prioritised fictitious self-play.** Snapshots
+- **A checkpoint pool with prioritised fictitious self-play** (PFSP,
+  AlphaStar's league sampling — Vinyals et al., Nature 2019). Snapshots
   every N updates; opponents the learner still loses to are sampled more
   often (`weight = (1 − win rate)^2 + floor`). The learner's win rate
   against the pool hovers near 0.5 *by construction* — it is a

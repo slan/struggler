@@ -26,6 +26,55 @@ python -m wopr.loop --run first --generations 3 --generation-games 4000   # trai
 python src/main.py --ussr joshua --joshua-checkpoint runs/first/joshua.pt
 ```
 
+## The training process, end to end
+
+A version of Joshua is born, compared, and promoted in three stages.
+The pieces are specified in the sections below; this is the order they
+run in and what each one decides.
+
+1. **A fresh run** (`wopr.train --recipe v11`, or `wopr.ab` which wraps
+   it): random weights, PPO, 64 games in flight. Every training game is
+   against *itself* — half of them with both seats the learner
+   (self-play), half with the learner on a random seat against a
+   snapshot of its own past checkpoints, taken every 5 updates and
+   sampled by **prioritised fictitious self-play** (PFSP): the snapshots
+   it still loses to come up most. While the pool is empty those games
+   are self-play too. Nothing else plays: not the champion, not
+   Greedy, not `random` — they are yardsticks, never sparring partners
+   (anchors exist as flags and are off since v5; JOSHUA.md says why).
+   The reward is the outcome, ±1, on each row when its game ends, for
+   whoever moved on that row.
+2. **The comparison** (`wopr.ab`): after the recipe's budget — 8,000
+   games, ~50 min — the run plays, argmax, on three eval seeds, the
+   *control* (the frozen version trained with the same recipe and
+   budget: v11), the champion, Greedy, and itself. Level with the
+   control means whatever changed was neutral for learning; ahead
+   means it is a candidate for stage 3. One row in
+   `baselines/EXPERIMENTS.md` either way.
+3. **The loop** (`wopr.loop`): the same run continued, optimizer and
+   pool carried over, 4,000 games a generation, its opponents still
+   only its own pool. After each generation the latest checkpoint (the
+   *challenger*) plays the *champion* — the newest frozen `vN` — on
+   every eval seed. The gate is the **worst seed's** win rate against
+   the champion, ≥ 0.55: clear it and the challenger is frozen as the
+   next `vN` with the full protocol (200 games per opponent per seed,
+   three seeds, a sampled pass, against every earlier baseline), gets
+   its README entry and becomes the champion; miss it and the run just
+   trains on. Three generations under 0.5 stop the loop. **Elo is
+   descriptive**, fitted afterwards with `random` at 0 so versions
+   compare across time; nothing is selected by it — selection is the
+   gate, and only the gate.
+
+So a line looks like v11 (stage 1–2, 8,000 games) → v12 → … → v16
+(stage 3, one promotion per cleared gate). A fresh run is the answer
+to "did this change alter what is learned"; the loop is the answer to
+"is it still improving". Two things the process does **not** do, by
+design: train against the champion or any fixed opponent (a fixed
+opponent it always beats or always loses to is a constant reward —
+v2 and v4 in JOSHUA.md), and shape the reward (the final score in the
+terminal reward made both seats play for the track — the margin
+experiment there).
+
 ## Why this shape
 
 The engine's mandates are what make a learned player cheap to build here:
@@ -215,7 +264,15 @@ A directory of snapshots taken every `--snapshot-every` updates, with
 prioritised fictitious self-play: weight `(1 − learner win rate)^hardness
 + floor`, so opponents the learner still loses to come up more often,
 unplayed ones count as even, and none ever drops to zero. `--pool-window`
-restricts sampling to the newest N.
+restricts sampling to the newest N. PFSP is AlphaStar's league
+mechanism — fictitious self-play (play the whole history of past
+policies, not just the latest, so no one strategy can be forgotten)
+with the history weighted by how hard each opponent still is — from
+Vinyals et al., *Grandmaster level in StarCraft II using multi-agent
+reinforcement learning*, Nature 575 (2019),
+<https://doi.org/10.1038/s41586-019-1724-z>; their `f_hard(p) = (1 − p)^k`
+is the weight above. What WOPR keeps is the main-agent pool and the
+weighting; the league's exploiter agents it does not have.
 
 ### The ladder (`wopr/ladder.py`, `eval.py`)
 
