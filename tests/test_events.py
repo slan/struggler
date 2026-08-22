@@ -878,6 +878,19 @@ def test_ortega_removes_influence_then_offers_a_coup_only_free_op():
 # -- Tear Down This Wall: placement + a free Coup-or-Realignment op ---------
 
 
+def test_willy_brandt_cannot_be_played_after_tear_down_this_wall():
+    engine = _bare(seed=1)
+    engine.board.influence["France"]["USSR"] = 1
+    engine._fire_event(Side.US, "Tear_Down_This_Wall")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "none"}))
+    assert not EVENTS["Willy_Brandt"].eligible(engine, Side.USSR)
+    vp, west_germany = engine.vp, dict(engine.board.influence["West_Germany"])
+    engine._fire_event(Side.USSR, "Willy_Brandt")  # prevented: nothing happens
+    assert engine.vp == vp
+    assert engine.board.influence["West_Germany"] == west_germany
+    assert "willy_brandt" not in engine.game_effects
+
+
 def test_tear_down_this_wall_places_then_offers_a_europe_free_op():
     engine = _bare(seed=1)
     engine.defcon = 5

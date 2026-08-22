@@ -187,7 +187,9 @@ Scare/Purge — consulted via `_effective_ops`, cleared at end of turn.
 **Persistent game-long legality** (`game_effects`). NATO (eligible only
 after Marshall Plan or Warsaw Pact; the USSR may no longer coup, realign,
 or Brush War US-controlled Europe, via `Engine._nato_protects`), De Gaulle
-and Willy Brandt (each lift NATO for one country), US/Japan Mutual Defense
+and Willy Brandt (each lift NATO for one country; Tear Down This Wall
+cancels Willy Brandt and, as `tear_down_this_wall`, makes its event
+ineligible from then on), US/Japan Mutual Defense
 Pact (locks Japan), The Reformer (bars USSR coups in Europe). Enforced in
 `_usable_coup_realign_target`, which distinguishes coup from realignment
 for The Reformer, and consulted by both target enumerations. Eligibility
