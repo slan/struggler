@@ -17,7 +17,9 @@ so numbers compare across versions, and since each version's checkpoint
 is kept, later versions are rated against earlier ones directly.
 
 Add an entry below for each version: the commit, what changed, the
-headline numbers. The idea behind all of it is in
+headline numbers. Runs that were compared but not frozen — A/B arms,
+controls, negative results — are one row each in
+[EXPERIMENTS.md](EXPERIMENTS.md), written by `python -m wopr.ab`. The idea behind all of it is in
 [docs/JOSHUA.md](../docs/JOSHUA.md); the mechanics in
 [docs/WOPR.md](../docs/WOPR.md).
 

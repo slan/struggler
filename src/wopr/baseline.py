@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from wopr.eval import PairJob, play_pairs
+from wopr.repo import git_commit
 from wopr.ladder import Match, elo_ratings, summarize
 
 BASELINES_DIR = Path("baselines")
@@ -37,11 +38,6 @@ RUNS_DIR = Path("runs")
 RUN_FILES = ("config.json", "metrics.csv", "joshua.pt")
 
 
-def git_commit() -> str:
-    try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
 
 
 def earlier_baselines(version: str) -> list[tuple[str, Path]]:

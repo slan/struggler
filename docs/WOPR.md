@@ -233,6 +233,22 @@ fan out to a process pool (`--workers`, default a quarter of the CPUs;
 unaffected by this; a `random` opponent's or a sampled net's stream is
 now fixed per pair rather than carried across pairs.
 
+### A/B runs and the ledger (`wopr/ab.py`, `baselines/EXPERIMENTS.md`)
+
+The loop asks "is the challenger better than the champion"; `ab.py`
+asks "did *this change* alter what gets learned": an engine fix, a
+feature, a hyperparameter. `python -m wopr.ab --run <name> --control
+v11 [--champion v16] [--note ...] [-- train flags]` trains `<name>`
+from scratch with a recipe (default `v11`, 8,000 games) and plays it,
+argmax on every eval seed, against the **control** — the frozen version
+trained with the same recipe and budget, so the only difference is the
+code — the champion, Greedy, and **itself** (the USSR edge, the seat
+number the gate cannot see). The result goes to `runs/<name>/ab.json`
+and as one row to `baselines/EXPERIMENTS.md`, the committed ledger of
+every experiment, frozen or not; JOSHUA.md reads the rows. A run that
+beats the control is a candidate for the loop; one that is level with
+it says the change was neutral for learning; the ledger keeps both.
+
 ### The loop (`wopr/loop.py`)
 
 `loop.py` is the outer loop the ladder and the baselines were built for:
@@ -272,7 +288,9 @@ rise (collapse).
 
 ```
 runs/<run>/
-  config.json      arguments + games_done (resume reads it)
+  config.json      arguments + games_done (resume reads it), the commit,
+                   the layout version (a run from another version is refused),
+                   the recipe and the --init checkpoint if any
   ppo.zip          SB3 model (optimizer state included)
   joshua.pt        latest plain checkpoint: what `--us joshua` loads
   pool/            snapshots + stats.json
@@ -281,6 +299,16 @@ runs/<run>/
 
 `runs/` is gitignored. Re-running `train.py --run X --games N` with a
 larger `N` resumes; a smaller or equal `N` is a no-op.
+
+Two flags start a run from something other than nothing. `--recipe v11`
+applies a frozen version's learning settings (`train.RECIPES`: hidden
+size, epochs, the mix, the snapshot cadence — not machine settings) to
+every flag not given explicitly, and `config.json` records the name, so
+"a clean run" is one token. `--init baselines/vN/joshua.pt` builds a
+new run with that checkpoint's network (its own size) and weights and
+a fresh optimizer and pool: a frozen version keeps only `joshua.pt`,
+and this is how a line continues from one after an experiment has
+taken its run directory past it.
 
 ## Curriculum and what to try
 

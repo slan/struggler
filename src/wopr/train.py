@@ -28,6 +28,8 @@ import numpy as np
 import torch
 from stable_baselines3 import PPO
 
+from struggler.bots.joshua import features as F
+from struggler.bots.joshua.model import load_checkpoint
 from struggler.engine import Side
 from wopr.arena import Arena
 from wopr.backend import ArenaSpec, Backend, InProcessBackend, SharedMemoryBackend
@@ -36,13 +38,45 @@ from wopr.callback import StopAtGames, WoprCallback
 from wopr.opponents import StandardOpponents
 from wopr.policy import PRECISIONS, JoshuaPolicy
 from wopr.pool import AnchorSchedule, CheckpointPool
+from wopr.repo import git_commit
 from wopr.vec_env import LEARNER, WoprVecEnv
 
 RUNS_DIR = Path("runs")
 
+#: Named recipes: the learning settings of a frozen version, so a clean run
+#: is one flag (`--recipe v11`) and `config.json` says which. Machine
+#: settings (workers, threads, device) are not part of a recipe. A flag
+#: given explicitly beside `--recipe` wins over the recipe's value.
+RECIPES: dict[str, dict[str, Any]] = {
+    # v5's mix -- no anchor, 50% self-play, 50% pool, a snapshot every 5
+    # updates -- at hidden 256 and 4 PPO epochs: the capacity A/B winner.
+    "v11": {"hidden": 256, "n_epochs": 4, "self_play": 0.5, "vs_pool": 0.5, "snapshot_every": 5},
+}
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    args = build_parser().parse_args(argv)
+    if args.recipe:
+        explicit = vars(explicit_parser().parse_args(argv))
+        for key, value in RECIPES[args.recipe].items():
+            if key not in explicit:
+                setattr(args, key, value)
+    return args
+
+
+def explicit_parser() -> argparse.ArgumentParser:
+    """The same parser with every default suppressed: its namespace holds
+    only the flags actually given, which is what a recipe must not override."""
+    p = build_parser()
+    for action in p._actions:
+        action.default = argparse.SUPPRESS
+    return p
+
+
+def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Train Joshua in the WOPR arena.")
+    p.add_argument("--recipe", choices=sorted(RECIPES), default=None, help="a frozen version's learning settings (see RECIPES); explicit flags override it")
+    p.add_argument("--init", default=None, help="start a new run from this joshua.pt checkpoint (weights only: fresh optimizer and pool); the network size comes from the checkpoint")
     p.add_argument("--run", required=True, help="run name under runs/")
     p.add_argument("--games", type=int, required=True, help="stop once this many games have been played")
     p.add_argument("--seed", type=int, default=0)
@@ -79,7 +113,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--torch-threads", type=int, default=None)
     p.add_argument("--workers", type=int, default=1, help="collector processes stepping the games (1: in this process)")
     p.add_argument("--worker-threads", type=int, default=2, help="torch threads per collector (pool-net inference)")
-    return p.parse_args(argv)
+    return p
 
 
 ANCHORS = ("random", "greedy", "first")
@@ -129,7 +163,9 @@ def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSche
     return WoprVecEnv(backend)
 
 
-def build_model(args: argparse.Namespace, env: WoprVecEnv, device: str) -> PPO:
+def build_model(args: argparse.Namespace, env: WoprVecEnv, device: str, joshua_config: Mapping[str, Any] | None = None) -> PPO:
+    if joshua_config is None:
+        joshua_config = {"hidden": args.hidden, "gnn_layers": args.gnn_layers, "card_dim": args.card_dim}
     return PPO(
         JoshuaPolicy,
         env,
@@ -145,7 +181,7 @@ def build_model(args: argparse.Namespace, env: WoprVecEnv, device: str) -> PPO:
         target_kl=args.target_kl,
         rollout_buffer_class=AlternatingRolloutBuffer,
         policy_kwargs={
-            "joshua_config": {"hidden": args.hidden, "gnn_layers": args.gnn_layers, "card_dim": args.card_dim},
+            "joshua_config": dict(joshua_config),
             "precision": args.precision,
         },
         seed=args.seed,
@@ -180,6 +216,29 @@ def resume_overrides(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def init_from_checkpoint(args: argparse.Namespace, env: WoprVecEnv, device: str) -> PPO:
+    """A new model with `--init`'s weights: the checkpoint's own network
+    config, its weights copied in, everything else (optimizer, pool,
+    metrics) fresh. A frozen baseline keeps only `joshua.pt`, so this is
+    how a line continues from a version after a failed experiment."""
+    net, _ = load_checkpoint(args.init, device=device)
+    config = net.config.to_dict()
+    model = build_model(args, env, device, joshua_config=config)
+    model.policy.net.load_state_dict(net.state_dict())
+    for key in ("hidden", "gnn_layers", "card_dim"):
+        setattr(args, key, config[key])  # config.json records the size actually built
+    return model
+
+
+def check_layout(previous: Mapping[str, Any], run: str) -> None:
+    """A run records the layout version its rows were encoded with; later
+    code that encodes another cannot continue it (the checkpoint would
+    read features that mean something else)."""
+    recorded = previous.get("layout_version")
+    if recorded is not None and recorded != F.LAYOUT_VERSION:
+        raise SystemExit(f"run {run!r} was trained against layout v{recorded}; this code encodes v{F.LAYOUT_VERSION} -- start a new run")
+
+
 def wire_buffer(model: PPO, env: WoprVecEnv) -> None:
     buffer = model.rollout_buffer
     if not isinstance(buffer, AlternatingRolloutBuffer):
@@ -202,6 +261,7 @@ def main(argv: list[str] | None = None) -> None:
     updates_done = 0
     if config_path.exists():
         previous = json.loads(config_path.read_text())
+        check_layout(previous, args.run)
         games_done = int(previous.get("games_done", 0))
         if args.games <= games_done:
             print(f"[wopr] run {args.run!r} already at {games_done} games (target {args.games}); nothing to do")
@@ -215,8 +275,13 @@ def main(argv: list[str] | None = None) -> None:
         # A resumed run takes its PPO hyperparameters and its precision from
         # the flags, not from the zip: the flags are this segment's spec and
         # `config.json` records them. (`n_steps` stays: it sizes the buffer.)
+        if args.init:
+            raise SystemExit(f"--init starts a new run; {args.run!r} already has a model")
         model = PPO.load(model_path, env=env, device=device, custom_objects=resume_overrides(args))
         model.policy.precision = args.precision
+    elif args.init:
+        model = init_from_checkpoint(args, env, device)
+        print(f"[wopr] initialised from {args.init}")
     else:
         model = build_model(args, env, device)
     wire_buffer(model, env)
@@ -231,7 +296,10 @@ def main(argv: list[str] | None = None) -> None:
         updates_done=updates_done,
         anchor_schedule=anchor,
     )
-    config: dict[str, Any] = {**vars(args), "device": device, "games_done": games_done}
+    config: dict[str, Any] = {
+        **vars(args), "device": device, "games_done": games_done,
+        "commit": git_commit(), "layout_version": F.LAYOUT_VERSION,
+    }
     config_path.write_text(json.dumps(config, indent=2))
     print(f"[wopr] device={device} n_envs={args.n_envs} n_steps={args.n_steps} params={sum(p.numel() for p in model.policy.parameters())}")
     try:

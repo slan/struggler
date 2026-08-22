@@ -419,3 +419,65 @@ def test_margin_reward_grades_the_final_vp_and_stays_zero_sum():
         us, ussr = rec(Side.USSR, Side.US, vp, 0.5), rec(Side.USSR, Side.USSR, vp, 0.5)
         assert us.reward() + ussr.reward() == pytest.approx(0.0)
     assert ArenaSpec(4, 0, margin=0.5).margin == 0.5
+
+
+def test_recipe_fills_unset_flags_and_explicit_flags_win():
+    from wopr import train
+
+    args = train.parse_args(["--run", "x", "--games", "1", "--recipe", "v11", "--n-epochs", "2"])
+    assert (args.hidden, args.self_play, args.vs_pool, args.snapshot_every) == (256, 0.5, 0.5, 5)
+    assert args.n_epochs == 2  # given explicitly: the recipe does not override it
+    plain = train.parse_args(["--run", "x", "--games", "1"])
+    assert plain.recipe is None and plain.hidden == 128
+
+
+def test_init_starts_a_new_model_from_a_checkpoint_s_weights(tmp_path):
+    from struggler.bots.joshua.model import save_checkpoint
+    from wopr import train
+
+    torch.manual_seed(3)
+    source = JoshuaNet(SMALL)
+    save_checkpoint(source, tmp_path / "joshua.pt")
+    args = train.parse_args(["--run", "x", "--games", "1", "--n-envs", "2", "--n-steps", "4", "--batch-size", "8",
+                             "--init", str(tmp_path / "joshua.pt")])
+    env = WoprVecEnv(Arena(2, seed=1, seat_assigner=self_play), lambda policy_id: None)
+    model = train.init_from_checkpoint(args, env, "cpu")
+    # The checkpoint's own size, not the flags' default of 128; weights copied.
+    assert model.policy.net.config == SMALL and args.hidden == SMALL.hidden
+    for key, value in source.state_dict().items():
+        assert torch.equal(model.policy.net.state_dict()[key], value)
+
+
+def test_a_run_from_another_layout_version_cannot_be_resumed():
+    from wopr import train
+
+    train.check_layout({"layout_version": F.LAYOUT_VERSION}, "x")  # same: fine
+    train.check_layout({}, "x")  # older config without the key: tolerated
+    with pytest.raises(SystemExit):
+        train.check_layout({"layout_version": F.LAYOUT_VERSION + 1}, "x")
+
+
+def test_ab_tabulates_per_opponent_and_writes_a_ledger_row(tmp_path):
+    from wopr import ab
+
+    def pair(name, us_wins, ussr_wins, n=4):
+        # `run` as US (Match.a) wins `us_wins` of n, as USSR (Match.b) `ussr_wins` of n; scores are US-first.
+        return ([Match("run", name, 1.0)] * us_wins + [Match("run", name, 0.0)] * (n - us_wins)
+                + [Match(name, "run", 0.0)] * ussr_wins + [Match(name, "run", 1.0)] * (n - ussr_wins))
+
+    pairs = [("control", 0), ("greedy", 0), ("control", 1), ("greedy", 1)]
+    results = [pair("control", 4, 2), pair("greedy", 4, 4), pair("control", 2, 2), pair("greedy", 4, 4)]
+    report = ab.tabulate(pairs, results, pair("self", 1, 3))
+    assert report["control"]["win_rate"] == pytest.approx(0.625) and report["control"]["min_seed"] == 0.5
+    assert report["control"]["as_us"] == 0.75 and report["control"]["as_ussr"] == 0.5
+    assert report["greedy"]["win_rate"] == 1.0 and report["ussr_edge"] == 0.75
+    summary = {"date": "2026-08-22", "run": "fix-x", "commit": "abcdef0123", "recipe": "v11", "games": 8000,
+               "note": "engine fix", "results": report}
+    row = ab.ledger_row(summary)
+    assert row.startswith("| 2026-08-22 | `fix-x` | `abcdef0` | v11 | 8,000 | 0.625 [0.500] (US 0.75 / USSR 0.50) | — | 1.000")
+    assert row.rstrip().endswith("| 0.750 | engine fix |")
+    ledger = tmp_path / "EXPERIMENTS.md"
+    ab.append_ledger(row, ledger)
+    ab.append_ledger(row, ledger)
+    text = ledger.read_text(encoding="utf-8")
+    assert text.startswith("# Experiments") and text.count(row) == 2

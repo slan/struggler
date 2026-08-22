@@ -539,5 +539,6 @@ uv run python -m wopr.train --run first --games 4000 --n-envs 64 \
     --self-play 0.3 --vs-pool 0.3 --anchor random --snapshot-every 5
 uv run python -m wopr.eval --games 200 first=runs/first/joshua.pt random greedy
 uv run python -m wopr.baseline v2 --run first      # freeze it under baselines/
+uv run python -m wopr.ab --run fix-x --control v11 --note "..."   # clean run, compared, one ledger row
 uv run python src/main.py --ussr joshua --joshua-checkpoint runs/first/joshua.pt
 ```
