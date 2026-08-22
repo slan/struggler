@@ -430,12 +430,17 @@ def _tear_down_wall(engine: "Engine", side: Side) -> None:
     )
 
 
-@event("Kitchen_Debates")
+def _us_leads_battlegrounds(engine: "Engine", side: Side) -> bool:
+    return _controlled_battlegrounds(engine, Side.US) > _controlled_battlegrounds(engine, Side.USSR)
+
+
+@event("Kitchen_Debates", eligible=_us_leads_battlegrounds)
 def _kitchen_debates(engine: "Engine", side: Side) -> None:
-    us_bg = _controlled_battlegrounds(engine, Side.US)
-    ussr_bg = _controlled_battlegrounds(engine, Side.USSR)
-    if us_bg > ussr_bg:
-        engine._award_vp(Side.US, 2)
+    # "If the US controls more Battleground countries than the USSR, ...
+    # the US gains 2 VP": the condition is the event's precondition, so
+    # that when it is unmet the event has not happened and the card is
+    # discarded, not removed.
+    engine._award_vp(Side.US, 2)
 
 
 @event(

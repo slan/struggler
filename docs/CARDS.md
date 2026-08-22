@@ -99,7 +99,9 @@ Nasser, Romanian Abdication, De Gaulle Leads France, Captured Nazi
 Scientist, Nuclear Test Ban, Allende, Portuguese Empire Crumbles, Panama
 Canal Returned, Sadat Expels Soviets, John Paul II Elected Pope, Camp David
 Accords, Iranian Hostage Crisis, The Iron Lady, An Evil Empire, U-2
-Incident, Cultural Revolution, Kitchen Debates, OPEC, Alliance for
+Incident, Cultural Revolution, Kitchen Debates (its "if the US controls more
+Battlegrounds" is the event's precondition: unmet, the card is discarded, not
+removed), OPEC, Alliance for
 Progress, Reagan Bombs Libya, One Small Step (which withholds VP for the
 first of its two Space Race steps, scoring only the second), AWACS Sale to
 Saudis.

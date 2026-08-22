@@ -1346,6 +1346,15 @@ def test_events_game_serializes_and_never_leaks(seed, driver_seed):
 # scoring-time modifiers.
 
 
+def test_kitchen_debates_unmet_is_discarded_not_removed():
+    engine = _bare()
+    engine.hands["US"] = ["Kitchen_Debates"]
+    engine.board.influence["Poland"] = {"US": 0, "USSR": 4}  # the USSR leads in Battlegrounds
+    _play_card_for(engine, Side.US, "Kitchen_Debates", "event")
+    assert engine.vp == 0
+    assert "Kitchen_Debates" in engine.discard_pile and "Kitchen_Debates" not in engine.removed_cards
+
+
 def test_missile_envy_passes_to_opponent_and_takes_top_ops_card():
     engine = _bare()
     engine.defcon = 5
