@@ -123,7 +123,14 @@ def test_every_decision_of_a_random_game_encodes(seed: int):
             F.encode_into(observation, buffers, 0)
             decision = observation.pending_decision
             assert buffers["opt_mask"][0].sum() == len(decision.options) <= F.K_MAX
-            assert not buffers["opt_feats"][0, :, other].any(), "payload value outside OPTION_VOCAB"
+            # The one sanctioned out-of-vocabulary value: realignment's "stop"
+            # (`{"country": "stop"}`), which rides the `other` flag so the
+            # layout did not have to change for it.
+            others = [i for i in range(len(decision.options)) if buffers["opt_feats"][0, i, other]]
+            assert all(
+                decision.kind is DecisionKind.REALIGNMENT_TARGET and decision.options[i].payload.get("country") == "stop"
+                for i in others
+            ), "payload value outside OPTION_VOCAB"
             seen_kinds.add(decision.kind)
             return super().choose_action(observation, history)
 

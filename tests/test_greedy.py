@@ -94,9 +94,12 @@ def test_greedy_aldrich_ames_remix_discards_the_opponents_highest_ops_card():
     assert action.payload["choice"] == "Duck_and_Cover"
 
 
+_N_COUNTRIES = len(Board().countries)
+
+
 @given(
-    influence=st.lists(st.tuples(st.integers(0, 6), st.integers(0, 6)), min_size=85, max_size=85),
-    index=st.integers(0, 84),
+    influence=st.lists(st.tuples(st.integers(0, 6), st.integers(0, 6)), min_size=_N_COUNTRIES, max_size=_N_COUNTRIES),
+    index=st.integers(0, _N_COUNTRIES - 1),
     deltas=st.fixed_dictionaries({}, optional={"US": st.integers(-6, 6), "USSR": st.integers(-6, 6)}),
     us=st.booleans(),
 )

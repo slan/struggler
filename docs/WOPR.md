@@ -67,13 +67,21 @@ seats, and a self-play game trains both perspectives at once.
 | `opt_card` | `[96]` | int64 | the option's card, `110` = none |
 | `opt_mask` | `[96]` | int8 | 1 for each legal option; the action is an index into this |
 
+The 85 country rows are every space the data knows, optional-rule ones
+included (`Board(variants=Board.VARIANTS)`): the vocabulary must not
+change with a game's variants. In a standard game the Chinese Civil War
+row is simply always zero.
+
 `K_MAX = 96` bounds the option count (the largest legal set is "every
 country"); exceeding it raises rather than truncates, because it would
 mean a decision is decomposed wrong. An engine effect flag missing from
 `TURN_EFFECTS`/`GAME_EFFECTS` also raises, and
 `tests/test_joshua_features.py` greps the engine source so that drift is
 caught by the suite, not by a rare event mid-game. Payload words outside
-`OPTION_VOCAB` degrade to the `other` flag plus position.
+`OPTION_VOCAB` degrade to the `other` flag plus position — by design for
+exactly one value a standard game produces, realignment's
+`{"country": "stop"}` (the `other` flag on a `REALIGNMENT_TARGET`
+option *is* that meaning), so adding it cost no layout change.
 
 **Hidden information is represented, not guessed at.** The `unseen` card
 location is the union of the draw pile and the opponent's hand — which is
@@ -492,27 +500,28 @@ is re-asked once, turn-2+ headline prompts arrive under the local seat's
 id whoever is picking (the cards say whose hand), and the `*_player_index`
 of roll records is the seat's id.
 
-Findings so far (random play, a handful of games — candidates until
-confirmed and triaged into a fix, a `LIMITATIONS.md` line, or "Playdek
-is wrong"):
+Findings from the first four random games, and what became of each:
 
-- The engine's Military Ops keep counting past 5; the DLL's track stops
-  at 5.
-- The DLL ends the game at the end of a turn in which a scoring card was
-  held; the engine plays on.
-- De-Stalinization: the engine offers Austria, East Germany and North
-  Korea as relocation targets where the DLL does not (and the Chinese
-  Civil War space everywhere, as a country of the standard game).
-- The DLL lets a player stop early — "No More Realignment", "Done
-  Removing", "Do Not Relocate", "Do Not Discard"; the engine has no such
-  option in those decisions.
-- One realignment (Cameroon, USSR 1 / US 0, DLL rolls USSR 6 / US 5, no
-  neighbour controlled) removed the USSR influence in the DLL but not in
-  the engine; either the DLL's roll fields are not what they look like
-  or a modifier differs. More samples needed.
-- Events the engine does not fire (Defectors played event-first) and
-  either/or choices matched by label words rather than a shared
-  vocabulary are reported, not yet resolved.
+- **Fixed upstream** (branches off `upstream/main`, merged here): the
+  engine's Military Ops counted past 5 (the track stops there); the
+  game did not end when a scoring card was held past the end of the
+  turn (the engine forbade holding instead — now it offers the whole
+  hand and `_end_of_turn` decides); realignment could not stop after
+  the first attempt (now `{"country": "stop"}`); the Chinese Civil War
+  space was a country of the standard game (now a variant-only space
+  behind `Engine.new_game(variants=...)`, the layout unchanged).
+- **Documented, DLL-stricter**: De-Stalinization will not relocate
+  influence back into a country it was just removed from; the card
+  text has no such clause, so the engine allows it. The harness counts
+  it under `known`.
+- **Harness false alarms, removed**: "Done Removing" / "Do Not Relocate"
+  / "Do Not Discard" — the engine had those choices all along.
+- **Open**: one realignment (Cameroon, USSR 1 / US 0, DLL rolls USSR 6
+  / US 5, no neighbour controlled) removed the USSR influence in the
+  DLL but not in the engine — either the DLL's roll fields are not what
+  they look like or a modifier differs; more samples needed. Defectors
+  played event-first (the engine fires nothing, by design) and either/or
+  choices matched by label words are reported, not resolved.
 
 Then the `PlaydekOperator` for Joshua and the eval.
 

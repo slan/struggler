@@ -98,7 +98,7 @@ def lua_cards(root: Path | None = None) -> dict[int, str]:
 def check_against_struggler() -> None:
     """Every struggler country and card has a Playdek id and vice versa (for
     the shared 1-110 card range)."""
-    board_ids = set(Board().countries) | {"US", "USSR"}
+    board_ids = set(Board(variants=Board.VARIANTS).countries) | {"US", "USSR"}  # Playdek's map lists every space
     mapped = set(COUNTRY_BY_INDEX.values())
     if board_ids != mapped:
         raise ValueError(f"country mismatch: only struggler {sorted(board_ids - mapped)}, only Playdek {sorted(mapped - board_ids)}")

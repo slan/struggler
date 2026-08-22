@@ -35,10 +35,15 @@ LAYOUT_VERSION = 1
 
 # -- static game data ---------------------------------------------------------
 
-_BOARD = Board()
+# Every space the data knows, optional-rule ones included: the layout is a
+# fixed vocabulary, so a variant must not change it. In a standard game a
+# variant-only space (the Chinese Civil War) never appears in an
+# `Observation`, and its row simply stays zero.
+_BOARD = Board(variants=Board.VARIANTS)
 COUNTRIES: tuple[str, ...] = tuple(_BOARD.countries)
 COUNTRY_INDEX: dict[str, int] = {cid: i for i, cid in enumerate(COUNTRIES)}
 N_COUNTRIES = len(COUNTRIES)
+_NO_INFLUENCE: dict[str, int] = {}
 
 _CARDS = load_cards()
 CARDS: tuple[str, ...] = tuple(_CARDS)
@@ -346,8 +351,8 @@ def encode_into(observation: Observation, buffers: dict[str, np.ndarray], i: int
 
     # -- board
     influence = observation.influence
-    mine = np.fromiter((influence[c].get(my, 0) for c in COUNTRIES), dtype=np.float32, count=N_COUNTRIES)
-    theirs = np.fromiter((influence[c].get(their, 0) for c in COUNTRIES), dtype=np.float32, count=N_COUNTRIES)
+    mine = np.fromiter((influence.get(c, _NO_INFLUENCE).get(my, 0) for c in COUNTRIES), dtype=np.float32, count=N_COUNTRIES)
+    theirs = np.fromiter((influence.get(c, _NO_INFLUENCE).get(their, 0) for c in COUNTRIES), dtype=np.float32, count=N_COUNTRIES)
     board = buffers["board"][i]
     board[:, 0] = mine / 5.0
     board[:, 1] = theirs / 5.0

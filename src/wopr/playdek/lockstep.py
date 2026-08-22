@@ -90,7 +90,7 @@ class Report:
 
 def random_policy(rng: random.Random) -> Policy:
     def pick(prompt: Prompt) -> Option:
-        playable = [o for o in prompt.visible if T.meaning(o).meaning not in (T.Meaning.CANCEL, T.Meaning.SWITCH_CARD, T.Meaning.STOP)]
+        playable = [o for o in prompt.visible if T.meaning(o).meaning not in (T.Meaning.CANCEL, T.Meaning.SWITCH_CARD)]
         return rng.choice(playable or list(prompt.visible))
 
     return pick
@@ -110,6 +110,7 @@ class Lockstep:
         self.rolls: collections.deque[T.Roll] = collections.deque()
         self.influence: dict[str, tuple[int, int]] = {}  # country -> (ussr, us) per the DLL
         self.card_loc: dict[str, int] = {}  # card -> ECardLocation per the DLL
+        self._last_moves: dict[str, tuple[int, int]] = {}  # card -> (from, to) of its latest move
         self.defcon = 5
         self.vp = 0
         self.milops = (0, 0)
@@ -122,7 +123,6 @@ class Lockstep:
         self._index_side = dict(self.game.sides)  # the "player index" of roll events is the seat's id
         self._seen_this_pump: list[GameEvent] = []
         self._last_state_diff = ""
-        self._stop_seen: set[str] = set()
         self.known: collections.Counter[str] = collections.Counter()
 
     # -- divergences ------------------------------------------------------
@@ -167,6 +167,8 @@ class Lockstep:
                 return
             was = self.card_loc.get(card)
             self.card_loc[card] = loc
+            if was is not None and was != loc:
+                self._last_moves[card] = (was, loc)
             if self.trace and was != loc:
                 print(f"  EV  card {card}: {ffi.ECardLocation(was).name if was is not None else '?'} -> {ffi.ECardLocation(loc).name}")
         else:
@@ -210,9 +212,6 @@ class Lockstep:
         owners.discard(None)
         if len(owners) == 1:
             side = owners.pop()
-        if any(T.meaning(o).meaning is T.Meaning.STOP for o in prompt.visible) and prompt.text not in self._stop_seen:
-            self._stop_seen.add(prompt.text)
-            self.diverge("option only in Playdek", f"{prompt.text!r} offers {[o.text for o in prompt.visible if T.meaning(o).meaning is T.Meaning.STOP]}; the engine has no early stop there")
         option = self.policy(prompt)
         m = T.meaning(option)
         if m.meaning is T.Meaning.UNKNOWN:
@@ -262,8 +261,17 @@ class Lockstep:
                 key = next(iter(roll.payload))
                 return self._pick(d, lambda a: a.payload.get(key) == roll.payload[key], f"roll {roll}")
             if d.kind is DecisionKind.RANDOM_DISCARD:
-                self.diverge("unsupported", f"{d.kind.value}: no Playdek source for a random discard yet", fatal=True)
-                return d.options[0]
+                # The DLL drew the card: it is the one that just left that hand
+                # for the discard pile.
+                owner = Side(d.context["owner"])
+                hand_loc = int(ffi.ECardLocation.USSRHAND if owner is Side.USSR else ffi.ECardLocation.USHAND)
+                gone = [c for c, (was, now) in self._last_moves.items()
+                        if was == hand_loc and now == int(ffi.ECardLocation.DISCARDED)]
+                if not gone:
+                    return None
+                card = gone[0]
+                del self._last_moves[card]
+                return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card}")
             self.diverge("unsupported", f"CHANCE {d.kind.value}", fatal=True)
             return d.options[0]
         side = d.actor
@@ -278,9 +286,9 @@ class Lockstep:
         m = mv.meaning
         if m.meaning is T.Meaning.STOP:
             q.popleft()
-            if d.kind is DecisionKind.EVENT_CHOICE:  # "Do Not Discard": the choice that is not a card
-                return self._pick(d, lambda a: a.payload.get("choice") not in ids.NUMBER_BY_CARD, "decline")
-            return self._pick(d, lambda a: not a.payload.get("country"), "stop")
+            if d.kind is DecisionKind.EVENT_CHOICE:  # "Done Removing" / "Do Not Discard": the choice that is not a card or country
+                return self._pick(d, lambda a: a.payload.get("choice") not in ids.NUMBER_BY_CARD and a.payload.get("choice") not in ids.INDEX_BY_COUNTRY, "decline")
+            return self._pick(d, lambda a: a.payload.get("country") == "stop", "stop")
         if d.kind in CARD_KINDS and m.meaning is T.Meaning.CARD:
             q.popleft()
             self._check_cards(d, mv)
@@ -335,7 +343,7 @@ class Lockstep:
         return ((d.kind in CARD_KINDS and m is T.Meaning.CARD) or (d.kind is DecisionKind.EVENT_CHOICE and m in (T.Meaning.CARD, T.Meaning.STOP)) or (d.kind in COUNTRY_KINDS and m is T.Meaning.COUNTRY)
                 or (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER, DecisionKind.OPS_TYPE) and m is T.Meaning.USE)
                 or (d.kind is DecisionKind.EVENT_CHOICE and m in (T.Meaning.CHOICE, T.Meaning.COUNTRY))
-                or (d.kind in COUNTRY_KINDS and m is T.Meaning.STOP))
+                or (d.kind is DecisionKind.REALIGNMENT_TARGET and m is T.Meaning.STOP))
 
     def _pick(self, d: Decision, pred, what: str) -> Action:
         for a in d.options:
@@ -363,11 +371,14 @@ class Lockstep:
 
     def _check_countries(self, d: Decision, mv: Move) -> None:
         theirs = T.countries_offered(mv.prompt)
+        if any(T.meaning(o).meaning is T.Meaning.STOP for o in mv.prompt.visible):
+            theirs.add("stop")  # "No More Realignment" is the engine's {"country": "stop"}
         ours = {a.payload["country"] for a in d.options}
-        if "Chinese_Civil_War" in ours - theirs:
-            # Known: the engine treats the Chinese Civil War space as a country of the standard game.
-            ours.discard("Chinese_Civil_War")
-            self.known["engine offers Chinese_Civil_War"] += 1
+        if d.kind is DecisionKind.EVENT_INFLUENCE and d.context.get("event") == "De_Stalinization" and ours > theirs:
+            # Known: the DLL will not relocate influence back into a country it
+            # was just removed from; the card text has no such clause.
+            self.known["De-Stalinization: DLL excludes the source countries"] += 1
+            ours = theirs
         if theirs != ours:
             self.diverge("country options", f"{d.actor.value} {d.kind.value} {mv.prompt.text!r}: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")
 
@@ -428,8 +439,12 @@ class Lockstep:
                 if not self.engine.is_terminal:
                     r = self.game.result
                     if r.win_type is ffi.GameOverType.HELD_CARDS:
-                        self.diverge("rules", f"Playdek ends the game at the end of turn {self.engine.turn}: a scoring card was held "
-                                     f"({self._sides_by_player.get(r.winner_id)} wins); the engine plays on")
+                        loser = self._sides_by_player.get(r.winner_id).opponent
+                        if loser is self.engine.physical_side:
+                            self.known["held scoring card in the hand the engine cannot see"] += 1
+                        else:
+                            self.diverge("rules", f"Playdek ends the game at the end of turn {self.engine.turn}: {loser.value} held a "
+                                         "scoring card; the engine plays on")
                     else:
                         e = self.engine
                         self.diverge("game over", f"Playdek's game ended ({r.win_type.name}, {self._sides_by_player.get(r.winner_id)} wins, "

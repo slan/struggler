@@ -92,7 +92,7 @@ def meaning(option: Option) -> OptionMeaning:
         return OptionMeaning(Meaning.USE, use=_USES[hint], label=option.text)
     if hint in _COUNTRY_HINTS:
         return OptionMeaning(Meaning.COUNTRY, country=ids.country_id(option.selection_id), label=option.text)
-    if hint in (SelectionHint.EVENT_CHOICE, SelectionHint.EVENT_CHOICE_HIDDEN):
+    if hint in (SelectionHint.EVENT_CHOICE, SelectionHint.EVENT_CHOICE_HIDDEN, SelectionHint.EVENT_CHOICE_YESNO):
         return OptionMeaning(Meaning.CHOICE, label=option.text)
     # Unknown hint: a country named in the label is still a country target
     # ("Coup in Poland", "Attempt Realignment in Iran").

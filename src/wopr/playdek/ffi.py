@@ -414,6 +414,7 @@ class SelectionHint(IntEnum):
     DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)
     FORCED_DISCARD_CARD = 0xA09A  # "Discard <card>" when a discard is required (Bear Trap / Quagmire)
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")
+    EVENT_CHOICE_YESNO = 0xA0F1  # "Participate in Olympic Games?" -> Participate / Boycott
     EVENT_CHOICE_HIDDEN = 0xA0FF  # the blank hidden entry that accompanies it
 
 
