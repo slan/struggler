@@ -953,6 +953,14 @@ class Engine:
 
     def _handle_missile_envy_forced_play(self, side: Side, cid: str) -> None:
         self.game_effects.pop("missile_envy_forced", None)
+        if side is Side.US and self.game_effects.pop("we_will_bury_you", None):
+            # We Will Bury You: the forced play is the US's next action
+            # round, and it is not UN Intervention -- the USSR scores (the
+            # ordinary round settles this in _handle_play_mode, which a
+            # forced play skips).
+            self._award_vp(Side.USSR, 3)
+            if self.is_terminal:
+                return
         self._file_card(side, cid, fired=False)
         self._push_ops_type(side, self._effective_ops(side, self.cards[cid]))
 
