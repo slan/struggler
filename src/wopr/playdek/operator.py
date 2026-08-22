@@ -136,9 +136,11 @@ class PlaydekOperator(Bridge):
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
+        self._handed: set[str] = set()  # cards Grain Sales handed the US that the engine has not played yet (the DLL discards them at once)
         self._revealed: list[str] = []  # cards shown out of a hand (Grain Sales' draw, CIA Created's hand)
         self._first: tuple[tuple, Option] | None = None  # hotseat: the DLL re-asks the very first prompt and drops the first answer
         self.play_log: list[int] = []  # seq of every card entering the resolve slot: the boundaries between actions
+        self.use_log: list[int] = []  # seq of every use record of a play (the Ops half, the event half): the boundaries within one
         self._synced_move_seq = 0  # the card-move count when the two states last agreed at rest
         self._last_action: tuple[Decision, Action] | None = None  # the bot's latest, not yet applied by the engine when `flush` runs
         self._simulating = 0
@@ -202,11 +204,14 @@ class PlaydekOperator(Bridge):
             except KeyError:
                 return True
             hint = f["animation_event_hint"]
+            if hint & 0xFF in (0x01, 0x02) and hint >> 8:
+                self.use_log.append(self._seq)  # a use chosen, or the automatic other half of an Ops play
             use = T.use_from_animation(hint)
             if hint == ANIMATION_FIRED and card not in self._fired:
                 self._fired.append(card)  # Five Year Plan's discard firing as a US event, Grain Sales' draw
                 if self.last_hand_of(card) is not None:
                     self._taken[card] = self.last_hand_of(card)
+                    self._handed.add(card)
             if use is None and hint != ANIMATION_SCORING:
                 return True  # a headline reveal, the automatic second half, an event another event fired
             # Whose play: the hand's owner -- unless an event showed the card
@@ -356,6 +361,8 @@ class PlaydekOperator(Bridge):
                         action = self._answer_grain_sales(d)
                     if action is not None and action.payload.get("choice") == "return":
                         self._taken.clear()  # the drawn card is its owner's own again
+                        if not self._simulating:
+                            self._handed.clear()
                     return action
                 return self._answer_choice(d)
             if d.kind in (DecisionKind.QUAGMIRE_DISCARD, DecisionKind.HELD_CARD_DISCARD):
@@ -363,12 +370,18 @@ class PlaydekOperator(Bridge):
                 return None if card is None else self._pick(d, lambda a: a.payload["card"] == card, f"discard {card}")
             if d.kind is DecisionKind.PLAY_MODE and len(d.options) == 1:
                 return d.options[0]  # a scoring card: the DLL reports no use for it
-            if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._taken
+            if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._handed
                     and not self.moves[self.other]):
                 # The card Grain Sales handed over is played at once, and the
                 # DLL reports no use for it (only the coup or the influence
-                # that followed): each use is tried on a copy.
-                return self._simulate(d)
+                # that followed): each use is tried on a copy. Once the real
+                # engine has its answer the card is played (the order of an
+                # opponent card's event and Ops is the one decision left).
+                action = self._simulate(d)
+                if not self._simulating and (d.kind is DecisionKind.EVENT_OPS_ORDER or action.payload.get("mode") != "ops"
+                                             or not self.engine._is_opponent_event(Side.US, self.engine.cards[d.context["card"]])):
+                    self._handed.discard(d.context["card"])
+                return action
             if d.kind is DecisionKind.OPS_TYPE and not (self.moves[self.other] and self.moves[self.other][0].meaning.meaning is T.Meaning.USE):
                 return self._answer_ops_type(d)
         if d.actor is Side.CHANCE and d.kind is DecisionKind.RANDOM_DISCARD:
@@ -447,14 +460,16 @@ class PlaydekOperator(Bridge):
                 continue
             # A surplus gone again in a later record with no coup or
             # realignment on the country in between, and no other card
-            # played in between, is a transient of one event's own
-            # resolution (Nasser: the USSR's +2, then half the US removed),
-            # not something the engine will ask a decision for. Undone by
-            # dice (a Marshall Plan point realigned away) or by a later
-            # action's event (the same point removed by De Gaulle) it is.
+            # played in between, nor the other half of the same play (the
+            # Ops half's point removed by the event half: Fidel ops-first),
+            # is a transient of one event's own resolution (Nasser: the
+            # USSR's +2, then half the US removed), not something the
+            # engine will ask a decision for. Undone by dice (a Marshall
+            # Plan point realigned away) or by a later action's event (the
+            # same point removed by De Gaulle) it is.
             undone = next((q for q, w in entries[i + 1:] if not past(w)), None)
             if (undone is not None and not any(seq < q < undone and c == country for q, c in self.roll_log)
-                    and not any(seq < b < undone for b in self.play_log)):
+                    and not any(seq < b < undone for b in self.play_log) and not any(seq < b < undone for b in self.use_log)):
                 continue
             return seq
         return None
@@ -689,14 +704,14 @@ class PlaydekOperator(Bridge):
         return (list(self.rolls), copy.deepcopy((self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
                                                  self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired,
                                                  self._revealed, self._taken, self._exits, self._exits_before_reshuffle, self.reshuffled,
-                                                 self.synced_seq, self._extra_ops_pending)))
+                                                 self.synced_seq, self._extra_ops_pending, self._handed)))
 
     def _set_queues(self, queues: tuple) -> None:
         rolls, rest = queues
         self.rolls = collections.deque(rolls)
         (self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
          self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken,
-         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq, self._extra_ops_pending) = copy.deepcopy(rest)
+         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq, self._extra_ops_pending, self._handed) = copy.deepcopy(rest)
 
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
