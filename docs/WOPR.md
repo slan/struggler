@@ -533,7 +533,16 @@ Findings from the first four random games, and what became of each:
   `PLACE_INFLUENCE`" was NATO under Containment); Five Year Plan fired a
   discarded *USSR* event and discarded a US one, the reverse of the card
   (`fix/five-year-plan-us-event`; seed 3's DEFCON/VP drift after the
-  discard of Duck and Cover).
+  discard of Duck and Cover); How I Learned to Stop Worrying's +5 wrote
+  past the Military Ops cap (now on `fix/military-ops-cap` too); an
+  event's "conduct Operations as if they played an N Ops card" ignored
+  Containment/Brezhnev/Red Scare (7.4.3, and 7.4.2's example 3 is
+  literally CIA Created under Containment — `fix/event-ops-modifiers`);
+  We Will Bury You paid the USSR at the end of the turn where the card
+  and FAQ pay "the moment the US does not play UN Intervention in their
+  next Action Round", which may be next turn, and never without a next
+  round (`fix/we-will-bury-you-timing`; Joshua's layout keeps the flag's
+  turn slot via `features.RELOCATED`, so `LAYOUT_VERSION` stays 1).
 - **Documented, DLL-stricter**: De-Stalinization will not relocate
   influence back into a country it was just removed from; the card
   text has no such clause, so the engine allows it. The harness counts
@@ -565,28 +574,30 @@ Findings from the first four random games, and what became of each:
   two moves ahead. State is compared only when no translated move is
   still queued (the lookahead made the engine wait at a card prompt the
   DLL had already answered).
-- **Reported, not resolved**: Defectors played event-first (the engine
-  fires nothing, by design) and either/or choices matched by label
-  words; the word match has been right every time so far.
-- **Open** (seeds as above; `--games 8 --seed 5` reproduces):
-  - seed 5, turn 2 AR 3: CIA Created under Containment. The DLL gives
-    the US *two* points for its "conduct Operations as if they played a
-    1 Op card" (and offers USSR-controlled Romania/Syria at 2 each);
-    `push_event_operations` passes a raw 1. The Steam forum's reading
-    of the FAQ is the DLL's (the 1 Op card is under Containment/Brezhnev
-    /Red Scare like any other — it can even be spaced then). Probably an
-    engine fix: route event-granted "as if N Ops" through
-    `_effective_ops`, which also settles Lone Gunman and ABM Treaty.
-    Not done here — confirm against the printed FAQ first.
-  - seeds 9 and 10: an opponent's card played "Resolve Event First"
-    (Defectors by the USSR, COMECON by the US) leaves the engine waiting
-    (a `DEAL_CARD` it cannot fill at turn 2; an `OPS_TYPE` the DLL never
-    asked). The bridge's "event order" shortcut assumes the event
-    fizzled; what the DLL does after an event-first resolution needs a
-    trace.
-- Nine of the twelve random games run to the end with nothing but the
-  known De-Stalinization difference, the held-scoring-card ends the
-  engine cannot see, and the word-matched choices.
+- **Harness bugs, third batch** (seeds 13–20 and the rest of 5–12):
+  `DEAL_CARD` answers from the cards the DLL dealt *this turn* (a card
+  dealt, headlined and resolved in one pump is in the discard pile
+  before the engine deals; the current hand alone stalled the engine a
+  whole turn); a lone "Do Not Discard" the engine never asks (Blockade
+  with nothing to discard) is dropped; once the DLL's game is over the
+  engine's single-option decisions are taken; Grain Sales' drawn card
+  comes from the "Play <card>?" prompt's own `selectionID` and
+  take/return from which option was picked (a returned card never
+  leaves the hand, so the discard heuristic fed the engine some other
+  card); the DEFCON hints decode as `0xA070 + n` = "set DEFCON to n"
+  (How I Learned lists 1–5, Summit the three reachable levels), mapped
+  to the engine's level or raise/lower/none.
+- **DLL behaviour, counted under `known`**: a UN-Intervened card may be
+  spent on the Space Race (the engine's `un_intervention` mode is Ops
+  only; the same play is available by spacing the card itself, so the
+  differ never picks it); Defectors played "event first" by the USSR,
+  where the engine has no event to order (both give the US 1 VP).
+- **Reported, not resolved**: either/or choices matched by label words;
+  the word match has been right every time so far.
+- All twenty random games (seeds 1–20: `--games 4 --seed 1`, `--games 8
+  --seed 5`, `--games 8 --seed 13`) run to the end with nothing but the
+  known entries above and the word-matched choices; where both engines
+  finish, the winner agrees.
 
 Then the `PlaydekOperator` for Joshua and the eval.
 

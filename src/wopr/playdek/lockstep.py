@@ -29,7 +29,7 @@ from struggler.engine import Engine
 from struggler.engine.core import HIDDEN_CARD
 from struggler.engine.types import Action, CardSide, Decision, DecisionKind, Side
 from wopr.playdek import ffi, ids, translate as T
-from wopr.playdek.ffi import EventType
+from wopr.playdek.ffi import EventType, SelectionHint
 from wopr.playdek.game import GameEvent, Option, Playdek, PlaydekGame, Prompt
 
 ROLL_KINDS = {
@@ -112,6 +112,9 @@ class Lockstep:
         self.rolls: collections.deque[T.Roll] = collections.deque()
         self.influence: dict[str, tuple[int, int]] = {}  # country -> (ussr, us) per the DLL
         self.card_loc: dict[str, int] = {}  # card -> ECardLocation per the DLL
+        self._dealt: dict[Side, set[str]] = {Side.USSR: set(), Side.US: set()}  # dealt this turn per the DLL
+        self._engine_dealt: dict[Side, set[str]] = {Side.USSR: set(), Side.US: set()}  # ...and already dealt to the engine
+        self._dll_turn = 0
         self._last_moves: dict[str, tuple[int, int, int]] = {}  # card -> (from, to, sequence no.) of its latest move
         self._move_seq = 0
         self.defcon = 5
@@ -123,6 +126,8 @@ class Lockstep:
         self._held_first: Move | None = None
         self._last_played: dict[Side, str | None] = {Side.USSR: None, Side.US: None}
         self._forced_mode: dict[Side, str | None] = {Side.USSR: None, Side.US: None}  # the next PLAY_MODE, when a lookahead settled it
+        self._un_ops: dict[Side, bool] = {Side.USSR: False, Side.US: False}  # the next "Select Use For Operations" spends a UN-Intervened card
+        self._grain: tuple[str, bool] | None = None  # Grain Sales: (the card drawn, whether the US took it)
         self._sides_by_player = self.game.sides  # player id -> Side
         self._index_side = dict(self.game.sides)  # the "player index" of roll events is the seat's id
         # Roll records the DLL has emitted once and will emit again: it
@@ -154,6 +159,10 @@ class Lockstep:
             self.influence[ids.country_id(f["id"])] = (f["ussr_influence"], f["us_influence"])
         elif ev.kind == EventType.DEFCON_LEVEL and not f["isSimulating"]:
             self.defcon = f["defcon_level"]
+        elif ev.kind == EventType.TURN_NUMBER and f["turn_number"] != self._dll_turn:
+            self._dll_turn = f["turn_number"]  # emitted twice per turn (preview, commit): reset once
+            self._dealt = {Side.USSR: set(), Side.US: set()}
+            self._engine_dealt = {Side.USSR: set(), Side.US: set()}
         elif ev.kind == EventType.VP_TRACK:
             self.vp = f["vp_track"]
             if self.trace:
@@ -174,6 +183,9 @@ class Lockstep:
                 return
             was = self.card_loc.get(card)
             self.card_loc[card] = loc
+            for side, hand in ((Side.USSR, ffi.ECardLocation.USSRHAND), (Side.US, ffi.ECardLocation.USHAND)):
+                if loc == int(hand) and was in (None, int(ffi.ECardLocation.DECK)):
+                    self._dealt[side].add(card)
             if was is not None and was != loc:
                 self._move_seq += 1
                 self._last_moves[card] = (was, loc, self._move_seq)
@@ -229,8 +241,23 @@ class Lockstep:
         owners.discard(None)
         if len(owners) == 1:
             side = owners.pop()
+        if self._un_ops[side] and T.uses_offered(prompt):
+            # The DLL lets the Ops of a UN-Intervened card go to the Space
+            # Race; the engine's `un_intervention` mode offers Ops only (the
+            # event is cancelled either way, so spacing the card itself is
+            # the same play without UN Intervention). Counted, never picked.
+            self._un_ops[side] = False
+            if any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible):
+                self.known["UN Intervention: DLL offers the Space Race for the cancelled card"] += 1
+                prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
         option = self.policy(prompt)
         m = T.meaning(option)
+        drawn = [o for o in prompt.visible if o.hint == SelectionHint.SWITCH_CARD]
+        if drawn and prompt.text.endswith("?") and any(o.hint == SelectionHint.STOP for o in prompt.visible):
+            # Grain Sales: "Play <the drawn card>?" / "Return It". The card
+            # never leaves the USSR hand when returned, so the engine's
+            # RANDOM_DISCARD is answered from here, and its take/return too.
+            self._grain = (ids.card_id(drawn[0].selection_id), option.hint == SelectionHint.SWITCH_CARD)
         if m.meaning is T.Meaning.UNKNOWN:
             self.diverge("unknown option", f"{prompt.text!r} -> {option.text!r} hint={option.hint:#x}")
         move = Move(side, prompt, option, m)
@@ -259,8 +286,14 @@ class Lockstep:
                 # A card the DLL has in that hand and the engine has not been
                 # told about yet (the DLL deals, undoes and re-deals at commit).
                 side = Side(d.context["side"])
+                # The hand as the DLL has it, plus what it dealt this turn: a
+                # card dealt, headlined and resolved in one pump is in the
+                # discard pile by the time the engine gets to deal it. A deal
+                # undone at commit and not re-dealt is back in the deck.
                 hand_loc = int(ffi.ECardLocation.USSRHAND if side is Side.USSR else ffi.ECardLocation.USHAND)
-                dll_hand = {c for c, loc in self.card_loc.items() if loc == hand_loc and c != CHINA}
+                dll_hand = {c for c, loc in self.card_loc.items() if loc == hand_loc}
+                dll_hand |= {c for c in self._dealt[side] if self.card_loc.get(c) != int(ffi.ECardLocation.DECK)} - self._engine_dealt[side]
+                dll_hand.discard(CHINA)
                 missing = dll_hand - set(self.engine.hands[side.value])
                 if not missing:
                     return None
@@ -268,6 +301,7 @@ class Lockstep:
                 if not offered:
                     self.diverge("illegal in engine", f"deal {sorted(missing)} to {side.value}: not in the engine's hidden pool", fatal=True)
                     return d.options[0]
+                self._engine_dealt[side].add(offered[0].payload["card"])
                 return offered[0]
             if d.kind is DecisionKind.CONTEST_ROLL:
                 # One die per side; the engine asks the sponsor's first, then
@@ -288,6 +322,10 @@ class Lockstep:
                 self.rolls.remove(roll)
                 key = next(iter(roll.payload))
                 return self._pick(d, lambda a: a.payload.get(key) == roll.payload[key], f"roll {roll}")
+            if d.kind is DecisionKind.RANDOM_DISCARD and d.context.get("purpose") == "grain_sales":
+                if self._grain is None:
+                    return None
+                return self._pick(d, lambda a: a.payload["card"] == self._grain[0], f"Grain Sales drew {self._grain[0]}")
             if d.kind is DecisionKind.RANDOM_DISCARD:
                 # The DLL drew the card: the latest one to leave that hand for
                 # the discard (or removed) pile that the engine still has
@@ -308,14 +346,28 @@ class Lockstep:
             return d.options[0]
         side = d.actor
         q = self.moves[side]
+        if d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == "Grain_Sales_to_Soviets" and self._grain is not None:
+            card, took = self._grain
+            self._grain = None
+            if not took:
+                q.popleft()  # the "Return It" move
+            return self._pick(d, lambda a: a.payload.get("choice") == ("take" if took else "return"), f"Grain Sales {'take' if took else 'return'} {card}")
         if len(d.options) == 1 and q and not self._compatible(d, q[0]):
             # A forced step the DLL did not ask about (a single legal target):
             # known only once this side's next prompt turned out to be something else.
             return d.options[0]
         if not q:
+            if len(d.options) == 1 and self.game.result is not None:
+                return d.options[0]  # the DLL's game is over: nothing more will be asked; take the forced steps
             return None
         mv = q[0]
         m = mv.meaning
+        if m.meaning is T.Meaning.STOP and d.kind not in (DecisionKind.EVENT_CHOICE, DecisionKind.REALIGNMENT_TARGET):
+            # A decline the DLL asked alone ("Do Not Discard" as the only
+            # option: Blockade with no card to discard) where the engine
+            # resolved the event without asking.
+            q.popleft()
+            return self._answer(d)
         if m.meaning is T.Meaning.STOP:
             q.popleft()
             if d.kind is DecisionKind.EVENT_CHOICE:  # "Done Removing" / "Do Not Discard": the choice that is not a card or country
@@ -339,6 +391,7 @@ class Lockstep:
                 q.popleft(), q.popleft(), q.popleft()
                 self._check_cards(d, mv)
                 self._forced_mode[side] = "un_intervention"
+                self._un_ops[side] = True
                 return self._pick(d, lambda a: a.payload["card"] == target.card, f"card {target.card} (UN Intervention)")
         if d.kind in CARD_KINDS and m.meaning is T.Meaning.CARD:
             q.popleft()
@@ -367,8 +420,7 @@ class Lockstep:
                     # "Resolve Event First" but the engine never asked the order:
                     # its event did not fire. The Ops use is the DLL's next "Select Use" answer.
                     q.popleft()
-                    self.diverge("event order", f"{side.value} played {self._last_played[side]} event-first in Playdek; "
-                                 "the engine asked no order (no event to fire?)")
+                    self.known[f"{self._last_played[side]} played event-first: the engine has no event to order (Defectors by the USSR)"] += 1
                     return self._answer(d)
                 q.popleft()
                 return self._pick(d, lambda a: a.payload["type"] == use.ops_type, f"ops type {use.ops_type}")
@@ -408,8 +460,16 @@ class Lockstep:
         return d.options[0]
 
     def _pick_choice(self, d: Decision, mv: Move) -> Action:
-        if mv.meaning.choice is not None:
-            return self._pick(d, lambda a: a.payload.get("choice") == mv.meaning.choice, f"choice {mv.meaning.choice}")
+        level = mv.meaning.defcon
+        if level is not None:
+            # "Set DEFCON to n": the engine asks the level (How I Learned to
+            # Stop Worrying) or the direction from the current one (Summit).
+            choices = {a.payload.get("choice") for a in d.options}
+            if "raise" in choices:
+                want = "raise" if level > self.engine.defcon else "lower" if level < self.engine.defcon else "none"
+            else:
+                want = str(level)
+            return self._pick(d, lambda a: a.payload.get("choice") == want, f"DEFCON {level} -> {want}")
         # No shared vocabulary for an event's either/or: match the option
         # whose payload shares the most words with Playdek's label.
         words = set(mv.option.text.lower().split())

@@ -412,9 +412,8 @@ class SelectionHint(IntEnum):
     OPS_COUP = 0xA050
     WAR_COUNTRY = 0xA052  # "War in <country>" (Indo-Pakistani War)
     OPS_SPACE_RACE = 0xA060
-    DEFCON_DEGRADE = 0xA071  # Summit: "You May Adjust DEFCON Level" -> Degrade / Pass / Improve
-    DEFCON_PASS = 0xA072
-    DEFCON_IMPROVE = 0xA073
+    DEFCON_SET = 0xA070  # + n: "set DEFCON to n" -- How I Learned's "Choose DEFCON Level" lists 0xA071..0xA075;
+    # Summit's "You May Adjust DEFCON Level" lists the three reachable levels (at DEFCON 2: Degrade 0xA071, Pass 0xA072, Improve 0xA073)
     DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)
     FORCED_DISCARD_CARD = 0xA09A  # "Discard <card>" when a discard is required (Bear Trap / Quagmire)
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")

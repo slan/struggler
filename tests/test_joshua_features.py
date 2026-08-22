@@ -109,7 +109,19 @@ def test_every_engine_effect_key_is_in_the_layout():
             found[store].add(key)
     assert found["turn_effects"], "expected the engine to reference turn_effects keys"
     assert found["turn_effects"] <= set(F.TURN_EFFECTS)
-    assert found["game_effects"] <= set(F.GAME_EFFECTS)
+    assert found["game_effects"] <= set(F.GAME_EFFECTS) | {k for k, p in F.RELOCATED.items() if p == "turn"}
+
+
+def test_relocated_effect_keeps_its_slot():
+    # We Will Bury You is a game effect in the engine but encodes in the turn
+    # slot it was allocated: the layout, and LAYOUT_VERSION, are unchanged.
+    engine = bare_engine()
+    engine.game_effects["we_will_bury_you"] = True
+    engine.phase = "action_rounds"
+    engine._advance()
+    row = _encode(engine, engine.pending_decision.actor)["globals"][0]
+    assert row[F.GLOBAL_INDEX["turn_we_will_bury_you"]] == 1.0
+    assert "game_we_will_bury_you" not in F.GLOBAL_INDEX
 
 
 @pytest.mark.parametrize("seed", [11, 12])

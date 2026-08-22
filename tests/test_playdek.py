@@ -191,8 +191,11 @@ def test_translate_summit_and_contest_rolls():
     from wopr.playdek.ffi import EventType, SelectionHint as H
     from wopr.playdek.game import GameEvent
 
-    prompt = _prompt("You May Adjust DEFCON Level", [(145, H.DEFCON_IMPROVE, "Improve DEFCON Level"), (145, H.DEFCON_DEGRADE, "Degrade DEFCON Level"), (145, H.DEFCON_PASS, "Pass")])
-    assert [T.meaning(o).choice for o in prompt.options] == ["raise", "lower", "none"]
+    # Summit at DEFCON 2, then How I Learned to Stop Worrying: the hint's low nibble is the level set.
+    prompt = _prompt("You May Adjust DEFCON Level", [(145, H.DEFCON_SET + 3, "Improve DEFCON Level"), (145, H.DEFCON_SET + 1, "Degrade DEFCON Level"), (145, H.DEFCON_SET + 2, "Pass")])
+    assert [T.meaning(o).defcon for o in prompt.options] == [3, 1, 2]
+    prompt = _prompt("Choose DEFCON Level", [(146, H.DEFCON_SET + n, f"DEFCON {n}") for n in (5, 4, 3, 2, 1)])
+    assert [(T.meaning(o).meaning, T.meaning(o).defcon) for o in prompt.options] == [(T.Meaning.CHOICE, n) for n in (5, 4, 3, 2, 1)]
     # Olympic Games: one die per side; the sponsor is the bridge's to say.
     rolls = T.rolls_from_event(GameEvent(EventType.EFFECT_ROLL, (120, 2, 0, 4, 2)), {})
     assert [(r.kind, r.side, r.payload) for r in rolls] == [(DecisionKind.CONTEST_ROLL, Side.USSR, {"value": 2}), (DecisionKind.CONTEST_ROLL, Side.US, {"value": 4})]

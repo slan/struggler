@@ -65,8 +65,6 @@ _COUNTRY_HINTS = {
     SelectionHint.RELOCATE_FROM_COUNTRY,
     SelectionHint.WAR_COUNTRY,
 }
-# Either/or answers with a fixed struggler spelling (the rest are matched by label words).
-_CHOICES = {SelectionHint.DEFCON_IMPROVE: "raise", SelectionHint.DEFCON_DEGRADE: "lower", SelectionHint.DEFCON_PASS: "none"}
 _CARD_HINTS = {
     SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.PLAY_OPPONENT_CARD,
     SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD,
@@ -81,7 +79,7 @@ class OptionMeaning:
     card: str | None = None  # struggler card id
     country: str | None = None  # struggler country id
     use: Use | None = None
-    choice: str | None = None  # the engine's spelling of an either/or answer, when the hint fixes it
+    defcon: int | None = None  # a DEFCON level the option sets (the engine's choice is the level, or raise/lower/none relative to the current one)
     label: str = ""
 
 
@@ -103,8 +101,8 @@ def meaning(option: Option) -> OptionMeaning:
         return OptionMeaning(Meaning.COUNTRY, country=ids.country_id(option.selection_id), label=option.text)
     if hint in (SelectionHint.EVENT_CHOICE, SelectionHint.EVENT_CHOICE_YES, SelectionHint.EVENT_CHOICE_NO):
         return OptionMeaning(Meaning.CHOICE, label=option.text)
-    if hint in _CHOICES:
-        return OptionMeaning(Meaning.CHOICE, choice=_CHOICES[hint], label=option.text)
+    if SelectionHint.DEFCON_SET < hint <= SelectionHint.DEFCON_SET + 5:
+        return OptionMeaning(Meaning.CHOICE, defcon=hint - SelectionHint.DEFCON_SET, label=option.text)
     # Unknown hint: a country named in the label is still a country target
     # ("Coup in Poland", "Attempt Realignment in Iran").
     m = _LABEL_COUNTRY.search(option.text)

@@ -142,6 +142,12 @@ TURN_EFFECTS: dict[str, str] = {
     "north_sea_oil_extra": "flag",
     "chernobyl": "region",
 }
+# Keys the engine has since moved to the other store but whose feature keeps
+# the slot it was allocated, so LAYOUT_VERSION need not move: We Will Bury
+# You became a game effect when its payout moved to the US's next action
+# round (it still lasts a round or two). Maps the key to the layout prefix
+# that holds it; the encoder routes the value there.
+RELOCATED: dict[str, str] = {"we_will_bury_you": "turn"}
 GAME_EFFECTS: dict[str, str] = {
     "formosan_resolution": "flag",
     "degaulle_france": "flag",
@@ -402,8 +408,12 @@ def encode_into(observation: Observation, buffers: dict[str, np.ndarray], i: int
     g[GLOBAL_INDEX["their_military_ops"]] = observation.military_ops.get(their, 0) / 5.0
     g[GLOBAL_INDEX["china_mine"]] = 1.0 if china_mine else 0.0
     g[GLOBAL_INDEX["china_available"]] = 1.0 if observation.china_card_available else 0.0
-    _write_effects(g, "turn", TURN_EFFECTS, observation.turn_effects, me)
-    _write_effects(g, "game", GAME_EFFECTS, observation.game_effects, me)
+    turn_fx = dict(observation.turn_effects)
+    game_fx = {}
+    for key, value in observation.game_effects.items():
+        (turn_fx if RELOCATED.get(key) == "turn" else game_fx)[key] = value
+    _write_effects(g, "turn", TURN_EFFECTS, turn_fx, me)
+    _write_effects(g, "game", GAME_EFFECTS, game_fx, me)
     g[GLOBAL_INDEX[f"kind_{decision.kind.name}"]] = 1.0
 
     ctx = decision.context
