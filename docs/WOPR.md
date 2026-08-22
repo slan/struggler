@@ -897,7 +897,13 @@ Findings from the first four random games, and what became of each:
   end the game there, the engine is over while the DLL still asks the
   rest of the bot's action; `_complete_for_dll` finishes it with the
   plainest choices and the two results are compared (a different winner
-  is fatal). Two engine
+  is fatal). And another: Flower Power pays the USSR 2 VP for a war card
+  the US *plays* (the engine, and the card's "for Ops or for Event"),
+  where the DLL pays only when the war's event happens -- an
+  Arab-Israeli War under Camp David Accords is 2 VP in the engine and
+  nothing in the DLL, and the VP differ for the rest of the game:
+  `_flower_power_check` ends it as `known` the moment such a card is
+  played. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear

@@ -32,7 +32,9 @@ from dataclasses import dataclass, field
 from typing import Callable, Sequence
 
 from struggler.engine import Engine
+from struggler.engine.events import EVENTS
 from struggler.engine.player import Event, Player
+from struggler.engine.rules import RULES
 from struggler.engine.types import Action, Decision, DecisionKind, Observation, Side
 from struggler.runner import play_game
 from wopr.playdek import ids, translate as T
@@ -206,12 +208,24 @@ class PlaydekOperator(Bridge):
             if actor is not self.other:
                 return True
             self._plays_seen.add(card)
+            self._flower_power_check(actor, card)
             if self._played != (card, self._dll_turn):
                 self._played = (card, self._dll_turn)
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"play {card}"))
             if use is not None:
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.USE, use=use, label=f"{hint:#x}"), f"use {use}"))
         return True
+
+    def _flower_power_check(self, side: Side, card: str) -> None:
+        """Flower Power pays the USSR 2 VP for a war card the US *plays*
+        (the engine, and the card); the DLL pays only when the war's event
+        happens -- not for an Arab-Israeli War under Camp David Accords.
+        The VP then differ for the rest of the game: known, and void."""
+        if (side is Side.US and card in RULES["war_cards"] and self.engine.game_effects.get("flower_power")
+                and card in EVENTS and not EVENTS[card].eligible(self.engine, Side.US) and not self._simulating):
+            self.known["Flower Power: the DLL pays no VP for a US war card whose event is prevented (Arab-Israeli War under Camp David)"] += 1
+            self.diverge("rules", f"Flower Power: the engine pays the USSR 2 VP for the US playing {card} whose event cannot happen, "
+                         "the DLL does not", fatal=True)
 
     def card_that_left_any(self, owner: Side) -> list[str]:
         """Cards that left `owner`'s hand for the discard or removed pile and
@@ -676,6 +690,8 @@ class PlaydekOperator(Bridge):
         self.report.steps += 1
         if d.kind is DecisionKind.EVENT_RESUME:
             return
+        if d.kind in (DecisionKind.ACTION_ROUND_PLAY, DecisionKind.HEADLINE_PLAY):
+            self._flower_power_check(d.actor, action.payload["card"])
         if d.kind is DecisionKind.PLAY_MODE and self.engine.cards[d.context["card"]].scoring:
             return  # the DLL asks no use for a scoring card
         if (d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == CMC_DEFUSE and action.payload["choice"] == "skip"
