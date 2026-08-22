@@ -361,6 +361,27 @@ What the handicap experiment taught (the US seat, August 2026):
   That is the plain loop's pattern (0.571 / 0.489 / 0.569), not a new
   one. Closed: the US rows' reward still says which seat they were.
 
+What the margin reward taught (August 2026):
+
+- **Letting the final score into the terminal reward makes the play
+  worse.** `--margin 0.5` — reward `0.5 × outcome + 0.5 × clip(final
+  VP / 20)`, still terminal, still zero-sum — for two generations from
+  v16: 0.376 and 0.390 against v16 at the plain outcome (US seat 0.05
+  and 0.105), the worst gates of the 256 line. The training games got
+  shorter as it went (mean final turn 7.7 → 6.0 → 5.0) and the learner's
+  mean final VP against the pool rose (+3.5 → +4.8): it learned to run
+  the track up, and a fast 20-VP blitz is the best way to do that for
+  either seat — the margin rewards exactly the USSR blitz the US seat
+  was supposed to learn to survive. "Shaping teaches the shaping"
+  holds for the final score too. Off by default; nothing frozen.
+- **The run directory is past the champion.** `runs/h256-e4` is 12,000
+  games beyond v16 (4,000 at the bid, 8,000 at the margin), and
+  `train.py` resumes only from a run's own `ppo.zip`. A failed
+  experiment therefore costs the line its optimizer state: the next
+  experiment on this line starts from v16's `joshua.pt` with a fresh
+  optimizer, or the loop learns to keep `ppo.zip` beside each promoted
+  version.
+
 ### Reading v9's games
 
 Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
@@ -434,30 +455,29 @@ reordered it:
 
 ## Open questions and the road ahead
 
-**Two experiments closed, one ceiling.** Capacity (above): a
-`--hidden 256` network climbs the chain faster — 20,000 games worth
-30,000 of the old — and flattens at 32,000 games where the 128 line
-did, level with v10. The US seat (above): the USSR wins three games in
-four between equals because it dominates Asia, the Middle East and
-Europe by turn 3 and the US scores those regions for it; a VP bid in
-training does not move that edge. The lines are `runs/pure` (v5–v10,
-128) and `runs/h256-e4` (v11–v16, 256; its run directory is 4,000
-bid-trained games past v16, unpromoted). What the ceiling is made of
-is the question; capacity and the seat's VP count are the two
-explanations ruled out. Left, in the order the games suggest:
+**Three experiments closed, one ceiling.** Capacity: a `--hidden 256`
+network climbs the chain faster and flattens at 32,000 games where the
+128 line did, level with v10. The US seat: the USSR wins three games in
+four between equals by dominating Asia, the Middle East and Europe by
+turn 3; a VP bid in training does not move that edge, and a terminal
+reward that carries the final VP makes both seats play for the track
+instead of the game. The lines are `runs/pure` (v5–v10, 128) and
+`runs/h256-e4` (v11–v16, 256; the directory is 12,000 experiment games
+past v16, see above). Ruled out as the ceiling: capacity, the seat's VP
+count, the reward's resolution. Left:
 
-1. **The US seat's signal.** Its rows end −1 four times in five, and a
-   terminal ±1 says nothing about *how* the game was lost: a US that
-   holds the USSR to −8 by turn 10 learns the same as one that folds
-   at turn 5. A terminal reward that carries the margin (the final VP,
-   squashed — still zero-sum, still terminal) gives the losing seat a
-   gradient; the "shaping teaches the shaping" objection applies to
-   dense rewards, not to the final score. The cheapest experiment
-   left, and the one aimed at what the games show.
-2. **What the network sees** (item 6): order and recency — the
-   "discarded this turn" location first. The US's turn-1–3 problem is
-   partly a guessing problem about which scoring cards are out.
-3. **A third graph layer** — the least likely lever, given capacity.
+1. **What the network sees** (item 6): order and recency. The US's
+   turn-1–3 problem is partly a guessing problem about which scoring
+   cards are out and what the opponent's Ops plays this turn say about
+   its hand; a "discarded this turn" card location is the cheap half, a
+   sequence feature the other. A layout change: `LAYOUT_VERSION` bumps,
+   a fresh run (v11's recipe, 4 epochs, 8,000 games against v11 as the
+   control — the same shape as the capacity A/B).
+2. **Search on top** (item 5): one-ply expectimax over the learned
+   value, which helps the seat that has to *defend* — the US's early
+   turns are exactly where a lookahead over the opponent's scoring
+   plays pays.
+3. **A third graph layer** — the least likely lever.
 
 A note on epochs: 2 is the default because it matched 4 when
 continuing a trained run; a fresh run wants 4, and the 256 line was
