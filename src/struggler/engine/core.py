@@ -919,7 +919,10 @@ class Engine:
             self._resolve_scoring_card(cid)
             self._file_card(side, cid, fired=True, already_removed_from_hand=True)
         elif self.events_enabled and self._has_event(cid):
-            self._file_card(side, cid, fired=True, already_removed_from_hand=True)
+            # Removed from the game only if the event actually happens: a
+            # headlined NATO before Marshall Plan or Warsaw Pact does nothing
+            # and goes to the discard pile, to be drawn again later.
+            self._file_card(side, cid, fired=self._event_fires(side, cid), already_removed_from_hand=True)
             self._fire_event(side, cid)
         else:
             self._file_card(side, cid, fired=False, already_removed_from_hand=True)
@@ -1123,8 +1126,9 @@ class Engine:
                 self._file_card(side, cid, fired=True)
             elif self.events_enabled and self._has_event(cid):
                 # Playing a card for its (implemented) event: it fires now and
-                # the card leaves play (removed if remove_after_event).
-                self._file_card(side, cid, fired=True)
+                # the card leaves play (removed if remove_after_event and the
+                # event happened; an unmet precondition discards it instead).
+                self._file_card(side, cid, fired=self._event_fires(side, cid))
                 self._fire_event(side, cid)
             else:
                 # An unfired/unimplemented event is a no-op discard.
@@ -1334,6 +1338,12 @@ class Engine:
         if self.turn_effects.get("red_scare") == side.value:
             ops -= 1
         return max(RULES["ops_modifier_min"], min(RULES["ops_modifier_max"], ops))
+
+    def _event_fires(self, side: Side, cid: str) -> bool:
+        """Whether playing `cid` for its event now does anything: an
+        implemented event whose precondition (if any) is met."""
+        ev = EVENTS.get(cid)
+        return ev is not None and ev.eligible(self, side)
 
     def _fire_event(self, side: Side, cid: str) -> None:
         """Resolve `cid`'s event for the phasing `side`. Unimplemented events

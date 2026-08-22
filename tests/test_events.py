@@ -328,6 +328,27 @@ def test_nato_requires_marshall_or_warsaw_first():
     assert engine.game_effects.get("nato") is True
 
 
+def test_ineligible_event_is_discarded_not_removed():
+    # NATO headlined before Marshall Plan or Warsaw Pact: the event does not
+    # happen, and a card whose event did not happen is not removed from the
+    # game (it is a remove-after-event card only once the event occurs).
+    engine = _bare()
+    _headline_setup(engine, "Duck_and_Cover", "NATO")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "NATO"}))
+    assert not engine.game_effects.get("nato")
+    assert "NATO" in engine.discard_pile
+    assert "NATO" not in engine.removed_cards
+    # With the precondition met it fires and is removed as printed.
+    engine = _bare()
+    engine.game_effects["marshall_or_warsaw"] = True
+    _headline_setup(engine, "Duck_and_Cover", "NATO")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "NATO"}))
+    assert engine.game_effects.get("nato") is True
+    assert "NATO" in engine.removed_cards
+
+
 def test_nato_blocks_ussr_coup_and_realign_on_us_europe_only():
     engine = _bare()
     engine.game_effects["marshall_or_warsaw"] = True

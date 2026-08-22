@@ -213,6 +213,12 @@ both clamp the modified value to 1–4 (`ops_modifier_min`/`ops_modifier_max`
 in `rules.json`: a 4-Ops card under Containment is still 4). Cleared at
 end of turn.
 
+**Ineligible events are discarded, not removed.** A remove-after-event
+card leaves the game only when its event actually happens
+(`Engine._event_fires`): NATO headlined or played for its event before
+Marshall Plan or Warsaw Pact does nothing and goes to the discard pile,
+from where a reshuffle can bring it back.
+
 **Persistent game-long legality** (`game_effects`). NATO (eligible only
 after Marshall Plan or Warsaw Pact; the USSR may no longer coup, realign,
 or Brush War US-controlled Europe, via `Engine._nato_protects`), De Gaulle
