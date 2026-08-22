@@ -1256,7 +1256,13 @@ class Engine:
     def _effective_ops(self, side: Side, card: Card) -> int:
         """The card's Ops value for `side` after persistent per-turn modifiers
         (Containment/Brezhnev +1, Red Scare -1). Never below 1."""
-        ops = card.ops
+        return self._modified_ops(side, card.ops)
+
+    def _modified_ops(self, side: Side, ops: int) -> int:
+        """`ops` Operations for `side` after the persistent per-turn modifiers.
+        Applies to a card played for Ops and, per 7.4.3, to an event's "conduct
+        Operations as if they played an N Ops card" (7.4.2 example 3: CIA
+        Created under Containment is 2 Ops)."""
         if self.turn_effects.get("containment") and side is Side.US:
             ops += 1
         if self.turn_effects.get("brezhnev") and side is Side.USSR:
@@ -1530,7 +1536,7 @@ class Engine:
         the spend to Influence/Realignment only (Glasnost, KAL-007's printed
         text names only those two, never Coup)."""
         if ops > 0:
-            self._push_ops_type(side, ops, allow_coup=allow_coup)
+            self._push_ops_type(side, self._modified_ops(side, ops), allow_coup=allow_coup)
 
     def set_defcon(self, level: int, caused_by: Side) -> None:
         """Set DEFCON to `level` (How I Learned to Stop Worrying, ...). Routed

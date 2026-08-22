@@ -166,6 +166,24 @@ def test_containment_boosts_us_ops_only():
     assert engine._effective_ops(Side.USSR, duck) == 3  # opponent unaffected
 
 
+def test_event_granted_ops_take_the_turn_modifiers():
+    # 7.4.2 example 3: "If the US player played Containment earlier in the
+    # turn, he could play CIA Created subsequently and use 2 Ops." Red Scare
+    # cuts Lone Gunman's 1 Op for the USSR to... still 1 (never below 1).
+    engine = _bare()
+    engine._fire_event(Side.US, "Containment")
+    engine._fire_event(Side.US, "CIA_Created")
+    assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
+    assert engine.pending_decision.context["ops"] == 2
+    engine = _bare()
+    engine._fire_event(Side.US, "Red_Scare_Purge")
+    engine._fire_event(Side.US, "Lone_Gunman")
+    assert engine.pending_decision.context["ops"] == 1
+    engine = _bare()
+    engine._fire_event(Side.US, "Lone_Gunman")
+    assert engine.pending_decision.context["ops"] == 1  # no modifier: unchanged
+
+
 def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
     engine = _bare()
     engine._fire_event(Side.US, "Red_Scare_Purge")  # US plays it -> hurts USSR
