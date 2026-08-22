@@ -4493,7 +4493,16 @@
                 }
               }
             ],
+<<<<<<< HEAD
             "context": {}
+=======
+            "context": {
+              "card_ops": 3,
+              "spent": 2,
+              "bonus": null,
+              "non_bonus": null
+            }
+>>>>>>> fix/china-card-vietnam-revolts-stack
           }
         ],
         "winner": null,

@@ -6564,7 +6564,7 @@
               "card_ops": 2,
               "spent": 1,
               "bonus": null,
-              "non_bonus": 0,
+              "non_bonus": null,
               "actor_roll": 5
             }
           }

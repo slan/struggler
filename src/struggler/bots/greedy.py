@@ -207,6 +207,12 @@ def _in_bonus_region(info: CountryInfo, bonus: str | None) -> bool:
     return False
 
 
+def _bonus_ops(info: CountryInfo, bonus: list[str] | None) -> int:
+    """The extra Ops a coup in `info` earns: one per bonus region it is in
+    (the China Card's Asia and Vietnam Revolts' Southeast Asia stack)."""
+    return sum(1 for region in bonus or () if _in_bonus_region(info, region))
+
+
 def _coup_roll_modifier_estimate(observation: Observation, side: Side, info: CountryInfo) -> float:
     mod = 0.0
     te = observation.turn_effects
@@ -323,9 +329,7 @@ def _score_coup_target(weights: GreedyWeights, board: Board, observation: Observ
     info = board.countries[country]
     decision = observation.pending_decision
     ops = decision.context["ops"]
-    bonus = decision.context.get("bonus")
-    if bonus and _in_bonus_region(info, bonus):
-        ops += 1
+    ops += _bonus_ops(info, decision.context.get("bonus"))
 
     if observation.defcon <= 2 and _coup_risks_defcon(observation, side, info):
         return -weights.defcon_self_kill_penalty
@@ -389,7 +393,7 @@ def _best_coup_value(
             continue
         if observation.defcon <= 2 and _coup_risks_defcon(observation, side, info):
             continue
-        target_ops = ops + 1 if bonus and _in_bonus_region(info, bonus) else ops
+        target_ops = ops + _bonus_ops(info, bonus)
         gain = _expected_coup_gain(weights, board, observation, side, cid, info, target_ops)
         if best is None or gain > best:
             best = gain

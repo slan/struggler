@@ -196,9 +196,12 @@ cards, scoring cards included as printed, and redraw as many, via
 War).
 
 **Per-turn regional Ops bonus.** Vietnam Revolts generalizes the China
-Card's all-in-region +1 into a reusable "bonus region" (`_ops_bonus_region`
+Card's all-in-region +1 into a reusable "bonus region" (`_ops_bonus_regions`
 / `_in_bonus_region`): the China Card is `"asia"`, Vietnam Revolts sets a
-turn effect giving USSR plays `"se_asia"`. The extra Realignment attempt is offered inside the bonus region
+turn effect giving USSR plays `"se_asia"`. A play can earn both at once —
+a USSR China Card play kept inside Southeast Asia is 6 Ops, one kept in
+the rest of Asia 5 — each region's +1 on its own all-or-nothing terms
+(`non_bonus` counts the Ops spent outside each region). The extra Realignment attempt is offered inside the bonus region
 only: out of it, the card has no such Op.
 
 **Player-choice influence** (`EVENT_INFLUENCE`). COMECON, Marshall Plan,

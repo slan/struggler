@@ -567,6 +567,45 @@ def test_china_card_bonus_realignment_attempt_is_offered_in_asia_only():
     assert "Mexico" not in offered and "Thailand" in offered
 
 
+def test_china_card_and_vietnam_revolts_bonuses_stack_in_southeast_asia():
+    # The China Card's +1 (all in Asia) and Vietnam Revolts' +1 (all USSR Ops
+    # in Southeast Asia) both apply to a USSR coup in Thailand: 4 + 1 + 1.
+    engine = _bare()
+    engine.turn_effects["vietnam_revolts"] = True
+    engine.board.influence["Thailand"]["US"] = 2
+    engine.board.influence["Japan"]["US"] = 2
+    _play_china_ops(engine, Side.USSR)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "coup"}))
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Thailand"}))
+    assert engine.pending_decision.context["ops"] == 6
+    assert engine.military_ops["USSR"] == 6
+    # Japan is in Asia but not Southeast Asia: the China Card's +1 only.
+    engine = _bare()
+    engine.turn_effects["vietnam_revolts"] = True
+    engine.board.influence["Japan"]["US"] = 2
+    _play_china_ops(engine, Side.USSR)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "coup"}))
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Japan"}))
+    assert engine.pending_decision.context["ops"] == 5
+
+
+def test_china_card_and_vietnam_revolts_stack_for_influence_kept_in_southeast_asia():
+    engine = _bare()
+    engine.turn_effects["vietnam_revolts"] = True
+    engine.board.influence["Vietnam"] = {"US": 0, "USSR": 1}  # reachable: Laos/Cambodia, Thailand...
+    _play_china_ops(engine, Side.USSR)
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
+    placed = 0
+    while engine.pending_decision is not None and engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE:
+        opts = engine.pending_decision.options
+        target = next((a for a in opts if a.payload["country"] == "Laos_Cambodia"), None)
+        if target is None:
+            break
+        engine.step(target)
+        placed += 1
+    assert placed == 6  # 4 Ops + 1 (Asia) + 1 (Southeast Asia), every point in Laos/Cambodia
+
+
 def test_china_card_realignment_bonus_forfeited_by_leaving_asia():
     engine = _bare()
     engine.board.influence["Mexico"]["US"] = 1  # a non-Asian target too
@@ -953,7 +992,7 @@ def test_vietnam_revolts_places_and_grants_se_asia_ops_bonus():
     engine.board.influence["Vietnam"]["USSR"] = 2  # a reachable SE Asia foothold
     engine.hands["USSR"] = ["Socialist_Governments"]  # 3-Ops card
     _play_card_for(engine, Side.USSR, "Socialist_Governments", "ops")
-    assert engine.pending_decision.context["bonus"] == "se_asia"
+    assert engine.pending_decision.context["bonus"] == ["se_asia"]
     engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
 
     def se_asia(opts):
@@ -974,8 +1013,8 @@ def test_region_bonus_does_not_apply_to_us_or_outside_se_asia():
     engine = _bare()
     engine.turn_effects["vietnam_revolts"] = True
     # US plays are unaffected; only the USSR gets the SE Asia bonus.
-    assert engine._ops_bonus_region(Side.US, china=False) is None
-    assert engine._ops_bonus_region(Side.USSR, china=False) == "se_asia"
+    assert engine._ops_bonus_regions(Side.US, china=False) is None
+    assert engine._ops_bonus_regions(Side.USSR, china=False) == ["se_asia"]
 
 
 # -- influence + optional free operation (Junta) -----------------------------
