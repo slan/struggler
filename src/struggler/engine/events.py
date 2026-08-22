@@ -1193,10 +1193,6 @@ def _missile_envy_physical_pick_choice(
     engine.missile_envy_take(taker, choice)
 
 
-def _missile_envy_use_choice(engine: "Engine", taker: Side, choice: str, context: dict) -> None:
-    engine.missile_envy_use(taker, context["card"], choice)
-
-
 # -- Star Wars: take a card from the discard pile and play it immediately -----
 
 
@@ -1710,7 +1706,6 @@ CHOICE_ROUTERS: dict[str, Callable[["Engine", Side, str], None]] = {
     "Grain_Sales_to_Soviets": _grain_sales_choice,
     "Ask_Not_What_Your_Country_Can_Do_For_You": _ask_not_choice,
     "Missile_Envy_pick": _missile_envy_pick_choice,
-    "Missile_Envy_use": _missile_envy_use_choice,
     "Star_Wars": _star_wars_choice,
     "Che": _che_choice,
     "Cuban_Missile_Crisis_defuse": _cuban_missile_crisis_defuse_choice,

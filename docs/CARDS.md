@@ -245,8 +245,10 @@ headline is the only place one is played as an event on its own.
 
 **Take-and-play from a hand or the discard pile.** Missile Envy
 (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops
-card, opponent breaks ties; use it for Ops, or its Event when it is neutral
-or the taker's own; Missile Envy itself passes to the opponent's hand,
+card, opponent breaks ties; the taken card is played at once: as its
+Event when that is the taker's own or applicable to both, for its Ops
+without the event when it is the giver's, and a scoring card scores;
+Missile Envy itself passes to the opponent's hand,
 which must spend its next action round playing it for Ops, via
 `game_effects["missile_envy_forced"]`), Star Wars (`play_card_from_discard`
 — eligible only while the US leads the Space Race; take a non-scoring
