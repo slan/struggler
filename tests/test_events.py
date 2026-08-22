@@ -1361,16 +1361,31 @@ def test_missile_envy_passes_to_opponent_and_takes_top_ops_card():
     assert d.context["ops"] == engine.cards["Fidel"].ops
 
 
-def test_missile_envy_neutral_card_offers_ops_or_event():
+def test_missile_envy_neutral_or_own_card_is_played_as_its_event():
+    # "If the exchanged card contains an event applicable to yourself or
+    # both players, it must be played immediately as an event."
     engine = _bare()
     engine.hands["US"] = []
-    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # NEUTRAL -> taker may choose
+    engine.hands["USSR"] = ["Captured_Nazi_Scientist"]  # NEUTRAL
     engine._fire_event(Side.US, "Missile_Envy")
-    d = engine.pending_decision
-    assert d.kind is DecisionKind.EVENT_CHOICE and d.actor is Side.US
-    assert {a.payload["choice"] for a in d.options} == {"ops", "event"}
-    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "event"}))
-    assert engine.space_race["US"] == 1  # the taken event fired for the US
+    assert engine.space_race["US"] == 1  # fired at once, no Ops-or-Event choice
+    assert "Captured_Nazi_Scientist" in engine.removed_cards
+    engine = _bare()
+    engine.hands["US"] = []
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # the taker's (US) own event
+    engine._fire_event(Side.US, "Missile_Envy")
+    assert engine.defcon == 4  # Duck and Cover fired for the US
+    assert "Duck_and_Cover" in engine.discard_pile
+
+
+def test_missile_envy_scoring_card_scores():
+    engine = _bare()
+    engine.hands["US"] = []
+    engine.hands["USSR"] = ["Asia_Scoring"]
+    engine.board.influence["Japan"] = {"US": 4, "USSR": 0}
+    engine._fire_event(Side.US, "Missile_Envy")
+    assert engine.vp > 0  # scored for the US
+    assert "Asia_Scoring" in engine.discard_pile
 
 
 def test_missile_envy_opponent_breaks_a_tie():
