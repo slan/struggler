@@ -26,9 +26,9 @@ import argparse
 import random
 from typing import Callable
 
-from struggler.engine.types import Side
+from struggler.engine.types import DecisionKind, Side
 from wopr.playdek import ffi, ids, translate as T
-from wopr.playdek.bridge import GRANTED_OPS_PROMPT, UI_ONLY, Bridge, Move, Report
+from wopr.playdek.bridge import CMC_DEFUSE, GRANTED_OPS_PROMPT, UI_ONLY, Bridge, Move, Report
 from wopr.playdek.ffi import SelectionHint
 from wopr.playdek.game import Option, Playdek, Prompt
 
@@ -100,8 +100,10 @@ class Lockstep(Bridge):
                 else "Missile Envy: DLL offers the Space Race for the exchanged card"
             self.known[what] += 1
             prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
-        if (T.uses_offered(prompt) and self.engine.game_effects.get("missile_envy_forced") == side.value
-                and self._last_played[side] == "Missile_Envy" and any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible)):
+        pending = self.engine.pending_decision
+        if (T.uses_offered(prompt) and self._last_played[side] == "Missile_Envy" and pending is not None
+                and pending.kind is DecisionKind.OPS_TYPE and pending.actor is side
+                and any(T.meaning(o).use == T.Use("space_race") for o in prompt.visible)):
             # "The opponent must use the Missile Envy card for Ops": the DLL
             # lets that play go to the Space Race, the engine asks the Ops
             # type straight away. Counted, never picked.
@@ -109,7 +111,9 @@ class Lockstep(Bridge):
             prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).use != T.Use("space_race")))
         if self._un_ops[side] and T.uses_offered(prompt):
             self._un_ops[side] = False
-        if prompt.text == "Remove Cuban Missile Crisis?" and not self.engine.turn_effects.get("cuban_missile_crisis"):
+        pending = self.engine.pending_decision
+        if prompt.text == "Remove Cuban Missile Crisis?" and not (
+                pending is not None and pending.kind is DecisionKind.EVENT_CHOICE and pending.context.get("event") == CMC_DEFUSE):
             # The DLL's crisis outlives the engine's: seen after the USSR played
             # the card for Ops, which fires no event in either program, yet
             # the DLL asked the US to pay its way out of a coup.
@@ -125,12 +129,12 @@ class Lockstep(Bridge):
             self.known["trap step: the DLL lets the trapped seat keep its scoring card, the engine plays it"] += 1
             self.diverge("rules", f"{side.value} is trapped with no 2+-Ops card: the DLL offers to keep the scoring card (Pass), "
                          "the engine played it", fatal=True)
-        drawn = [o for o in prompt.visible if o.hint == SelectionHint.SWITCH_CARD]
-        if drawn and prompt.text.endswith("?") and any(o.hint == SelectionHint.STOP for o in prompt.visible):
+        grain = self.grain_card(prompt)
+        if grain is not None:
             # Grain Sales: "Play <the drawn card>?" / "Return It". The card
             # never leaves the USSR hand when returned, so the engine's
             # RANDOM_DISCARD is answered from here, and its take/return too.
-            self._grain = (ids.card_id(drawn[0].selection_id), option.hint == SelectionHint.SWITCH_CARD)
+            self._grain = (grain, option.hint != SelectionHint.STOP)
         if m.meaning is T.Meaning.UNKNOWN:
             self.diverge("unknown option", f"{prompt.text!r} -> {option.text!r} hint={option.hint:#x} id={option.selection_id} "
                          f"among {[(o.text, f'{o.hint:#x}', o.selection_id) for o in prompt.visible][:10]}")

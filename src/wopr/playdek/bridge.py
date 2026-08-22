@@ -286,8 +286,14 @@ class Bridge:
                 return
             was = self.card_loc.get(card)
             self.card_loc[card] = loc
-            if was == int(ffi.ECardLocation.DISCARDED) and loc == int(ffi.ECardLocation.DECK):
-                self.reshuffled = True  # the DLL's discards are back in its deck: the engine's hidden pool must follow (`RESHUFFLE_NOW`)
+            if was == int(ffi.ECardLocation.DISCARDED) and loc == int(ffi.ECardLocation.DECK) and not self.reshuffled:
+                # The DLL's discards are back in its deck (its deck runs out
+                # sooner than the engine's bookkeeping expects, docs/BOTS.md):
+                # the engine's discard pile joins its hidden pool at once --
+                # the visible side's deal needs it before the headline, where
+                # `RESHUFFLE_NOW` would otherwise do the same.
+                self.reshuffled = True
+                self.engine._reshuffle_discard_into_draw()
             for side, hand in HAND_LOCATION.items():
                 if loc == hand and was in (None, int(ffi.ECardLocation.DECK)):
                     self._dealt[side].add(card)
@@ -371,7 +377,7 @@ class Bridge:
             # (it reshuffled by itself): nothing to fold, the flag lapses.
             self.reshuffled = False
             again = next((a for a in d.options if a.payload["card"] == RESHUFFLE_NOW), None)
-            if again is not None:
+            if again is not None and self.engine.discard_pile:
                 return again
         side = d.actor
         q = self.moves[side]
@@ -417,7 +423,7 @@ class Bridge:
             # side's action rounds; the DLL lists it among the action round's
             # cards ("Remove 2 Influence from West Germany"). A card play
             # next means it was declined, and stays queued for the round.
-            if mv.option.hint == SelectionHint.CMC_DEFUSE and m.meaning is T.Meaning.COUNTRY:
+            if mv.option.hint in (SelectionHint.CMC_DEFUSE, SelectionHint.CMC_DEFUSE_AT_COUP) and m.meaning is T.Meaning.COUNTRY:
                 q.popleft()
                 return self._pick(d, lambda a: a.payload.get("choice") == m.country, f"defuse in {m.country}")
             return self._pick(d, lambda a: a.payload.get("choice") == "skip", "skip defusing")

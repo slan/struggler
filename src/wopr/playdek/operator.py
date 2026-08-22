@@ -136,6 +136,7 @@ class PlaydekOperator(Bridge):
         self._revealed: list[str] = []  # cards shown out of a hand (Grain Sales' draw, CIA Created's hand)
         self._first: tuple[tuple, Option] | None = None  # hotseat: the DLL re-asks the very first prompt and drops the first answer
         self.play_log: list[int] = []  # seq of every card entering the resolve slot: the boundaries between actions
+        self._synced_move_seq = 0  # the card-move count when the two states last agreed at rest
         self._last_action: tuple[Decision, Action] | None = None  # the bot's latest, not yet applied by the engine when `flush` runs
         self._simulating = 0
 
@@ -216,7 +217,8 @@ class PlaydekOperator(Bridge):
         have not been accounted for, latest first (not consumed)."""
         piles = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
         gone = sorted(((seq, c) for c, (was, now, seq) in self._last_moves.items()
-                       if was == HAND_LOCATION[owner] and now in piles and c not in self._plays_seen and c != self._headlined), reverse=True)
+                       if was == HAND_LOCATION[owner] and now in piles and c not in self._plays_seen and c != self._headlined
+                       and seq > self._synced_move_seq), reverse=True)
         return [c for _, c in gone]
 
     def last_hand_of(self, card: str) -> Side | None:
@@ -457,8 +459,11 @@ class PlaydekOperator(Bridge):
                 card = max(taken)[1]
                 del self._last_moves[card]
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"took back {card}")
-            # Discard a card or decline (Blockade): the card that left the hand.
-            card = self.card_that_left(self.other, set(choices))
+            # Discard a card or decline (Blockade): the card that left the hand
+            # -- the bot's own when the choices are its cards (Aldrich Ames
+            # Remix: the USSR names a US card).
+            owner = self.side if set(choices) & set(self.engine.hands[self.side.value]) else self.other
+            card = self.card_that_left(owner, set(choices))
             if card is not None:
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"choice {card}")
             # A card the DLL let it discard that the engine does not offer
@@ -560,6 +565,8 @@ class PlaydekOperator(Bridge):
             self.mark_setup_done()
         if d.kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY) and not self.outgoing and not self.moves[self.other]:
             self.compare_state()
+            if self.synced_seq == self._seq:
+                self._synced_move_seq = self._move_seq  # card moves before this are accounted for (a Five Year Plan discard long ago is not "a card the DLL let it discard")
 
     def narrow(self, d: Decision) -> Decision:
         """`d` with its options cut down to those the DLL offers for the

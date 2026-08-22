@@ -421,6 +421,7 @@ class SelectionHint(IntEnum):
     TRAP_PASS = 0xA09C  # "Pass" in "You May Play a Scoring Card": a trapped seat with no 2+-Ops card keeps its scoring card
     FORCED_DISCARD_BLANK = 0xA09F  # the entry labelled "TRAP" (selectionID 0) beside them: selecting it re-asks the prompt
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")
+    CMC_DEFUSE_AT_COUP = 0xA038  # "Remove 2 Influence from <country>" in "Remove Cuban Missile Crisis?", asked of the banned side before its coup target (selectionID the country index)
     CMC_DEFUSE = 0xA0AA  # "Remove 2 Influence from <country>" in "Play Your Action Round" (Cuban Missile Crisis; selectionID 250 + the country index)
     EVENT_CHOICE_YES = 0xA0F0  # "Participate in Olympic Games?" -> Participate
     EVENT_CHOICE_NO = 0xA0F1  # -> Boycott
