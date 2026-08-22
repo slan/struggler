@@ -469,7 +469,7 @@ The pure parts exist:
   are Playdek-only (promos 121–128, Turn Zero 129–146, the AI's Ops
   proxies 201–204).
 - `translate.py` — what an option *means* (`Meaning.CARD / USE / COUNTRY
-  / CHOICE`, plus the UI-only `CANCEL` and `SWITCH_CARD`), the struggler
+  / CHOICE`, plus the UI-only `CANCEL`, `SWITCH_CARD` and `BLANK`), the struggler
   actions a "use" option stands for (one Playdek "Place Influence" is
   `PLAY_MODE` ops + `OPS_TYPE` influence, with `EVENT_OPS_ORDER` in
   between on an opponent's card — "Resolve Event First" is its own
@@ -495,10 +495,28 @@ choice; state (influence, DEFCON, VP, mil ops, hand sizes) whenever both
 sides are between actions — the two engines apply the same action at
 different moments, so comparing mid-action only measures that.
 Everything else it learned about the DLL's protocol is in its comments:
-records are emitted twice (preview and commit), the first hotseat prompt
-is re-asked once, turn-2+ headline prompts arrive under the local seat's
-id whoever is picking (the cards say whose hand), and the `*_player_index`
-of roll records is the seat's id.
+the first hotseat prompt is re-asked once, turn-2+ headline prompts
+arrive under the local seat's id whoever is picking (the cards say whose
+hand), and the `*_player_index` of roll records is the seat's id. Two
+that cost a wrong diagnosis each:
+
+- **Records are emitted twice, and the second time is late.** Each choice
+  emits its records as it is made (the preview); when the action is
+  committed the DLL re-emits *every* record since the previous commit,
+  verbatim and in order — and the commit is the next action boundary,
+  so a headline's realignment rolls are replayed only after the first
+  action round's own records, pumps after the engine consumed the
+  originals. Absolute state (`COUNTRY_INFLUENCE`, `CARD_LOCATION`) is
+  idempotent under this; roll records are not, so `_absorb` keeps a FIFO
+  of un-replayed roll records and drops a record equal to its head.
+  Deduplicating within one pump only (the first version) re-queued the
+  replay of a multi-roll action and fed the next realignment on the same
+  country stale dice.
+- **A yes/no event choice lists a third, blank entry** (`selectionHint`
+  `0xA0FF`, `selectionID` the card, `isHidden` *false*, empty label)
+  beside "Participate"/"Boycott". Selecting it makes the DLL skip the
+  event altogether — no roll, no DEFCON change — which the app's UI never
+  offers; `translate` calls it `Meaning.BLANK` and no policy picks it.
 
 Findings from the first four random games, and what became of each:
 
@@ -509,34 +527,66 @@ Findings from the first four random games, and what became of each:
   hand and `_end_of_turn` decides); realignment could not stop after
   the first attempt (now `{"country": "stop"}`); the Chinese Civil War
   space was a country of the standard game (now a variant-only space
-  behind `Engine.new_game(variants=...)`, the layout unchanged).
+  behind `Engine.new_game(variants=...)`, the layout unchanged);
+  Containment/Brezhnev Doctrine took a 4-Ops card to 5 (the cards say
+  "to a maximum of 4" — `fix/ops-modifier-cap`; seed 2's "extra
+  `PLACE_INFLUENCE`" was NATO under Containment); Five Year Plan fired a
+  discarded *USSR* event and discarded a US one, the reverse of the card
+  (`fix/five-year-plan-us-event`; seed 3's DEFCON/VP drift after the
+  discard of Duck and Cover).
 - **Documented, DLL-stricter**: De-Stalinization will not relocate
   influence back into a country it was just removed from; the card
   text has no such clause, so the engine allows it. The harness counts
   it under `known`.
 - **Harness false alarms, removed**: "Done Removing" / "Do Not Relocate"
   / "Do Not Discard" — the engine had those choices all along.
-- **Open** (`python -m wopr.playdek.lockstep --games 4 --seed 1 --trace`
-  reproduces all three; seeds are the game number + 1):
-  - seed 1, turn 1 AR 3: a US realignment on Cameroon (USSR 1 / US 0,
-    DLL rolls USSR 6 / US 5, no neighbour controlled) removed the USSR
-    influence in the DLL but not in the engine. Either the `REALIGNMENT`
-    record's roll fields are not (USSR die, US die) or a modifier
-    differs. The Japan realignment earlier in the same game agreed with
-    the fields read that way. More samples needed.
-  - seed 2, end of turn 1: the engine still asks the US for its last
-    `PLACE_INFLUENCE` (`ops_remaining` 1) when the DLL has moved on to
-    the turn-2 headlines — the DLL did not ask "Place 1 More Influence".
-    Either the DLL ends a placement with an unspendable point, or the Op
-    counts differ (a bonus?).
-  - seed 3, turn 3 AR 6: a random discard reveals the two engines'
-    idea of a hand had diverged (engine: `[Duck_and_Cover]`; the DLL
-    discarded Decolonization from it). Hand sizes are only compared
-    between actions; compare hand *contents* for the non-physical side
-    (the DLL's `card_loc`) at every sync to find where they part.
-  - Defectors played event-first (the engine fires nothing, by design)
-    and either/or choices matched by label words are reported, not
-    resolved; the word match has been right every time so far.
+- **Harness bugs, fixed** (the three "open" items of the first pass,
+  `--games 4 --seed 1`, all turned out to be the harness): the
+  realignment whose outcome "differed" (seed 1) had been given stale
+  dice — the replay of an earlier multi-roll action, re-queued because
+  the dedup only looked within one pump (the `REALIGNMENT` fields *are*
+  `USSR_roll_result`/`US_roll_result`, checked against ten realignments
+  with their before/after influence); the "diverged hand" (seed 3) was
+  `RANDOM_DISCARD` picking the *first* card whose latest move was
+  hand→discard, which after a few action rounds is some card played
+  long ago — it now takes the latest such move among the cards the
+  engine offers, and `compare_state` also diffs the visible hand's
+  contents, card by card, at every action-round sync, so a real hand
+  divergence would show at once; and the blank yes/no entry above,
+  which a random policy picked one game in two. Eight more seeds
+  (`--games 8 --seed 5`) added: Olympic Games' `EFFECT_ROLL` is
+  (USSR die, US die), not (sponsor, defender) — the engine's
+  `CONTEST_ROLL` context says who sponsors, the bridge maps; Summit's
+  "Improve / Degrade / Pass" (hints `0xA073/71/72`) carry an explicit
+  `raise/lower/none` because no label word matches; and UN Intervention,
+  which Playdek plays as its own card ("Play Event", then "Select
+  Opponent Event Card to Play", hint `0xA012`) where the engine plays
+  the opponent's card with mode `un_intervention` — the bridge looks
+  two moves ahead. State is compared only when no translated move is
+  still queued (the lookahead made the engine wait at a card prompt the
+  DLL had already answered).
+- **Reported, not resolved**: Defectors played event-first (the engine
+  fires nothing, by design) and either/or choices matched by label
+  words; the word match has been right every time so far.
+- **Open** (seeds as above; `--games 8 --seed 5` reproduces):
+  - seed 5, turn 2 AR 3: CIA Created under Containment. The DLL gives
+    the US *two* points for its "conduct Operations as if they played a
+    1 Op card" (and offers USSR-controlled Romania/Syria at 2 each);
+    `push_event_operations` passes a raw 1. The Steam forum's reading
+    of the FAQ is the DLL's (the 1 Op card is under Containment/Brezhnev
+    /Red Scare like any other — it can even be spaced then). Probably an
+    engine fix: route event-granted "as if N Ops" through
+    `_effective_ops`, which also settles Lone Gunman and ABM Treaty.
+    Not done here — confirm against the printed FAQ first.
+  - seeds 9 and 10: an opponent's card played "Resolve Event First"
+    (Defectors by the USSR, COMECON by the US) leaves the engine waiting
+    (a `DEAL_CARD` it cannot fill at turn 2; an `OPS_TYPE` the DLL never
+    asked). The bridge's "event order" shortcut assumes the event
+    fizzled; what the DLL does after an event-first resolution needs a
+    trace.
+- Nine of the twelve random games run to the end with nothing but the
+  known De-Stalinization difference, the held-scoring-card ends the
+  engine cannot see, and the word-matched choices.
 
 Then the `PlaydekOperator` for Joshua and the eval.
 

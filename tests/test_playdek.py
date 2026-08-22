@@ -170,6 +170,34 @@ def test_translate_card_use_options():
         T.find_use(prompt, mode="un_intervention")
 
 
+def test_translate_yes_no_choice_and_its_blank_entry():
+    import random
+
+    from wopr.playdek import translate as T
+    from wopr.playdek.ffi import SelectionHint as H
+    from wopr.playdek.lockstep import random_policy
+
+    # As the DLL lists it: the two answers, then an unlabelled entry carrying
+    # the card's id that is *not* flagged hidden. Selecting that one skips the
+    # event, so it is UI-only and the random policy must never pick it.
+    prompt = _prompt("Participate in Olympic Games?", [(0, H.EVENT_CHOICE_YES, "Participate"), (0, H.EVENT_CHOICE_NO, "Boycott"), (120, H.EVENT_CHOICE_BLANK, "")])
+    assert [T.meaning(o).meaning for o in prompt.options] == [T.Meaning.CHOICE, T.Meaning.CHOICE, T.Meaning.BLANK]
+    picks = {random_policy(random.Random(seed))(prompt).text for seed in range(50)}
+    assert picks == {"Participate", "Boycott"}
+
+
+def test_translate_summit_and_contest_rolls():
+    from wopr.playdek import translate as T
+    from wopr.playdek.ffi import EventType, SelectionHint as H
+    from wopr.playdek.game import GameEvent
+
+    prompt = _prompt("You May Adjust DEFCON Level", [(145, H.DEFCON_IMPROVE, "Improve DEFCON Level"), (145, H.DEFCON_DEGRADE, "Degrade DEFCON Level"), (145, H.DEFCON_PASS, "Pass")])
+    assert [T.meaning(o).choice for o in prompt.options] == ["raise", "lower", "none"]
+    # Olympic Games: one die per side; the sponsor is the bridge's to say.
+    rolls = T.rolls_from_event(GameEvent(EventType.EFFECT_ROLL, (120, 2, 0, 4, 2)), {})
+    assert [(r.kind, r.side, r.payload) for r in rolls] == [(DecisionKind.CONTEST_ROLL, Side.USSR, {"value": 2}), (DecisionKind.CONTEST_ROLL, Side.US, {"value": 4})]
+
+
 def test_translate_cards_countries_and_fallback_labels():
     from wopr.playdek import translate as T
     from wopr.playdek.ffi import SelectionHint as H

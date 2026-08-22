@@ -36,6 +36,7 @@ class Meaning(Enum):
     STOP = auto()  # end an optional repetition early ("No More Realignment")
     CANCEL = auto()  # Playdek UI: back out; no struggler equivalent
     SWITCH_CARD = auto()  # Playdek UI: pick a different card instead; no struggler equivalent
+    BLANK = auto()  # Playdek UI: the unlabelled entry beside an event's yes/no; selecting it skips the event -- never do
     UNKNOWN = auto()
 
 
@@ -64,7 +65,12 @@ _COUNTRY_HINTS = {
     SelectionHint.RELOCATE_FROM_COUNTRY,
     SelectionHint.WAR_COUNTRY,
 }
-_CARD_HINTS = {SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD}
+# Either/or answers with a fixed struggler spelling (the rest are matched by label words).
+_CHOICES = {SelectionHint.DEFCON_IMPROVE: "raise", SelectionHint.DEFCON_DEGRADE: "lower", SelectionHint.DEFCON_PASS: "none"}
+_CARD_HINTS = {
+    SelectionHint.HEADLINE_CARD, SelectionHint.PLAY_CARD, SelectionHint.PLAY_SCORING_CARD, SelectionHint.PLAY_OPPONENT_CARD,
+    SelectionHint.DISCARD_CARD, SelectionHint.FORCED_DISCARD_CARD,
+}
 _COUNTRY_BY_NAME = {name: i + 1 for i, name in enumerate(ids.PLAYDEK_COUNTRIES)}
 _LABEL_COUNTRY = re.compile(r" in (.+)$")
 
@@ -75,6 +81,7 @@ class OptionMeaning:
     card: str | None = None  # struggler card id
     country: str | None = None  # struggler country id
     use: Use | None = None
+    choice: str | None = None  # the engine's spelling of an either/or answer, when the hint fixes it
     label: str = ""
 
 
@@ -86,14 +93,18 @@ def meaning(option: Option) -> OptionMeaning:
         return OptionMeaning(Meaning.STOP, label=option.text)
     if hint == SelectionHint.SWITCH_CARD:
         return OptionMeaning(Meaning.SWITCH_CARD, label=option.text)
+    if hint == SelectionHint.EVENT_CHOICE_BLANK:
+        return OptionMeaning(Meaning.BLANK, label=option.text)
     if hint in _CARD_HINTS:
         return OptionMeaning(Meaning.CARD, card=ids.card_id(option.selection_id), label=option.text)
     if hint in _USES:
         return OptionMeaning(Meaning.USE, use=_USES[hint], label=option.text)
     if hint in _COUNTRY_HINTS:
         return OptionMeaning(Meaning.COUNTRY, country=ids.country_id(option.selection_id), label=option.text)
-    if hint in (SelectionHint.EVENT_CHOICE, SelectionHint.EVENT_CHOICE_HIDDEN, SelectionHint.EVENT_CHOICE_YESNO):
+    if hint in (SelectionHint.EVENT_CHOICE, SelectionHint.EVENT_CHOICE_YES, SelectionHint.EVENT_CHOICE_NO):
         return OptionMeaning(Meaning.CHOICE, label=option.text)
+    if hint in _CHOICES:
+        return OptionMeaning(Meaning.CHOICE, choice=_CHOICES[hint], label=option.text)
     # Unknown hint: a country named in the label is still a country target
     # ("Coup in Poland", "Attempt Realignment in Iran").
     m = _LABEL_COUNTRY.search(option.text)
@@ -194,9 +205,12 @@ def rolls_from_event(event: GameEvent, side_of: dict[int, Side]) -> list[Roll]:
     if event.kind == EventType.TRAP_ROLL:
         return [Roll(DecisionKind.QUAGMIRE_ROLL, {"value": f["roll"]})]
     if event.kind == EventType.EFFECT_ROLL:
-        # A two-sided contest (Olympic Games): the card's sponsor vs the other side.
+        # A two-sided contest (Olympic Games): one die per side, the modifiers
+        # (`ussr_modify`/`usa_modify`) already known to the engine. Which side
+        # is the sponsor is the bridge's to say (the engine's CONTEST_ROLL
+        # context names it); the record does not.
         return [
-            Roll(DecisionKind.CONTEST_ROLL, {"sponsor_roll": f["ussr_roll"]}, side=Side.USSR),
-            Roll(DecisionKind.CONTEST_ROLL, {"defender_roll": f["usa_roll"]}, side=Side.US),
+            Roll(DecisionKind.CONTEST_ROLL, {"value": f["ussr_roll"]}, side=Side.USSR),
+            Roll(DecisionKind.CONTEST_ROLL, {"value": f["usa_roll"]}, side=Side.US),
         ]
     return []

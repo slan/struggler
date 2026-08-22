@@ -398,6 +398,7 @@ class SelectionHint(IntEnum):
     CANCEL = 0xA001
     PLAY_CARD = 0xA010  # "Play <card>" in "Play Your Action Round"
     PLAY_SCORING_CARD = 0xA011  # the same for a scoring card (also "Headline <scoring card>")
+    PLAY_OPPONENT_CARD = 0xA012  # "Play <card>" in "Select Opponent Event Card to Play" (UN Intervention's event)
     SWITCH_CARD = 0xA013  # "Play <card>" offered again inside "Select Use For Event Card"
     HEADLINE_CARD = 0xA020
     PLAY_EVENT = 0xA021
@@ -411,11 +412,15 @@ class SelectionHint(IntEnum):
     OPS_COUP = 0xA050
     WAR_COUNTRY = 0xA052  # "War in <country>" (Indo-Pakistani War)
     OPS_SPACE_RACE = 0xA060
+    DEFCON_DEGRADE = 0xA071  # Summit: "You May Adjust DEFCON Level" -> Degrade / Pass / Improve
+    DEFCON_PASS = 0xA072
+    DEFCON_IMPROVE = 0xA073
     DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)
     FORCED_DISCARD_CARD = 0xA09A  # "Discard <card>" when a discard is required (Bear Trap / Quagmire)
     EVENT_CHOICE = 0xA0A0  # an event's either/or ("Choose for Eastern Europe:")
-    EVENT_CHOICE_YESNO = 0xA0F1  # "Participate in Olympic Games?" -> Participate / Boycott
-    EVENT_CHOICE_HIDDEN = 0xA0FF  # the blank hidden entry that accompanies it
+    EVENT_CHOICE_YES = 0xA0F0  # "Participate in Olympic Games?" -> Participate
+    EVENT_CHOICE_NO = 0xA0F1  # -> Boycott
+    EVENT_CHOICE_BLANK = 0xA0FF  # the blank entry (selectionID = the card) beside them: selecting it skips the event
 
 
 def payload_fields(kind: int) -> list[str] | None:

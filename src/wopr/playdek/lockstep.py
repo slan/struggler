@@ -46,6 +46,8 @@ COUNTRY_KINDS = {
     DecisionKind.REALIGNMENT_TARGET, DecisionKind.WAR_TARGET,
 }
 CHINA = "The_China_Card"
+UN = "UN_Intervention"
+UI_ONLY = {T.Meaning.CANCEL, T.Meaning.SWITCH_CARD, T.Meaning.BLANK}  # never a move; the policy never picks them
 
 Policy = Callable[[Prompt], Option]
 
@@ -90,7 +92,7 @@ class Report:
 
 def random_policy(rng: random.Random) -> Policy:
     def pick(prompt: Prompt) -> Option:
-        playable = [o for o in prompt.visible if T.meaning(o).meaning not in (T.Meaning.CANCEL, T.Meaning.SWITCH_CARD)]
+        playable = [o for o in prompt.visible if T.meaning(o).meaning not in UI_ONLY]
         return rng.choice(playable or list(prompt.visible))
 
     return pick
@@ -110,7 +112,8 @@ class Lockstep:
         self.rolls: collections.deque[T.Roll] = collections.deque()
         self.influence: dict[str, tuple[int, int]] = {}  # country -> (ussr, us) per the DLL
         self.card_loc: dict[str, int] = {}  # card -> ECardLocation per the DLL
-        self._last_moves: dict[str, tuple[int, int]] = {}  # card -> (from, to) of its latest move
+        self._last_moves: dict[str, tuple[int, int, int]] = {}  # card -> (from, to, sequence no.) of its latest move
+        self._move_seq = 0
         self.defcon = 5
         self.vp = 0
         self.milops = (0, 0)
@@ -119,9 +122,13 @@ class Lockstep:
         self._last_prompt: Prompt | None = None
         self._held_first: Move | None = None
         self._last_played: dict[Side, str | None] = {Side.USSR: None, Side.US: None}
+        self._forced_mode: dict[Side, str | None] = {Side.USSR: None, Side.US: None}  # the next PLAY_MODE, when a lookahead settled it
         self._sides_by_player = self.game.sides  # player id -> Side
         self._index_side = dict(self.game.sides)  # the "player index" of roll events is the seat's id
-        self._seen_this_pump: list[GameEvent] = []
+        # Roll records the DLL has emitted once and will emit again: it
+        # re-emits a whole action's records, verbatim and in order, when the
+        # action is committed (see `_absorb`).
+        self._replay: collections.deque[GameEvent] = collections.deque()
         self._last_state_diff = ""
         self.known: collections.Counter[str] = collections.Counter()
 
@@ -168,23 +175,33 @@ class Lockstep:
             was = self.card_loc.get(card)
             self.card_loc[card] = loc
             if was is not None and was != loc:
-                self._last_moves[card] = (was, loc)
+                self._move_seq += 1
+                self._last_moves[card] = (was, loc, self._move_seq)
             if self.trace and was != loc:
                 print(f"  EV  card {card}: {ffi.ECardLocation(was).name if was is not None else '?'} -> {ffi.ECardLocation(loc).name}")
         else:
-            if ev in self._seen_this_pump:
-                return  # the DLL emits an action's records twice (preview, then commit), roll histories included
             rolls = T.rolls_from_event(ev, self._index_side)
-            if rolls:
-                self._seen_this_pump.append(ev)
-                if self.trace:
-                    print(f"  EV  {ev}")
-                self.rolls.extend(rolls)
+            if not rolls:
+                return
+            # The DLL emits an action's records twice: once as each choice
+            # is made (the preview) and again, verbatim and in order, when
+            # the action is committed -- which is at the next action
+            # boundary, so the re-emission may arrive pumps later, after the
+            # engine has consumed the originals (a headline's realignments
+            # are replayed after the first action round's). Roll records
+            # are matched off a FIFO: the oldest un-replayed one equal to
+            # this record is its replay, anything else is a new roll.
+            if self._replay and self._replay[0] == ev:
+                self._replay.popleft()
+                return
+            self._replay.append(ev)
+            if self.trace:
+                print(f"  EV  {ev}")
+            self.rolls.extend(rolls)
 
     def advance_playdek(self) -> bool:
         """Let the policy answer one DLL prompt; queue what it implies.
         Returns False when the DLL's game is over."""
-        self._seen_this_pump = []
         prompt = self.game.pump(idle_limit=30)
         self._absorb_events()
         # Both engines at rest: the DLL has applied the previous choice and
@@ -193,8 +210,8 @@ class Lockstep:
         self.drain_engine()
         if prompt is None:
             return False
-        if T.cards_offered(prompt):
-            self.compare_state()  # both sides between actions: the DLL asks for a card, the engine too
+        if T.cards_offered(prompt) and not any(self.moves.values()):
+            self.compare_state()  # both sides between actions: the DLL asks for a card, the engine too, nothing queued between them
         if self._held_first is not None:
             # The DLL re-asks the very first hotseat prompt and drops the first
             # answer: only queue it once the next prompt proves it was taken.
@@ -217,7 +234,7 @@ class Lockstep:
         if m.meaning is T.Meaning.UNKNOWN:
             self.diverge("unknown option", f"{prompt.text!r} -> {option.text!r} hint={option.hint:#x}")
         move = Move(side, prompt, option, m)
-        if m.meaning in (T.Meaning.CANCEL, T.Meaning.SWITCH_CARD):
+        if m.meaning in UI_ONLY:
             pass  # UI steps ("continue with this card" after an event-first resolution): nothing for the engine
         elif self.report.prompts == 1:
             self._held_first = move
@@ -252,6 +269,17 @@ class Lockstep:
                     self.diverge("illegal in engine", f"deal {sorted(missing)} to {side.value}: not in the engine's hidden pool", fatal=True)
                     return d.options[0]
                 return offered[0]
+            if d.kind is DecisionKind.CONTEST_ROLL:
+                # One die per side; the engine asks the sponsor's first, then
+                # the defender's, and says who sponsors.
+                key = next(k for k in ("sponsor_roll", "defender_roll") if k in d.options[0].payload)
+                sponsor = Side(d.context["sponsor"])
+                want = sponsor if key == "sponsor_roll" else sponsor.opponent
+                roll = next((r for r in self.rolls if r.kind is d.kind and r.side is want), None)
+                if roll is None:
+                    return None
+                self.rolls.remove(roll)
+                return self._pick(d, lambda a: a.payload.get(key) == roll.payload["value"], f"roll {roll}")
             if d.kind in ROLL_KINDS:
                 country = d.context.get("country")
                 roll = next((r for r in self.rolls if r.kind is d.kind and (country is None or r.country in (None, country))), None)
@@ -261,15 +289,19 @@ class Lockstep:
                 key = next(iter(roll.payload))
                 return self._pick(d, lambda a: a.payload.get(key) == roll.payload[key], f"roll {roll}")
             if d.kind is DecisionKind.RANDOM_DISCARD:
-                # The DLL drew the card: it is the one that just left that hand
-                # for the discard pile.
+                # The DLL drew the card: the latest one to leave that hand for
+                # the discard (or removed) pile that the engine still has
+                # there. Cards played from the hand leave it the same way,
+                # hence "latest" and "still offered".
                 owner = Side(d.context["owner"])
                 hand_loc = int(ffi.ECardLocation.USSRHAND if owner is Side.USSR else ffi.ECardLocation.USHAND)
-                gone = [c for c, (was, now) in self._last_moves.items()
-                        if was == hand_loc and now == int(ffi.ECardLocation.DISCARDED)]
+                piles = (int(ffi.ECardLocation.DISCARDED), int(ffi.ECardLocation.REMOVED))
+                offered = {a.payload["card"] for a in d.options}
+                gone = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
+                        if was == hand_loc and now in piles and c in offered]
                 if not gone:
                     return None
-                card = gone[0]
+                card = max(gone)[1]
                 del self._last_moves[card]
                 return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card}")
             self.diverge("unsupported", f"CHANCE {d.kind.value}", fatal=True)
@@ -289,10 +321,32 @@ class Lockstep:
             if d.kind is DecisionKind.EVENT_CHOICE:  # "Done Removing" / "Do Not Discard": the choice that is not a card or country
                 return self._pick(d, lambda a: a.payload.get("choice") not in ids.NUMBER_BY_CARD and a.payload.get("choice") not in ids.INDEX_BY_COUNTRY, "decline")
             return self._pick(d, lambda a: a.payload.get("country") == "stop", "stop")
+        if d.kind is DecisionKind.ACTION_ROUND_PLAY and m.meaning is T.Meaning.CARD and m.card == UN:
+            # Playdek plays UN Intervention itself ("Play Event", then "Select
+            # Opponent Event Card to Play"); the engine plays the opponent's
+            # card with mode "un_intervention". Look ahead to the use, and
+            # to the card if the use is the event.
+            if len(q) < 2:
+                return None
+            use = q[1].meaning
+            if use.meaning is T.Meaning.USE and use.use.mode == "event":
+                if len(q) < 3:
+                    return None
+                target = q[2].meaning
+                if target.meaning is not T.Meaning.CARD:
+                    self.diverge("decision mismatch", f"UN Intervention's event: expected the opponent's card, Playdek's move is {q[2].prompt.text!r} -> {q[2].option.text!r}", fatal=True)
+                    return d.options[0]
+                q.popleft(), q.popleft(), q.popleft()
+                self._check_cards(d, mv)
+                self._forced_mode[side] = "un_intervention"
+                return self._pick(d, lambda a: a.payload["card"] == target.card, f"card {target.card} (UN Intervention)")
         if d.kind in CARD_KINDS and m.meaning is T.Meaning.CARD:
             q.popleft()
             self._check_cards(d, mv)
             return self._pick(d, lambda a: a.payload["card"] == m.card, f"card {m.card}")
+        if d.kind is DecisionKind.PLAY_MODE and self._forced_mode[side] is not None:
+            mode, self._forced_mode[side] = self._forced_mode[side], None
+            return self._pick(d, lambda a: a.payload["mode"] == mode, f"mode {mode}")
         if d.kind in COUNTRY_KINDS and m.meaning is T.Meaning.COUNTRY:
             q.popleft()
             self._check_countries(d, mv)
@@ -354,6 +408,8 @@ class Lockstep:
         return d.options[0]
 
     def _pick_choice(self, d: Decision, mv: Move) -> Action:
+        if mv.meaning.choice is not None:
+            return self._pick(d, lambda a: a.payload.get("choice") == mv.meaning.choice, f"choice {mv.meaning.choice}")
         # No shared vocabulary for an event's either/or: match the option
         # whose payload shares the most words with Playdek's label.
         words = set(mv.option.text.lower().split())
@@ -411,7 +467,14 @@ class Lockstep:
                 pd_count = self.game.hand_count(0 if side is Side.US else 1)  # LOCAL_ID 0 is US in hotseat
                 mine = len(e.hands[side.value])
                 if pd_count != mine:
-                    diffs.append(f"{side.value} hand size Playdek {pd_count}, engine {mine}")
+                    diffs.append(f"{side.value} hand size Playdek {pd_count}, engine {mine} {sorted(e.hands[side.value])}")
+                if side is not e.physical_side:
+                    # The hand the engine can see: its contents, card by card.
+                    hand_loc = int(ffi.ECardLocation.USSRHAND if side is Side.USSR else ffi.ECardLocation.USHAND)
+                    theirs = {c for c, loc in self.card_loc.items() if loc == hand_loc} - {CHINA}
+                    ours = set(e.hands[side.value]) - {CHINA}
+                    if theirs != ours:
+                        diffs.append(f"{side.value} hand: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")
         text = "; ".join(diffs)
         if diffs and text != self._last_state_diff:
             self.diverge("state", f"turn {e.turn} AR {e.action_round}: " + text)
