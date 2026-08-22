@@ -227,6 +227,19 @@ class PlaydekOperator(Bridge):
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.USE, use=use, label=f"{hint:#x}"), f"use {use}"))
         return True
 
+    def _answer_hidden_hand(self, d: Decision) -> Action | None:
+        action = super()._answer_hidden_hand(d)
+        if action is None and d.context.get("event") == "Missile_Envy_physical_pick":
+            # The card the AI gave is pushed into the resolve slot as "fired"
+            # the moment it is exchanged; its move out of the hand is reported
+            # only once its event is done asking (SALT's recovery).
+            offered = {a.payload["choice"] for a in d.options}
+            card = next((c for c in reversed(self._fired) if c in offered and self._taken.get(c) is self.engine.physical_side), None)
+            if card is not None:
+                self._fired.remove(card)
+                return self._pick(d, lambda a: a.payload["choice"] == card, f"Missile Envy takes {card} (pushed as fired)")
+        return action
+
     def _flower_power_check(self, side: Side, card: str) -> None:
         """Flower Power pays the USSR 2 VP for a war card the US *plays*
         (the engine, and the card); the DLL pays only when the war's event
