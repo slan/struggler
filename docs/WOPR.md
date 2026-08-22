@@ -516,12 +516,27 @@ Findings from the first four random games, and what became of each:
   it under `known`.
 - **Harness false alarms, removed**: "Done Removing" / "Do Not Relocate"
   / "Do Not Discard" — the engine had those choices all along.
-- **Open**: one realignment (Cameroon, USSR 1 / US 0, DLL rolls USSR 6
-  / US 5, no neighbour controlled) removed the USSR influence in the
-  DLL but not in the engine — either the DLL's roll fields are not what
-  they look like or a modifier differs; more samples needed. Defectors
-  played event-first (the engine fires nothing, by design) and either/or
-  choices matched by label words are reported, not resolved.
+- **Open** (`python -m wopr.playdek.lockstep --games 4 --seed 1 --trace`
+  reproduces all three; seeds are the game number + 1):
+  - seed 1, turn 1 AR 3: a US realignment on Cameroon (USSR 1 / US 0,
+    DLL rolls USSR 6 / US 5, no neighbour controlled) removed the USSR
+    influence in the DLL but not in the engine. Either the `REALIGNMENT`
+    record's roll fields are not (USSR die, US die) or a modifier
+    differs. The Japan realignment earlier in the same game agreed with
+    the fields read that way. More samples needed.
+  - seed 2, end of turn 1: the engine still asks the US for its last
+    `PLACE_INFLUENCE` (`ops_remaining` 1) when the DLL has moved on to
+    the turn-2 headlines — the DLL did not ask "Place 1 More Influence".
+    Either the DLL ends a placement with an unspendable point, or the Op
+    counts differ (a bonus?).
+  - seed 3, turn 3 AR 6: a random discard reveals the two engines'
+    idea of a hand had diverged (engine: `[Duck_and_Cover]`; the DLL
+    discarded Decolonization from it). Hand sizes are only compared
+    between actions; compare hand *contents* for the non-physical side
+    (the DLL's `card_loc`) at every sync to find where they part.
+  - Defectors played event-first (the engine fires nothing, by design)
+    and either/or choices matched by label words are reported, not
+    resolved; the word match has been right every time so far.
 
 Then the `PlaydekOperator` for Joshua and the eval.
 
