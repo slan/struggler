@@ -362,3 +362,29 @@ Commit `90fa0b3` — run `h256-e4`, 32,000 games trained.
 - vs v7: 0.788 (US 0.590 / USSR 0.987)
 - vs v8: 0.696 (US 0.435 / USSR 0.957)
 - vs v9: 0.605 (US 0.315 / USSR 0.895)
+
+## v16
+
+Commit `62edff9` — run `h256-e4`, 36,000 games trained.
+
+- Loop generation 1: v15 continued for 4,000 games; gate 0.55 cleared at 0.588 (worst seed) against v15.
+- The handicap experiment (JOSHUA.md): trained with `--handicap 8` — every training game opened with the US 8 VP ahead — and gated at the printed game. The first version level with v10 (0.508). Its own USSR edge, a policy against itself, is 0.75 (v15: 0.78): the bid did not move the seat. The next generation at the bid missed the gate (0.489 vs v16, US 0.18) and is not frozen.
+- Elo vs random: **+1339 ± 4** over seeds [0, 1, 2]
+- vs random: 0.980 (US 0.977 / USSR 0.983)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.983 (US 0.970 / USSR 0.997)
+- vs v1: 0.923 (US 0.883 / USSR 0.963)
+- vs v10: 0.508 (US 0.232 / USSR 0.785)
+- vs v11: 0.830 (US 0.677 / USSR 0.983)
+- vs v12: 0.696 (US 0.445 / USSR 0.947)
+- vs v13: 0.582 (US 0.297 / USSR 0.867)
+- vs v14: 0.621 (US 0.380 / USSR 0.862)
+- vs v15: 0.606 (US 0.365 / USSR 0.847)
+- vs v2: 0.992 (US 0.983 / USSR 1.000)
+- vs v3: 0.977 (US 0.963 / USSR 0.990)
+- vs v4: 0.862 (US 0.750 / USSR 0.973)
+- vs v5: 0.915 (US 0.863 / USSR 0.967)
+- vs v6: 0.837 (US 0.705 / USSR 0.968)
+- vs v7: 0.807 (US 0.647 / USSR 0.967)
+- vs v8: 0.656 (US 0.393 / USSR 0.918)
+- vs v9: 0.595 (US 0.337 / USSR 0.853)

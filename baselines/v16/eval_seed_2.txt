@@ -1,0 +1,21 @@
+Deterministic (argmax), 200 games per opponent, eval seed 2
+
+v16 vs random: 0.980 over 200 | as US 0.980 | as USSR 0.980
+v16 vs first: 1.000 over 200 | as US 1.000 | as USSR 1.000
+v16 vs greedy: 0.995 over 200 | as US 0.990 | as USSR 1.000
+v16 vs v1: 0.925 over 200 | as US 0.890 | as USSR 0.960
+v16 vs v10: 0.502 over 200 | as US 0.210 | as USSR 0.795
+v16 vs v11: 0.800 over 200 | as US 0.630 | as USSR 0.970
+v16 vs v12: 0.728 over 200 | as US 0.495 | as USSR 0.960
+v16 vs v13: 0.585 over 200 | as US 0.300 | as USSR 0.870
+v16 vs v14: 0.603 over 200 | as US 0.350 | as USSR 0.855
+v16 vs v15: 0.632 over 200 | as US 0.385 | as USSR 0.880
+v16 vs v2: 0.985 over 200 | as US 0.970 | as USSR 1.000
+v16 vs v3: 0.965 over 200 | as US 0.940 | as USSR 0.990
+v16 vs v4: 0.880 over 200 | as US 0.780 | as USSR 0.980
+v16 vs v5: 0.935 over 200 | as US 0.910 | as USSR 0.960
+v16 vs v6: 0.843 over 200 | as US 0.725 | as USSR 0.960
+v16 vs v7: 0.785 over 200 | as US 0.590 | as USSR 0.980
+v16 vs v8: 0.675 over 200 | as US 0.410 | as USSR 0.940
+v16 vs v9: 0.590 over 200 | as US 0.330 | as USSR 0.850
+Elo: v16 +1336, v10 +1165, v9 +1133, v14 +1107, v15 +1091, v13 +1084, v8 +1027, v12 +987, v7 +967, v6 +951, v11 +943, v4 +901, v5 +865, v1 +851, v3 +741, v2 +602, greedy +424, first +263, random +0

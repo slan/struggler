@@ -141,6 +141,7 @@ Details, trajectories and checkpoints per version are in
 | v13 | v12 + 8,000 (one failed gate at 0.547, then 0.625 vs v12); 20,000 games | +1460 ± 14 | 1.00 | **0.98** (0.98 / 0.97) |
 | v14 | v13 + 4,000 (gate 0.571 vs v13, worst seed 0.550); 24,000 games | +1466 ± 4 | 1.00 | **0.98** (0.98 / 0.99) |
 | v15 | v14 + 8,000 (one failed gate at 0.489, then 0.569 vs v14); 32,000 games | +1461 ± 33 | 1.00 | **0.99** (0.97 / 1.00) |
+| v16 | v15 + 4,000 trained at an 8-VP USSR bid (gate 0.606 vs v15); 36,000 games; level with v10 (0.508) | +1339 ± 4 | 1.00 | **0.98** (0.97 / 1.00) |
 
 (200 games per opponent per seed, three eval seeds, argmax play. Elo is
 fitted per version against every earlier one, so the scale stretches as
@@ -334,6 +335,32 @@ What the capacity experiment taught (hidden 256, August 2026):
   USSR. Width bought speed along the chain, not height; the ceiling is
   not the network's capacity.
 
+What the handicap experiment taught (the US seat, August 2026):
+
+- **The USSR edge between equals is three games in four.** A policy
+  against itself (`wopr.eval a=x.pt b=x.pt`): v15 wins 0.78 as USSR,
+  v10 0.75. That is the number the gate cannot see.
+- **A VP bid does not even the seats.** `Engine.new_game(starting_vp)`
+  and `--handicap` open the game with the US ahead, as a tournament bid
+  does. v15 against itself at bids of 2 / 4 / 6 / 8 VP: USSR 0.76 /
+  0.77 / 0.74 / 0.68. Eight VP buys one turn.
+- **Because the edge is region scoring in the first four turns.** In
+  160 v15-vs-v15 games, 109 of 128 USSR wins were by reaching 20 VP,
+  mean turn 6.4; the track reads −1.9 / −4.5 / −7.1 at the start of
+  turns 2–4. By card, net VP to the USSR against the US: Asia Scoring
+  1,154 vs 179, Middle East 632 vs 296, Europe 552 vs 73, Southeast
+  Asia 300 vs 22 — and most of it scored on the US's own action rounds:
+  the US holds the scoring card and must play it into a region the USSR
+  already dominates. (Scoring is net, one number per card, onto one
+  tug-of-war track — checked.) The US seat's problem is board position
+  in turns 1–3, which a bid pays for but does not fix.
+- **Training at the bid, gated at the printed game**, from v15 at 8 VP:
+  one generation cleared the gate 0.606 (US 0.365) and became v16, the
+  first version level with v10 (0.508; US 0.23) — and v16's own USSR
+  edge is 0.75, unchanged. The next generation missed (0.489, US 0.18).
+  That is the plain loop's pattern (0.571 / 0.489 / 0.569), not a new
+  one. Closed: the US rows' reward still says which seat they were.
+
 ### Reading v9's games
 
 Forty v9-vs-v9 games, argmax play on forty decks (`runner.play_game`
@@ -407,29 +434,30 @@ reordered it:
 
 ## Open questions and the road ahead
 
-**The capacity experiment is closed** (above): a `--hidden 256` network
-climbs the chain faster — 20,000 games worth 30,000 of the old — and
-then flattens at 32,000 games exactly where the 128 line did, level
-with v10, with the same USSR-heavy shape to its losses. The lines are
-`runs/pure` (v5–v10, 128) and `runs/h256-e4` (v11–v15, 256); either
-can be continued, and the 256 line is the stronger per game. What the
-ceiling is made of is now the question, and capacity is the one
-explanation the data rules out. The candidates, in the order the games
-themselves suggest:
+**Two experiments closed, one ceiling.** Capacity (above): a
+`--hidden 256` network climbs the chain faster — 20,000 games worth
+30,000 of the old — and flattens at 32,000 games where the 128 line
+did, level with v10. The US seat (above): the USSR wins three games in
+four between equals because it dominates Asia, the Middle East and
+Europe by turn 3 and the US scores those regions for it; a VP bid in
+training does not move that edge. The lines are `runs/pure` (v5–v10,
+128) and `runs/h256-e4` (v11–v16, 256; its run directory is 4,000
+bid-trained games past v16, unpromoted). What the ceiling is made of
+is the question; capacity and the seat's VP count are the two
+explanations ruled out. Left, in the order the games suggest:
 
-1. **The US seat** (item 2 below). Every version since v8, on both
-   lines, loses the US seat against an equal opponent — v15 vs v10 is
-   0.17 as US and 0.78 as USSR — and the gate measures the pooled rate,
-   so a challenger that only finds a sharper USSR blitz clears it
-   without the US defence ever improving. A USSR VP handicap in
-   training games is the cheapest way to make the US seat's rows say
-   something other than "you drew the short side"; the first thing to
-   measure is whether the USSR edge between equal policies moves.
+1. **The US seat's signal.** Its rows end −1 four times in five, and a
+   terminal ±1 says nothing about *how* the game was lost: a US that
+   holds the USSR to −8 by turn 10 learns the same as one that folds
+   at turn 5. A terminal reward that carries the margin (the final VP,
+   squashed — still zero-sum, still terminal) gives the losing seat a
+   gradient; the "shaping teaches the shaping" objection applies to
+   dense rewards, not to the final score. The cheapest experiment
+   left, and the one aimed at what the games show.
 2. **What the network sees** (item 6): order and recency — the
-   "discarded this turn" location first.
-3. **A third graph layer** — cheap to A/B at 8,000 games now that the
-   control is known (v11), but the data above makes depth the least
-   likely lever.
+   "discarded this turn" location first. The US's turn-1–3 problem is
+   partly a guessing problem about which scoring cards are out.
+3. **A third graph layer** — the least likely lever, given capacity.
 
 A note on epochs: 2 is the default because it matched 4 when
 continuing a trained run; a fresh run wants 4, and the 256 line was
