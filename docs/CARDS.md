@@ -272,7 +272,10 @@ normal action round — Event or Ops, not Space Race —
 `_maybe_defectors_action_round` (hooked into `_handle_play_mode` alongside
 Flower Power) instead gives the US 1 VP. The USSR headlining it, or the US
 playing it in an action round, have no printed effect and are correctly
-no-ops.
+no-ops. Discarded by Five Year Plan it is still the US event it is
+(`Engine._defectors_fired_by_five_year_plan`): during the headline
+phase it cancels the USSR headline, in an action round the US gains
+1 VP.
 
 **A persistent per-player operating lock.** Bear Trap (traps the USSR) and
 Quagmire (traps the US), independent of who actually plays the card — the

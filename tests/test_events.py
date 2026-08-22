@@ -643,6 +643,34 @@ def test_five_year_plan_fires_a_discarded_us_event():
     assert "Duck_and_Cover" in engine.discard_pile
 
 
+def test_five_year_plan_revealing_defectors_in_the_headline_cancels_the_ussr_headline():
+    # The US headlines Five Year Plan (3 Ops, resolves before Nasser's 1):
+    # the random discard is Defectors, whose headline clause cancels the
+    # USSR's headline -- Nasser is discarded unresolved.
+    engine = _bare()
+    _headline_setup(engine, "Nasser", "Five_Year_Plan")
+    engine.hands["USSR"].append("Defectors")
+    engine.board.influence["Egypt"] = {"US": 2, "USSR": 0}
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Nasser"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Five_Year_Plan"}))
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.RANDOM_DISCARD and d.actor is Side.CHANCE
+    engine.step(Action(DecisionKind.RANDOM_DISCARD, {"card": "Defectors"}))
+    assert engine.board.influence["Egypt"] == {"US": 2, "USSR": 0}  # Nasser never resolved
+    assert "Nasser" in engine.discard_pile and "Defectors" in engine.discard_pile
+    assert engine.vp == 0  # the VP clause is for action rounds
+
+
+def test_five_year_plan_revealing_defectors_in_an_action_round_scores_the_us():
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine.hands["USSR"] = ["Defectors"]
+    engine._fire_event(Side.USSR, "Five_Year_Plan")
+    engine.step(Action(DecisionKind.RANDOM_DISCARD, {"card": "Defectors"}))
+    assert engine.vp == 1  # US +1 VP, as for Defectors played by the USSR
+    assert "Defectors" in engine.discard_pile
+
+
 def test_five_year_plan_just_discards_a_ussr_card():
     engine = _bare(seed=2)
     engine.hands["USSR"] = ["Fidel"]  # a USSR event: discarded, not fired
