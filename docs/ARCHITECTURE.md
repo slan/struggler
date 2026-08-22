@@ -183,6 +183,10 @@ adjacency-derived.
 
 ## The Ops-only toggle
 
+`Engine.new_game(..., variants={...})` turns optional-rule spaces on (the
+only one, `"chinese_civil_war"`, is the space alone; see
+[LIMITATIONS.md](LIMITATIONS.md)).
+
 `Engine.new_game(..., events=False)` runs the game with the card-event
 layer switched off entirely: all 110 cards exist as data and are playable
 for their Ops value, the headline phase, space race, China Card and DEFCON

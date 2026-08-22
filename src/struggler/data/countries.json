@@ -54,7 +54,7 @@
     "Taiwan":               {"name": "Taiwan",                "region": "ASIA",            "subregion": null, "stability": 3, "battleground": false, "adjacent_to": ["Japan", "South_Korea"]},
     "South_Korea":          {"name": "South Korea",           "region": "ASIA",            "subregion": null, "stability": 3, "battleground": true,  "adjacent_to": ["Japan", "Taiwan", "North_Korea"]},
     "North_Korea":          {"name": "North Korea",           "region": "ASIA",            "subregion": null, "stability": 3, "battleground": true,  "adjacent_to": ["South_Korea", "USSR"]},
-    "Chinese_Civil_War":    {"name": "Chinese Civil War",     "region": "ASIA",            "subregion": null, "stability": 3, "battleground": false, "adjacent_to": ["USSR"]},
+    "Chinese_Civil_War":    {"name": "Chinese Civil War",     "region": "ASIA",            "subregion": null, "stability": 3, "battleground": false, "adjacent_to": ["USSR"], "variant": "chinese_civil_war"},
 
     "Burma":                {"name": "Burma",                 "region": "ASIA",            "subregion": "SOUTHEAST_ASIA", "stability": 2, "battleground": false, "adjacent_to": ["India", "Laos_Cambodia"]},
     "Laos_Cambodia":        {"name": "Laos/Cambodia",         "region": "ASIA",            "subregion": "SOUTHEAST_ASIA", "stability": 1, "battleground": false, "adjacent_to": ["Burma", "Thailand", "Vietnam"]},

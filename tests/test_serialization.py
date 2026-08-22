@@ -71,3 +71,19 @@ def test_round_trip_through_a_chance_decision_preserves_rng_state():
     engine.step(engine.legal_actions()[0])
     restored.step(restored.legal_actions()[0])
     assert engine.serialize() == restored.serialize()
+
+
+def test_variants_survive_serialization_and_shape_the_game():
+    from struggler.engine import Engine, Side
+
+    standard = Engine.new_game(seed=1, events=False)
+    assert "Chinese_Civil_War" not in standard.observe(Side.USSR).influence
+    assert standard.serialize()["variants"] == []
+
+    variant = Engine.new_game(seed=1, events=False, variants={"chinese_civil_war"})
+    assert "Chinese_Civil_War" in variant.observe(Side.USSR).influence
+    data = variant.serialize()
+    assert data["variants"] == ["chinese_civil_war"]
+    restored = Engine.deserialize(data)
+    assert restored.board.variants == frozenset({"chinese_civil_war"})
+    assert restored.serialize() == data

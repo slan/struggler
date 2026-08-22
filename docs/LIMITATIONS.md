@@ -17,6 +17,14 @@ way.
   it properly would add a new hidden/shared-visibility field to the public
   `Observation` API, which is a larger change than a card-logic fix.
 
+- **The Chinese Civil War variant is only a space.** `countries.json`
+  tags it `"variant": "chinese_civil_war"`; the standard game
+  (`Engine.new_game` with no `variants`) has no such country, as the map
+  does not. Turning the variant on (`variants={"chinese_civil_war"}`)
+  puts the space on the board and nothing else: none of the variant's
+  rules (the China Card starting there, the USSR earning it by control)
+  are implemented.
+
 ## Data
 
 - **`event_summary` can drift.** The field is a hand-maintained paraphrase

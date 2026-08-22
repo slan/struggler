@@ -507,7 +507,7 @@ class GreedyPlayer:
 
     def __init__(self, weights: GreedyWeights | None = None) -> None:
         self.weights = weights or GreedyWeights()
-        self._board = Board()
+        self._board = Board(variants=Board.VARIANTS)  # every space, whatever the game's variants: synced by key
 
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         decision: Decision = observation.pending_decision

@@ -825,10 +825,6 @@
               "US": 0,
               "USSR": 0
             },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
             "Burma": {
               "US": 0,
               "USSR": 0
@@ -1051,12 +1047,6 @@
                 "payload": {
                   "country": "North_Korea"
                 }
-              },
-              {
-                "kind": "place_influence",
-                "payload": {
-                  "country": "Chinese_Civil_War"
-                }
               }
             ],
             "context": {
@@ -1068,6 +1058,7 @@
         "game_over_reason": null,
         "phase": "idle",
         "include_optional": false,
+        "variants": [],
         "draw_pile": [],
         "discard_pile": [],
         "removed_cards": [],
@@ -1258,10 +1249,6 @@
             "USSR": 0
           },
           "North_Korea": {
-            "US": 0,
-            "USSR": 0
-          },
-          "Chinese_Civil_War": {
             "US": 0,
             "USSR": 0
           },
@@ -2241,10 +2228,6 @@
               "US": 0,
               "USSR": 0
             },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
             "Burma": {
               "US": 0,
               "USSR": 0
@@ -2437,6 +2420,7 @@
         "game_over_reason": null,
         "phase": "idle",
         "include_optional": false,
+        "variants": [],
         "draw_pile": [],
         "discard_pile": [],
         "removed_cards": [],

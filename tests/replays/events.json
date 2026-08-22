@@ -1909,10 +1909,6 @@
               "US": 0,
               "USSR": 3
             },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
             "Burma": {
               "US": 0,
               "USSR": 0
@@ -2206,6 +2202,7 @@
         "game_over_reason": null,
         "phase": "action_rounds",
         "include_optional": true,
+        "variants": [],
         "draw_pile": [
           "Independent_Reds",
           "Asia_Scoring",
@@ -3084,10 +3081,6 @@
               "US": 0,
               "USSR": 3
             },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
             "Burma": {
               "US": 0,
               "USSR": 0
@@ -3319,6 +3312,7 @@
         "game_over_reason": null,
         "phase": "action_rounds",
         "include_optional": true,
+        "variants": [],
         "draw_pile": [
           "Independent_Reds",
           "Asia_Scoring",
@@ -4201,10 +4195,6 @@
               "US": 0,
               "USSR": 3
             },
-            "Chinese_Civil_War": {
-              "US": 0,
-              "USSR": 0
-            },
             "Burma": {
               "US": 0,
               "USSR": 0
@@ -4465,6 +4455,7 @@
         "game_over_reason": null,
         "phase": "action_rounds",
         "include_optional": true,
+        "variants": [],
         "draw_pile": [
           "Defectors",
           "Olympic_Games",
