@@ -1049,7 +1049,10 @@ class Engine:
 
         if mode in ("event", "ops", "un_intervention"):
             self._maybe_flower_power(side, cid)
-            self._maybe_defectors_action_round(side, cid)
+            if mode != "un_intervention":
+                # UN Intervention cancels the event, Defectors' VP clause
+                # included: the USSR plays Defectors with it for the Op alone.
+                self._maybe_defectors_action_round(side, cid)
             if self.is_terminal:
                 return
 
