@@ -421,6 +421,18 @@ def test_game_effects_persist_across_turns():
 # -- tier 4: UN Intervention (rule modifier) --------------------------------
 
 
+def test_un_intervention_offered_on_any_card_with_the_opponents_event():
+    # Defectors has no event to fire in a USSR action round, NATO none before
+    # Marshall Plan or Warsaw Pact: both still carry the US's event, so the
+    # USSR may play either with UN Intervention.
+    engine = _bare()
+    engine.hands["USSR"] = ["UN_Intervention", "Defectors", "NATO"]
+    for cid in ("Defectors", "NATO"):
+        assert "un_intervention" in engine._play_modes(Side.USSR, cid)
+    engine.hands["USSR"] = ["Defectors"]
+    assert "un_intervention" not in engine._play_modes(Side.USSR, "Defectors")
+
+
 def test_un_intervention_cancels_an_opponent_event_played_for_ops():
     engine = _bare()
     engine.defcon = 5

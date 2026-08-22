@@ -237,8 +237,9 @@ flags also gate Arab-Israeli War (Camp David), Socialist Governments (Iron
 Lady) and Solidarity (John Paul II).
 
 **Rule-modifiers.** UN Intervention — a `un_intervention` play mode that
-spends the held UN Intervention card to use an opponent's (implemented,
-eligible) event card for Ops with its event cancelled. UN Intervention
+spends the held UN Intervention card to use any card carrying the
+opponent's event for Ops with its event cancelled, whether or not that
+event could have happened (Defectors, NATO before its precondition). UN Intervention
 itself has no standalone event, so `_play_modes` excludes it from the
 `"event"` mode (alongside the China Card) when it is the card being
 played directly — it is Ops-only in that case, and the combo only
