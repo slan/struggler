@@ -1368,7 +1368,9 @@ def _south_african_unrest_choice(engine: "Engine", side: Side, choice: str, cont
 
 
 def _payable_cards(engine: "Engine", side: Side) -> list[str]:
-    """`side`'s hand cards with a printed Ops value of 3 or more (the "discard a
+    """`side`'s hand cards worth 3 or more Ops to `side` this turn -- the
+    printed value under Containment, Brezhnev Doctrine and Red Scare/Purge,
+    which modify a card's Ops value wherever it is counted (the "discard a
     3+ card to cancel" clause on Blockade and Latin American Debt Crisis).
 
     In physical mode, `side`'s true hand may be unknown to the engine; source
@@ -1383,15 +1385,15 @@ def _payable_cards(engine: "Engine", side: Side) -> list[str]:
     return [
         cid
         for cid in source
-        if not engine.cards[cid].scoring and engine.cards[cid].ops >= 3
+        if not engine.cards[cid].scoring and engine._effective_ops(side, engine.cards[cid]) >= 3
     ]
 
 
 @event("Blockade")
 def _blockade(engine: "Engine", side: Side) -> None:
-    # Unless the US discards a printed-3+-Ops card, remove all US Influence from
-    # West Germany. (The US picks among its own cards — the same own-hand choice
-    # Ask Not already surfaces.)
+    # Unless the US discards a 3+-Ops card (as its Ops count for the US this
+    # turn), remove all US Influence from West Germany. (The US picks among
+    # its own cards — the same own-hand choice Ask Not already surfaces.)
     payable = _payable_cards(engine, Side.US)
     if not payable:
         engine.remove_all_influence("West_Germany", Side.US)

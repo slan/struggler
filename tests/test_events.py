@@ -1883,6 +1883,31 @@ def test_blockade_can_be_paid_with_a_three_ops_card():
     assert "Duck_and_Cover" in engine.discard_pile
 
 
+def test_blockade_and_the_traps_count_the_turns_ops_modifiers():
+    # Containment (+1 US Ops) makes Korean War (printed 2) a 3 for Blockade;
+    # Red Scare/Purge on the US (-1) stops Duck and Cover (printed 3) paying
+    # and stops a printed 2 from freeing the US of Quagmire.
+    engine = _bare()
+    engine.board.influence["West_Germany"] = {"US": 4, "USSR": 0}
+    engine.hands["US"] = ["Korean_War"]
+    engine.turn_effects["containment"] = True
+    engine._fire_event(Side.USSR, "Blockade")
+    assert [a.payload["choice"] for a in engine.pending_decision.options] == ["Korean_War", "refuse"]
+    engine = _bare()
+    engine.board.influence["West_Germany"] = {"US": 4, "USSR": 0}
+    engine.hands["US"] = ["Duck_and_Cover"]
+    engine.turn_effects["red_scare"] = "US"
+    engine._fire_event(Side.USSR, "Blockade")
+    assert engine.pending_decision is None
+    assert engine.board.influence["West_Germany"]["US"] == 0
+    engine = _bare()
+    engine.game_effects["quagmire"] = True
+    engine.hands["US"] = ["Korean_War"]
+    engine.turn_effects["red_scare"] = "US"
+    engine._push_trap_step(Side.US, "quagmire")
+    assert engine.pending_decision is None  # a printed 2 is a 1: nothing to discard
+
+
 def test_arms_race_scores_three_when_leading_and_meeting_the_requirement():
     engine = _bare()
     engine.defcon = 3
