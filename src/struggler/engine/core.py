@@ -899,6 +899,20 @@ class Engine:
         if side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power"):
             self._award_vp(Side.USSR, 2)
 
+    def _defectors_fired_by_five_year_plan(self) -> None:
+        """Defectors discarded by Five Year Plan: during the headline phase
+        (Five Year Plan the US headline, resolving first) the USSR's
+        headline is cancelled -- discarded unresolved, like a headlined
+        Defectors does it; during an action round (Five Year Plan played by
+        the USSR) the US gains 1 VP, as for Defectors played by the USSR."""
+        if self.phase == "headline":
+            for pair in list(self._headline_pending):
+                if pair[0] == "USSR":
+                    self._headline_pending.remove(pair)
+                    self._file_card(Side.USSR, pair[1], fired=False, already_removed_from_hand=True)
+            return
+        self._award_vp(Side.US, 1)
+
     def _maybe_defectors_action_round(self, side: Side, cid: str) -> None:
         """Defectors: printed text -- "If Defectors played by USSR during
         Soviet action round, US gains 1 VP (unless played on the Space
@@ -1671,6 +1685,14 @@ class Engine:
             if not info.scoring and info.side.value == owner.opponent.value and self._has_event(card):
                 self._file_card(owner, card, fired=True)
                 self._fire_event(owner, card)
+            elif card == "Defectors":
+                # A US event too, with no EVENTS entry: its clauses are
+                # "play in headline phase to cancel USSR headline event" and
+                # "if played by USSR during Soviet action round, US gains
+                # 1 VP". Fired out of the USSR hand by Five Year Plan it does
+                # whichever the phase calls for.
+                self._file_card(owner, card, fired=False)
+                self._defectors_fired_by_five_year_plan()
             else:
                 self._file_card(owner, card, fired=False)
         elif ctx["purpose"] == "grain_sales":
