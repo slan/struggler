@@ -70,7 +70,23 @@ fast does it learn the held-scoring-card rule?
 epochs, 50/50 self-play and pool), 8,000 games, no control — the first
 run of the ladder. Greedy as the yardstick, fixed the same day.
 
-**Result.** *(pending)*
+**Result.** Frozen as `r2/v1`. It learned the rule in ~200 games (mean
+final turn 1.5 → 5.6 by 600 games; 6 of 120 self-play games still end
+on a held scoring card at 8,000) and beats the fixed Greedy 0.748
+[worst seed 0.740] (US 0.74 / USSR 0.76); Elo +1253 ± 30 vs random.
+`wopr.diagnose`: games run to turn 7.5 on average; endings split USSR
+by VP 29 / US by VP 27 / US by DEFCON 19 / US by final scoring 18 /
+USSR by final scoring 13 / USSR by DEFCON 7; the VP track stays within
+±2.5 all game. **The USSR edge is 0.44–0.52 — even.** Asia Scoring now
+nets to the US (937 vs 154 over 120 games), Europe to the USSR (625 vs
+51). Informally, it beats r1/v11 0.585 and r1/v16 0.685 on this engine.
+
+**Decision.** The r1 seat edge (0.78) and its mechanism were the
+held-scoring-card freedom, not the game: on this engine the seats are
+even between equals at 8,000 games, so road-map item "the US seat" is
+closed without an experiment, and the first r2 question is simply how
+far the recipe climbs. Into the loop from v1 until the gate misses
+twice in three. Ledger: row `engine-fixes`.
 
 ## Road map
 
