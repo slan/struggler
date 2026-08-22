@@ -629,27 +629,28 @@ def test_puppet_governments_only_targets_empty_countries():
 # -- forced random discard subsystem (CHANCE) -------------------------------
 
 
-def test_five_year_plan_fires_a_discarded_ussr_event():
+def test_five_year_plan_fires_a_discarded_us_event():
     engine = _bare(seed=2)
-    engine.hands["USSR"] = ["Fidel"]  # single card -> deterministic draw
-    engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
+    engine.hands["USSR"] = ["Duck_and_Cover"]  # single card -> deterministic draw
+    engine.defcon = 5
     engine._fire_event(Side.US, "Five_Year_Plan")
     d = engine.pending_decision
     assert d.kind is DecisionKind.RANDOM_DISCARD and d.actor is Side.CHANCE
     assert len(d.options) == 1  # only the drawn card, never the rest of the hand
     engine.step(d.options[0])
-    assert engine.board.control("Cuba") is Side.USSR  # Fidel fired
-    assert "Fidel" in engine.removed_cards
+    assert engine.defcon == 4  # Duck and Cover fired
+    assert engine.vp == 1  # 5 - DEFCON to the US
+    assert "Duck_and_Cover" in engine.discard_pile
 
 
-def test_five_year_plan_just_discards_a_non_ussr_card():
+def test_five_year_plan_just_discards_a_ussr_card():
     engine = _bare(seed=2)
-    engine.hands["USSR"] = ["Duck_and_Cover"]  # a US event: discarded, not fired
-    engine.defcon = 5
+    engine.hands["USSR"] = ["Fidel"]  # a USSR event: discarded, not fired
+    engine.board.influence["Cuba"] = {"US": 2, "USSR": 0}
     engine._fire_event(Side.US, "Five_Year_Plan")
     engine.step(engine.pending_decision.options[0])
-    assert engine.defcon == 5  # Duck and Cover did NOT fire
-    assert "Duck_and_Cover" in engine.discard_pile
+    assert engine.board.influence["Cuba"] == {"US": 2, "USSR": 0}  # Fidel did NOT fire
+    assert "Fidel" in engine.discard_pile and "Fidel" not in engine.removed_cards
 
 
 def test_random_discard_leaks_only_the_drawn_card():
