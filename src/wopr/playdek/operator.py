@@ -338,11 +338,20 @@ class PlaydekOperator(Bridge):
         mine = self.engine.board.influence[country][side.value] if country in self.engine.board.influence else None
         if mine is None:
             return None
-        for seq, value in self.influence_history.get(country, ()):
-            if seq <= self.synced_seq:
+        past = (lambda v: v > mine) if op == "place" else (lambda v: v < mine)
+        entries = [(seq, value[column]) for seq, value in self.influence_history.get(country, ()) if seq > self.synced_seq]
+        for i, (seq, v) in enumerate(entries):
+            if not past(v):
                 continue
-            if (value[column] > mine) if op == "place" else (value[column] < mine):
-                return seq
+            # A surplus gone again in a later record with no coup or
+            # realignment on the country in between is a transient of one
+            # event's own resolution (Nasser: the USSR's +2, then half the US
+            # removed), not something the engine will ask a decision for.
+            # Undone by dice (a Marshall Plan point realigned away) it is.
+            undone = next((q for q, w in entries[i + 1:] if not past(w)), None)
+            if undone is not None and not any(seq < q < undone and c == country for q, c in self.roll_log):
+                continue
+            return seq
         return None
 
     def _answer_ops_type(self, d: Decision) -> Action | None:
@@ -392,6 +401,11 @@ class PlaydekOperator(Bridge):
         candidates = sorted((seq, i, a) for i, a in enumerate(d.options)
                             if (seq := self.first_change(a.payload["country"], inf_side, op)) is not None)
         if candidates:
+            if self.trace and not self._simulating:
+                c = candidates[0][2].payload["country"]
+                print(f"  INF {inf_side.value} {op} {c}: engine {self.engine.board.influence[c]}, DLL now {self.influence.get(c)}, "
+                      f"history after sync {self.synced_seq}: {[(q, v) for q, v in self.influence_history.get(c, ()) if q > self.synced_seq]}; "
+                      f"other candidates {[(q, a.payload['country']) for q, _, a in candidates[1:4]]}")
             return candidates[0][2]
         if not candidates:
             if d.context.get("event") == "De_Stalinization" and op == "place" and self.game.prompt is not None:

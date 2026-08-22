@@ -127,6 +127,7 @@ class Bridge:
         self._seq = 0  # absorbed records, counted: the arrival order of the facts below
         self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
         self.roll_seq: dict[int, int] = {}  # id(Roll) -> when it arrived
+        self.roll_log: list[tuple[int, str]] = []  # (seq, country) of every coup/realignment record, kept
         self.synced_seq = 0  # the record count when the two states last agreed at rest
         self._last_state_diff = ""
         self.known: collections.Counter[str] = collections.Counter()
@@ -230,6 +231,8 @@ class Bridge:
                 print(f"  EV  {ev}")
             for roll in rolls:
                 self.roll_seq[id(roll)] = self._seq
+                if roll.country is not None:
+                    self.roll_log.append((self._seq, roll.country))
             self.rolls.extend(rolls)
         return True
 
