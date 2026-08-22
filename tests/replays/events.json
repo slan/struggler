@@ -4451,7 +4451,7 @@
               "card_ops": 3,
               "spent": 2,
               "bonus": null,
-              "non_bonus": 0
+              "non_bonus": null
             }
           }
         ],
