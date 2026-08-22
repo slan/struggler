@@ -199,6 +199,14 @@ property worth being able to test in isolation. `serialize()` carries
 `events_enabled` alongside `turn_effects` and `game_effects`, so a saved
 game round-trips its event state either way (mandate #5).
 
+## End of turn
+
+The required Military Operations are settled as one move of the VP
+marker: each side's shortfall against DEFCON goes to its opponent, the
+two netted before the marker moves, and the automatic victory at 20 VP
+is checked on the result -- not after the first of the two penalties
+alone (`Engine._end_of_turn`).
+
 ## Starting VP (a handicap)
 
 `Engine.new_game(..., starting_vp=N)` opens the VP track at N (US-positive)
@@ -238,7 +246,8 @@ Bury You is paid at a trapped US round; DEFCON 1 loses the phasing
 player; UN Intervention on any opponent-event card; the bonus
 Realignment attempt stays in its region; the China Card's and Vietnam
 Revolts' bonuses stack; Cuban Missile Crisis cancelled by either side,
-and before the banned coup).
+and before the banned coup; the end-of-turn Military Operations
+penalties netted before the marker moves).
 
 ## Opening deal order
 

@@ -983,6 +983,31 @@ def test_salt_coup_penalty_applies_to_both_sides():
     assert engine._coup_roll_modifier(Side.USSR, info) == -1
 
 
+def test_military_ops_penalties_are_netted_before_the_victory_check():
+    # US 3 short, USSR 2 short at DEFCON 5: the marker moves 1 towards the
+    # USSR, from 18 to 19 -- not 3 to 21 (an automatic victory) and back 2.
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine.turn = 4
+    engine.defcon = 5
+    engine.vp = -18
+    engine.military_ops = {"US": 2, "USSR": 3}
+    engine.hands = {"US": [], "USSR": []}
+    engine._end_of_turn()
+    assert engine.vp == -19
+    assert not engine.is_terminal
+    # The net can still end the game when it reaches 20.
+    engine = _bare()
+    engine.phase = "action_rounds"
+    engine.turn = 4
+    engine.defcon = 5
+    engine.vp = -18
+    engine.military_ops = {"US": 0, "USSR": 5}
+    engine.hands = {"US": [], "USSR": []}
+    engine._end_of_turn()
+    assert engine.is_terminal and engine.winner is Side.USSR
+
+
 def test_how_i_learned_sets_defcon_and_adds_military_ops():
     engine = _bare(seed=1)
     engine.defcon = 5
