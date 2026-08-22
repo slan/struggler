@@ -21,6 +21,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from conftest import assert_invariants as _assert_invariants
+from conftest import discard_scoring_cards
 from conftest import bare_engine as _bare
 from conftest import headline_setup as _headline_setup
 from struggler.engine import Action, Decision, DecisionKind, Engine, Region, Side, Subregion
@@ -176,6 +177,7 @@ def test_red_scare_reduces_opponent_ops_to_a_floor_of_one():
 
 def test_turn_effects_lapse_at_end_of_turn():
     engine = Engine.new_game(seed=3, events=True)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     engine.turn_effects["containment"] = True
     engine._end_of_turn()
     assert engine.turn_effects == {}
@@ -1414,17 +1416,18 @@ def test_missile_envy_forces_the_recipient_to_use_it_for_ops_next_round():
     assert "missile_envy_forced" not in engine.game_effects
 
 
-def test_missile_envy_forced_play_yields_to_a_scoring_deadline():
+def test_missile_envy_forced_play_holds_even_against_a_scoring_card():
     # turn=1 (default): 12 total plays, USSR at even indices. Starting at
-    # index 10 leaves exactly one USSR round this turn -- matching its one
-    # scoring card, so the deadline (not Missile Envy) must win the choice.
+    # index 10 leaves exactly one USSR round this turn and a scoring card in
+    # hand: Missile Envy's forced play still stands -- the scoring card is
+    # held past the end of the turn and `_end_of_turn` decides the game.
     engine = _bare()
     engine.game_effects["missile_envy_forced"] = "USSR"
     engine.hands["USSR"] = ["Missile_Envy", "Asia_Scoring"]
     engine._ars_played = 11
     engine._push_action_round_play(Side.USSR)
     d = engine.pending_decision
-    assert {a.payload["card"] for a in d.options} == {"Asia_Scoring"}  # deadline wins
+    assert {a.payload["card"] for a in d.options} == {"Missile_Envy"}
 
 
 def test_star_wars_requires_us_space_race_lead():
@@ -1579,6 +1582,7 @@ def test_cuban_missile_crisis_coup_by_the_flagged_side_loses_the_game():
 
 def test_we_will_bury_you_degrades_defcon_and_scores_at_end_of_turn():
     engine = Engine.new_game(seed=2, events=True)
+    discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
     engine.defcon = 5
     engine._fire_event(Side.USSR, "We_Will_Bury_You")
     assert engine.defcon == 4

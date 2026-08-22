@@ -283,8 +283,8 @@ branch of `_advance_once`, replace the trapped side's normal
 card (`QUAGMIRE_DISCARD`) followed by a seeded `QUAGMIRE_ROLL` CHANCE die
 that frees the side on a 1–4. With no legal card to discard, that action
 round is simply wasted with no roll at all — except that a scoring card in
-hand must still be played, since a scoring card may never be held past end
-of turn.
+hand may still be played -- holding one past the end of the turn loses
+the game (`_end_of_turn`).
 
 ## Space Race boxes
 
