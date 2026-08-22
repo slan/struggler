@@ -286,14 +286,13 @@ class Bridge:
                 return
             was = self.card_loc.get(card)
             self.card_loc[card] = loc
-            if was == int(ffi.ECardLocation.DISCARDED) and loc == int(ffi.ECardLocation.DECK) and not self.reshuffled:
+            if was == int(ffi.ECardLocation.DISCARDED) and loc == int(ffi.ECardLocation.DECK):
                 # The DLL's discards are back in its deck (its deck runs out
                 # sooner than the engine's bookkeeping expects, docs/BOTS.md):
-                # the engine's discard pile joins its hidden pool at once --
-                # the visible side's deal needs it before the headline, where
-                # `RESHUFFLE_NOW` would otherwise do the same.
+                # the engine's discard pile joins its hidden pool when the
+                # engine gets to the deal (not now: it may still be playing
+                # out the previous turn, discarding into the pile).
                 self.reshuffled = True
-                self.engine._reshuffle_discard_into_draw()
             for side, hand in HAND_LOCATION.items():
                 if loc == hand and was in (None, int(ffi.ECardLocation.DECK)):
                     self._dealt[side].add(card)
@@ -528,6 +527,9 @@ class Bridge:
             # A card the DLL has in that hand and the engine has not been
             # told about yet (the DLL deals, undoes and re-deals at commit).
             side = Side(d.context["side"])
+            if self.reshuffled:
+                self.reshuffled = False
+                self.engine._reshuffle_discard_into_draw()  # the DLL's reshuffle, at the engine's deal (see `_absorb`)
             # The hand as the DLL has it, plus what it dealt this turn: a
             # card dealt, headlined and resolved in one pump is in the
             # discard pile by the time the engine gets to deal it. A deal
