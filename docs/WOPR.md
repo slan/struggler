@@ -854,6 +854,36 @@ Findings from the first four random games, and what became of each:
   (seeds 303 as US, 306/308/300 as USSR): the placement inference still
   misreads a chunk the AI plays in one go. Those are the next thing to
   trace (`eval --games 1 --workers 1 --trace --seed N --side ussr|us`).
+- **Sixth pass, against the AI** (the ten desyncs of the 30 Greedy games,
+  each traced until it reproduced -- the AI is not deterministic, so
+  `runs/playdek/trace/batch.sh OUT PARALLEL seed:side ...` plays traced
+  single games in parallel and every desync comes with its trace; the
+  hotseat emulation, 32 seeds, now plays clean). Five operator bugs: the
+  AI's headline was keyed by card alone, so a card reshuffled and headlined
+  again the next turn was never queued (now `(card, turn)`); a discard
+  was looked up as the card's *latest* move, which in one pump can already
+  be its re-deal after the DLL's reshuffle -- the AI's Blockade payment
+  (De-Stalinization, discarded, reshuffled and dealt to the USSR) read as
+  "Do Not Discard" and the engine emptied West Germany (now
+  `Bridge._exits`, a log of every hand-to-pile move, consumed when the
+  engine's discard accounts for it and purged up to the DLL's reshuffle
+  once the engine has reshuffled too); the AI's Grain Sales draw arrives
+  as the card pushed into the resolve slot with the "fired" hint, not as
+  a reveal (the `random_discard` now takes either); De-Stalinization's
+  sources were taken from the countries where the DLL had *more* once the
+  removals were matched (a fallback meant for Independent Reds' match),
+  so a De-Stalinization that moved two points went on removing from where
+  it placed; and the inference window (`synced_seq`, the record count at
+  the last agreement, advanced only at the bot's card prompts) spanned the
+  bot's own action and the AI's whole chunk, so the bot's Liberation
+  Theology point that its coup then removed, or COMECON's placements that
+  the AI's De-Stalinization then moved, were read again as the AI's
+  placements -- `_resync` now moves the window up to the latest card-play
+  boundary (`play_log`) at which the DLL's board, reconstructed from the
+  influence history, is the engine's board now. One engine fix from the
+  differ's seed 157: Marine Barracks Bombing removed the whole of two
+  Middle East countries where the card removes two points
+  (`fix/marine-barracks-two-points`).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
