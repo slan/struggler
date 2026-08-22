@@ -201,6 +201,11 @@ itself has no standalone event, so `_play_modes` excludes it from the
 `"event"` mode (alongside the China Card) when it is the card being
 played directly — it is Ops-only in that case, and the combo only
 triggers via the `un_intervention` mode offered on the *other* card.
+The `"event"` mode is also never offered on an opponent's card: such a
+card is played for Ops (its event happening before or after them, the
+`EVENT_OPS_ORDER` decision), for the Space Race, or with UN Intervention
+— the rules give no "event only" play of the other side's events, and a
+headline is the only place one is played as an event on its own.
 
 **Take-and-play from a hand or the discard pile.** Missile Envy
 (`missile_envy_take`/`missile_envy_use` — take the opponent's highest-Ops
