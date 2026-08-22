@@ -4445,6 +4445,12 @@
                 "payload": {
                   "country": "Panama"
                 }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "stop"
+                }
               }
             ],
             "context": {

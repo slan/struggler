@@ -5891,6 +5891,12 @@
                 "payload": {
                   "country": "Colombia"
                 }
+              },
+              {
+                "kind": "realignment_target",
+                "payload": {
+                  "country": "stop"
+                }
               }
             ],
             "context": {

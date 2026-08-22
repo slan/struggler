@@ -67,7 +67,7 @@ class DecisionKind(Enum):
     PLACE_INFLUENCE = "place_influence"
     COUP_TARGET = "coup_target"
     COUP_ROLL = "coup_roll"
-    REALIGNMENT_TARGET = "realignment_target"
+    REALIGNMENT_TARGET = "realignment_target"  # a country, or "stop" once one attempt was made
     REALIGNMENT_ACTOR_ROLL = "realignment_actor_roll"
     REALIGNMENT_OPPONENT_ROLL = "realignment_opponent_roll"
     # -- cards & the full game loop ------
