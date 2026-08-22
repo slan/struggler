@@ -414,7 +414,37 @@ class Bridge:
             if card is None:
                 return None
             return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card}")
+        if d.kind is DecisionKind.EVENT_CHOICE:
+            return self._answer_hidden_hand(d)
         self.diverge("unsupported", f"CHANCE {d.kind.value}", fatal=True)
+        return d.options[0]
+
+    def _answer_hidden_hand(self, d: Decision) -> Action | None:
+        """The three events where the engine asks the operator about the
+        hand it cannot see (docs/BOTS.md): the DLL shows that hand in full."""
+        event = d.context.get("event")
+        physical = self.engine.physical_side
+        offered = {a.payload["choice"] for a in d.options}
+        in_hand = {c for c, loc in self.card_loc.items() if loc == HAND_LOCATION[physical]}
+        if event == "Missile_Envy_physical_pick":
+            # The card the giver handed over: the latest to leave that hand
+            # (for the taker's hand or wherever the DLL files it).
+            taker = Side(d.context["taker"])
+            gone = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
+                    if was == HAND_LOCATION[physical] and c in offered]
+            if not gone:
+                return None
+            card = max(gone)[1]
+            return self._pick(d, lambda a: a.payload["choice"] == card, f"Missile Envy takes {card} for {taker.value}")
+        if event == "Aldrich_Ames_Remix_reveal":
+            card = next((a.payload["choice"] for a in d.options if a.payload["choice"] in in_hand), None)
+            if card is None:
+                return None
+            return self._pick(d, lambda a: a.payload["choice"] == card, f"reveal {card}")
+        if event == "Cambridge_Five_query":
+            want = "yes" if d.context.get("scoring_id") in in_hand else "no"
+            return self._pick(d, lambda a: a.payload["choice"] == want, f"Cambridge Five: {want}")
+        self.diverge("unsupported", f"CHANCE {d.kind.value} {event}", fatal=True)
         return d.options[0]
 
     def card_that_left(self, owner: Side, offered: set[str]) -> str | None:
