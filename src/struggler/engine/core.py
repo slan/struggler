@@ -481,6 +481,13 @@ class Engine:
         self._deal_to_limit()
         self.phase = "predeal" if initial else "headline"
 
+    def _add_military_ops(self, side: Side, amount: int) -> None:
+        """Advance a side's Military Operations marker. The track ends at 5
+        (`military_ops_max`): Ops spent beyond it are not recorded."""
+        self.military_ops[side.value] = min(
+            self.military_ops[side.value] + amount, RULES["military_ops_max"]
+        )
+
     def _end_of_turn(self) -> None:
         # Required military operations: a side that spent fewer military Ops
         # (coups) than the current DEFCON hands the deficit to its opponent.
@@ -1177,7 +1184,7 @@ class Engine:
             # Coups count toward the turn's required military operations. A
             # region-bonus coup gets its +1 only against a target in that region
             # (resolved at target selection, in _handle_coup_target).
-            self.military_ops[side.value] += ops
+            self._add_military_ops(side, ops)
             self.begin_coup(side, ops, bonus=bonus)
         else:  # realignment
             # Region-bonus play (China Card -> Asia, Vietnam Revolts -> SE
@@ -1747,7 +1754,7 @@ class Engine:
     ) -> None:
         """Start a war event: it always counts toward the attacker's required
         military operations, then a logged CHANCE roll decides the outcome."""
-        self.military_ops[attacker.value] += military_ops
+        self._add_military_ops(attacker, military_ops)
         self._push(
             Side.CHANCE,
             DecisionKind.WAR_ROLL,
@@ -2193,7 +2200,7 @@ class Engine:
         bonus = decision.context.get("bonus")
         if bonus and self._in_bonus_region(country, bonus):
             ops += 1
-            self.military_ops[side.value] += 1
+            self._add_military_ops(side, 1)
         self._push(
             Side.CHANCE,
             DecisionKind.COUP_ROLL,
