@@ -184,6 +184,12 @@ up to 4 USSR Influence, then replace it in non-US-controlled countries, max
 **Persistent per-turn modifiers.** Containment, Brezhnev Doctrine, Red
 Scare/Purge — consulted via `_effective_ops`, cleared at end of turn.
 
+**Ineligible events are discarded, not removed.** A remove-after-event
+card leaves the game only when its event actually happens
+(`Engine._event_fires`): NATO headlined or played for its event before
+Marshall Plan or Warsaw Pact does nothing and goes to the discard pile,
+from where a reshuffle can bring it back.
+
 **Persistent game-long legality** (`game_effects`). NATO (eligible only
 after Marshall Plan or Warsaw Pact; the USSR may no longer coup, realign,
 or Brush War US-controlled Europe, via `Engine._nato_protects`), De Gaulle
