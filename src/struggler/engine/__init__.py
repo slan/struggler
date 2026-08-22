@@ -9,6 +9,7 @@ directly by anything that needs them.
 from __future__ import annotations
 
 from struggler.engine.core import Engine
+from struggler.engine.rules import RULES_VERSION
 from struggler.engine.types import (
     Action,
     Card,
@@ -24,6 +25,7 @@ from struggler.engine.types import (
 )
 
 __all__ = [
+    "RULES_VERSION",
     "Engine",
     "Action",
     "Card",

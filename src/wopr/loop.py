@@ -50,7 +50,7 @@ LOOP_COLUMNS = (
 
 def latest_version() -> str | None:
     versions = sorted(
-        (p.name for p in baseline.BASELINES_DIR.glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
+        (p.name for p in baseline.ladder_dir().glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
         key=lambda name: int(name[1:]),
     )
     return versions[-1] if versions else None
@@ -122,8 +122,10 @@ def readme_entry(version: str, summary: dict[str, Any], note: str) -> str:
 
 
 def append_readme(version: str, note: str) -> None:
-    summary = json.loads((baseline.BASELINES_DIR / version / "summary.json").read_text())
-    path = baseline.BASELINES_DIR / "README.md"
+    summary = json.loads((baseline.ladder_dir() / version / "summary.json").read_text())
+    path = baseline.ladder_dir() / "README.md"
+    if not path.exists():
+        path.write_text(f"# Baselines — rules version {summary['rules_version']}\n\nOne entry per frozen version; the protocol and the layout are in [../README.md](../README.md).\n", encoding="utf-8")
     text = path.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + readme_entry(version, summary, note)
     path.write_text(text, encoding="utf-8")
 
@@ -154,8 +156,8 @@ def main(argv: list[str] | None = None) -> None:
 
     run_dir = train.RUNS_DIR / args.run
     champion = args.champion or latest_version()
-    if champion is not None and not (baseline.BASELINES_DIR / champion / "joshua.pt").exists():
-        raise SystemExit(f"champion {champion!r}: no baselines/{champion}/joshua.pt")
+    if champion is not None and not (baseline.ladder_dir() / champion / "joshua.pt").exists():
+        raise SystemExit(f"champion {champion!r}: no {baseline.ladder_dir() / champion}/joshua.pt (the ladder of rules version {baseline.RULES_VERSION})")
     losing = 0
     for generation in range(1, args.generations + 1):
         target = games_done(run_dir) + args.generation_games
@@ -165,7 +167,7 @@ def main(argv: list[str] | None = None) -> None:
         train_s = time.perf_counter() - started
 
         started = time.perf_counter()
-        champion_path = None if champion is None else baseline.BASELINES_DIR / champion / "joshua.pt"
+        champion_path = None if champion is None else baseline.ladder_dir() / champion / "joshua.pt"
         report = evaluate_challenger(
             run_dir / "joshua.pt", champion_path, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers
         )

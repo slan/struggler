@@ -30,10 +30,18 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from wopr.eval import PairJob, play_pairs
+from struggler.engine import RULES_VERSION
 from wopr.repo import git_commit
 from wopr.ladder import Match, elo_ratings, summarize
 
 BASELINES_DIR = Path("baselines")
+
+
+def ladder_dir() -> Path:
+    """The ladder of the rules version this code is at: `baselines/r<N>/`.
+    Ratings do not cross rules versions, so neither do champions, controls
+    or README entries."""
+    return BASELINES_DIR / f"r{RULES_VERSION}"
 RUNS_DIR = Path("runs")
 RUN_FILES = ("config.json", "metrics.csv", "joshua.pt")
 
@@ -42,7 +50,7 @@ RUN_FILES = ("config.json", "metrics.csv", "joshua.pt")
 
 def earlier_baselines(version: str) -> list[tuple[str, Path]]:
     found = []
-    for checkpoint in sorted(BASELINES_DIR.glob("v*/joshua.pt")):
+    for checkpoint in sorted(ladder_dir().glob("v*/joshua.pt")):
         name = checkpoint.parent.name
         if name != version:
             found.append((name, checkpoint))
@@ -105,7 +113,7 @@ def main(argv: list[str] | None = None) -> None:
     args = p.parse_args(argv)
 
     src = RUNS_DIR / args.run
-    dst = BASELINES_DIR / args.version
+    dst = ladder_dir() / args.version
     if dst.exists() and not args.force:
         raise SystemExit(f"{dst} exists; pass --force to overwrite")
     for name in RUN_FILES:
@@ -162,6 +170,7 @@ def main(argv: list[str] | None = None) -> None:
     summary = {
         "version": args.version,
         "commit": git_commit(),
+        "rules_version": RULES_VERSION,
         "run": args.run,
         "games_trained": config.get("games_done"),
         "protocol": {"games_per_opponent": args.games, "seeds": args.seeds, "anchors": args.anchors,

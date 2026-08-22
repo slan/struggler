@@ -209,3 +209,19 @@ seat gives the US that many VP. Nothing else changes; the printed game is
 handicapped game round-trips and replays like any other (mandate #5).
 The training arena uses it to take the seat out of the result
 (docs/WOPR.md).
+
+## Rules version
+
+`rules.json` carries `rules_version`, exported as
+`struggler.engine.RULES_VERSION`. **Bump it in the same commit as any
+change that alters how the rules resolve** — a fix, a clarified ruling,
+a data correction — however small. It is not an API version: the
+public API does not change with it. It exists because things are
+measured on this engine — a bot's win rate, a trained policy's rating —
+and a measurement means nothing without the game it was taken on. The
+training arena records it with every run and keeps one ladder of frozen
+versions per rules version (docs/WOPR.md); a rules change that makes an
+existing bot lose by its own hand must fail a test (the Greedy sanity
+test in `tests/test_greedy.py`), not an evaluation. Version 1 is the
+engine before the August 2026 fixes; version 2 is after the nine of
+them (`b55daf5`).

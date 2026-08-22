@@ -354,9 +354,11 @@ def test_loop_gate_needs_every_seed_and_versions_follow_the_chain(tmp_path, monk
 
     monkeypatch.setattr(baseline, "BASELINES_DIR", tmp_path)
     assert loop.latest_version() is None and loop.next_version() == "v1"
+    ladder = baseline.ladder_dir()  # the ladder of this rules version: baselines/r<N>/
+    assert ladder.parent == tmp_path and ladder.name == f"r{baseline.RULES_VERSION}"
     for name in ("v1", "v3", "v10", "v2-draft"):
-        (tmp_path / name).mkdir()
-        (tmp_path / name / "joshua.pt").write_bytes(b"")
+        (ladder / name).mkdir(parents=True)
+        (ladder / name / "joshua.pt").write_bytes(b"")
     assert loop.latest_version() == "v10" and loop.next_version() == "v11"  # numeric, not lexical; drafts ignored
 
     summary = {"commit": "abcdef0123", "run": "pure", "games_trained": 12000, "protocol": {"seeds": [0, 1, 2]},
@@ -471,13 +473,27 @@ def test_ab_tabulates_per_opponent_and_writes_a_ledger_row(tmp_path):
     assert report["control"]["win_rate"] == pytest.approx(0.625) and report["control"]["min_seed"] == 0.5
     assert report["control"]["as_us"] == 0.75 and report["control"]["as_ussr"] == 0.5
     assert report["greedy"]["win_rate"] == 1.0 and report["ussr_edge"] == 0.75
-    summary = {"date": "2026-08-22", "run": "fix-x", "commit": "abcdef0123", "recipe": "v11", "games": 8000,
-               "note": "engine fix", "results": report}
+    summary = {"date": "2026-08-22", "rules_version": 2, "run": "fix-x", "commit": "abcdef0123", "recipe": "v11",
+               "games": 8000, "note": "engine fix", "results": report}
     row = ab.ledger_row(summary)
-    assert row.startswith("| 2026-08-22 | `fix-x` | `abcdef0` | v11 | 8,000 | 0.625 [0.500] (US 0.75 / USSR 0.50) | — | 1.000")
+    assert row.startswith("| 2026-08-22 | r2 | `fix-x` | `abcdef0` | v11 | 8,000 | 0.625 [0.500] (US 0.75 / USSR 0.50) | — | 1.000")
     assert row.rstrip().endswith("| 0.750 | engine fix |")
     ledger = tmp_path / "EXPERIMENTS.md"
     ab.append_ledger(row, ledger)
     ab.append_ledger(row, ledger)
     text = ledger.read_text(encoding="utf-8")
     assert text.startswith("# Experiments") and text.count(row) == 2
+
+
+def test_diagnose_attributes_vp_and_classifies_endings():
+    from wopr import diagnose
+    from wopr.opponents import RandomOpponent
+
+    def seats(slot, episode, rng):
+        return {Side.US: "a", Side.USSR: "b"} if slot % 2 == 0 else {Side.US: "b", Side.USSR: "a"}
+
+    traced = diagnose.play_traced(Arena(4, seed=3, seat_assigner=seats), {"a": RandomOpponent(1), "b": RandomOpponent(2)})
+    assert sum(e["games"] for e in traced["endings"]) == 4
+    assert all(e["reason"] in {"vp", "final_vp", "defcon_1", "europe_control", "cuban_missile_crisis", "held_scoring_card", "draw"} for e in traced["endings"])
+    assert traced["track"][1] == 0.0  # the printed game opens at 0
+    assert all(e["to_ussr"] >= 0 and e["to_us"] >= 0 for e in traced["vp_by_card"])

@@ -30,7 +30,7 @@ from stable_baselines3 import PPO
 
 from struggler.bots.joshua import features as F
 from struggler.bots.joshua.model import load_checkpoint
-from struggler.engine import Side
+from struggler.engine import RULES_VERSION, Side
 from wopr.arena import Arena
 from wopr.backend import ArenaSpec, Backend, InProcessBackend, SharedMemoryBackend
 from wopr.buffer import AlternatingRolloutBuffer
@@ -298,7 +298,7 @@ def main(argv: list[str] | None = None) -> None:
     )
     config: dict[str, Any] = {
         **vars(args), "device": device, "games_done": games_done,
-        "commit": git_commit(), "layout_version": F.LAYOUT_VERSION,
+        "commit": git_commit(), "layout_version": F.LAYOUT_VERSION, "rules_version": RULES_VERSION,
     }
     config_path.write_text(json.dumps(config, indent=2))
     print(f"[wopr] device={device} n_envs={args.n_envs} n_steps={args.n_steps} params={sum(p.numel() for p in model.policy.parameters())}")

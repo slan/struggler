@@ -41,7 +41,8 @@ run in and what each one decides.
    it still loses to come up most. While the pool is empty those games
    are self-play too. Nothing else plays: not the champion, not
    Greedy, not `random` — they are yardsticks, never sparring partners
-   (anchors exist as flags and are off since v5; JOSHUA.md says why).
+   (anchors exist as flags and are off since r1 v5; the archived
+   notebook, docs/archive/JOSHUA-r1.md, says why).
    The reward is the outcome, ±1, on each row when its game ends, for
    whoever moved on that row.
 2. **The comparison** (`wopr.ab`): after the recipe's budget — 8,000
@@ -71,9 +72,40 @@ to "did this change alter what is learned"; the loop is the answer to
 "is it still improving". Two things the process does **not** do, by
 design: train against the champion or any fixed opponent (a fixed
 opponent it always beats or always loses to is a constant reward —
-v2 and v4 in JOSHUA.md), and shape the reward (the final score in the
+r1 v2 and v4 in docs/archive/JOSHUA-r1.md), and shape the reward (the final score in the
 terminal reward made both seats play for the track — the margin
 experiment there).
+
+### Decision points
+
+Each stage ends in a decision with a rule written down here, so that
+the next step is read off the numbers rather than argued from them.
+
+- **The rules changed** (`RULES_VERSION` bumped, docs/ARCHITECTURE.md).
+  Re-rate the yardsticks on the new engine before anything else: Greedy
+  against itself and the champion against Greedy (`wopr.diagnose`,
+  `wopr.eval`). Either moved beyond noise → the ladder is archived as
+  it stands under `baselines/r<old>/`, the new one starts at `v1` from
+  a clean run, and r<old>'s findings about the *game* are unverified
+  until re-measured. Neither moved → same ladder, note the bump.
+- **A clean run against its control** (`wopr.ab`, same recipe and
+  budget). Worse (below 0.45 on the worst seed) → the change hurt
+  learning; revert or explain before continuing. Level (every seed
+  within 0.45–0.55) → neutral for learning; keep it if it was wanted
+  for another reason. Better (above 0.55 on every seed) → a candidate
+  for the loop, `--init` from it or continue its run.
+- **A generation against the champion** (`wopr.loop`). Worst seed ≥ 0.55
+  → promote; below → train on. **Plateau declared at two misses in
+  three generations**: stop the loop, do not spend a fourth.
+- **At a plateau.** Run `wopr.diagnose` on the champion and record it.
+  The next experiment is chosen from what it shows, and its ledger
+  row is written *before* training: the question, the control, the
+  metric that decides it, the budget, and the rule (what number means
+  yes). An experiment without a pre-written row is exploration, which
+  is fine, but it is logged as that.
+- **A negative result** closes its question in the notebook with the
+  numbers and is not retried with a tweak unless the diagnosis says
+  why the first attempt missed.
 
 ## Why this shape
 
@@ -251,14 +283,15 @@ list in order and promotes once the learner's win rate over the last
 anchor is kept for good, and `metrics.csv` records the current one. A
 terminal reward against an opponent the learner never beats is a
 constant, and so is one against an opponent it always beats
-(JOSHUA.md, v2 and v4). Fractions summing to 1 leave no anchor games at
+(docs/archive/JOSHUA-r1.md, v2 and v4). Fractions summing to 1 leave no anchor games at
 all: pure self-play against the pool. While the pool is empty, pool
 games are self-play.
 
 `--handicap N` opens every training game with the US N VP ahead
 (`Engine.new_game(starting_vp=N)`, carried to the collectors in
 `ArenaSpec`): a tournament bid for the USSR seat. With strong policies
-the USSR seat wins most games between equals (JOSHUA.md), so the
+the USSR seat won most games between equals on rules version 1
+(docs/archive/JOSHUA-r1.md; to be re-measured), so the
 terminal reward of a US-seat row says mostly which seat it was; a bid
 that brings the seats to even makes games turn on play. Evaluation —
 the loop's gate, `wopr.baseline` — stays at the printed game;
@@ -310,7 +343,9 @@ trained with the same recipe and budget, so the only difference is the
 code — the champion, Greedy, and **itself** (the USSR edge, the seat
 number the gate cannot see). The result goes to `runs/<name>/ab.json`
 and as one row to `baselines/EXPERIMENTS.md`, the committed ledger of
-every experiment, frozen or not; JOSHUA.md reads the rows. A run that
+every experiment, frozen or not, with the rules version it was measured
+on; JOSHUA.md reads the rows. `--existing` compares a run that is already
+trained instead of training one. A run that
 beats the control is a candidate for the loop; one that is level with
 it says the change was neutral for learning; the ledger keeps both.
 
@@ -396,7 +431,7 @@ taken its run directory past it.
   feature encoding; against a net opponent the opponent is asked ~8
   times per learner step at a mean batch of 8 (the tail rounds, where
   few slots still wait on it). See the August 2026 entry in
-  [JOSHUA.md](JOSHUA.md).
+  [archive/JOSHUA-r1.md](archive/JOSHUA-r1.md).
 - **Epochs.** `--n-epochs` defaults to 2. Measured through the loop
   from v8, one generation each way against the same champion: 2 epochs
   gated 0.635 vs 4 epochs' 0.573, beat Greedy 0.995 vs 0.960, tied head
@@ -543,7 +578,7 @@ is no `observe()` — a bot's `Observation` would have to be rebuilt from
 the event stream and the state getters, the hand included — no
 `serialize()`/`deserialize()` for search, no guarantee about the seed,
 and it is Windows-only and not redistributable. The profile in
-[JOSHUA.md](JOSHUA.md) says the engine is a third of a learner step at
+[archive/JOSHUA-r1.md](archive/JOSHUA-r1.md) says the engine is a third of a learner step at
 most; the rest is encoding and inference, which an engine swap does not
 touch. What the DLL is good for is the two things struggler cannot
 provide: an independent, commercial-grade opponent, and a second

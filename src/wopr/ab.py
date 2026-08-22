@@ -33,9 +33,10 @@ LEDGER_HEADER = (
     "One row per `wopr.ab` run, frozen or not (`baselines/README.md` has the\n"
     "frozen ones in full). Win rates are the run's, argmax play, mean over the\n"
     "eval seeds with the worst seed in brackets; `USSR edge` is the run against\n"
-    "itself, as USSR. The idea and the reading of each row: docs/JOSHUA.md.\n\n"
-    "| date | run | commit | recipe | games | vs control | vs champion | vs greedy | USSR edge | note |\n"
-    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+    "itself, as USSR. `rules` is the engine's rules version the row was\n"
+    "measured on (ratings do not cross it). The reading of each row: docs/JOSHUA.md.\n\n"
+    "| date | rules | run | commit | recipe | games | vs control | vs champion | vs greedy | USSR edge | note |\n"
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
 )
 
 
@@ -80,7 +81,7 @@ def ledger_row(summary: Mapping[str, Any]) -> str:
         return f"{entry['win_rate']:.3f} [{entry['min_seed']:.3f}] (US {entry['as_us']:.2f} / USSR {entry['as_ussr']:.2f})"
 
     return (
-        f"| {summary['date']} | `{summary['run']}` | `{summary['commit'][:7]}` | {summary['recipe'] or '—'} | "
+        f"| {summary['date']} | r{summary['rules_version']} | `{summary['run']}` | `{summary['commit'][:7]}` | {summary['recipe'] or '—'} | "
         f"{summary['games']:,} | {cell('control')} | {cell('champion')} | {cell('greedy')} | "
         f"{summary['results']['ussr_edge']:.3f} | {summary['note']} |\n"
     )
@@ -95,7 +96,7 @@ def append_ledger(row: str, path: Path = LEDGER) -> None:
 
 
 def latest_version() -> str | None:
-    versions = sorted((d.name for d in baseline.BASELINES_DIR.glob("v*") if d.is_dir()), key=lambda v: int(v[1:]))
+    versions = sorted((d.name for d in baseline.ladder_dir().glob("v*") if d.is_dir()), key=lambda v: int(v[1:]))
     return versions[-1] if versions else None
 
 
@@ -104,35 +105,43 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--run", required=True, help="new run name under runs/ (must not exist)")
     p.add_argument("--games", type=int, default=8000)
     p.add_argument("--recipe", default="v11", choices=sorted(train.RECIPES))
-    p.add_argument("--control", default="v11", help="baseline trained with the same recipe and budget")
+    p.add_argument("--control", default=None, help="baseline (this ladder) trained with the same recipe and budget; none on a fresh ladder")
     p.add_argument("--champion", default=None, help="baseline to compare against as well (default: the newest vN)")
     p.add_argument("--eval-games", type=int, default=200)
     p.add_argument("--eval-seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--workers", type=int, default=8)
     p.add_argument("--note", default="", help="one line for the ledger: what this run is testing")
     p.add_argument("--no-ledger", action="store_true", help="write ab.json only")
+    p.add_argument("--existing", action="store_true", help="compare runs/<run> as it is instead of training it")
     p.add_argument("train_args", nargs="*", help="arguments passed to train.py after `--`")
     args = p.parse_args(argv)
 
     run_dir = train.RUNS_DIR / args.run
-    if run_dir.exists():
-        raise SystemExit(f"runs/{args.run} exists: an A/B run is trained from scratch, pick a new name")
+    if args.existing:
+        if not (run_dir / "joshua.pt").exists():
+            raise SystemExit(f"--existing: no runs/{args.run}/joshua.pt")
+    elif run_dir.exists():
+        raise SystemExit(f"runs/{args.run} exists: an A/B run is trained from scratch, pick a new name (or --existing)")
     champion = args.champion or latest_version()
-    opponents = {"control": str(baseline.BASELINES_DIR / args.control / "joshua.pt"), "greedy": "greedy"}
+    opponents = {"greedy": "greedy"}
+    if args.control:
+        opponents["control"] = str(baseline.ladder_dir() / args.control / "joshua.pt")
     if champion and champion != args.control:
-        opponents["champion"] = str(baseline.BASELINES_DIR / champion / "joshua.pt")
+        opponents["champion"] = str(baseline.ladder_dir() / champion / "joshua.pt")
     for name, spec in opponents.items():
         if spec != "greedy" and not Path(spec).exists():
             raise SystemExit(f"{name}: no {spec}")
 
-    train.main(["--run", args.run, "--games", str(args.games), "--recipe", args.recipe, "--workers", str(args.workers), *args.train_args])
+    if not args.existing:
+        train.main(["--run", args.run, "--games", str(args.games), "--recipe", args.recipe, "--workers", str(args.workers), *args.train_args])
     config = json.loads((run_dir / "config.json").read_text())
     report = compare(run_dir / "joshua.pt", opponents, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers)
     summary = {
         "date": dt.date.today().isoformat(),
         "run": args.run,
         "commit": config.get("commit", git_commit()),
-        "recipe": args.recipe,
+        "rules_version": config.get("rules_version", baseline.RULES_VERSION),
+        "recipe": config.get("recipe") if args.existing else args.recipe,
         "games": int(config.get("games_done", args.games)),
         "control": args.control,
         "champion": champion,
