@@ -1276,7 +1276,9 @@ class Engine:
 
     def _effective_ops(self, side: Side, card: Card) -> int:
         """The card's Ops value for `side` after persistent per-turn modifiers
-        (Containment/Brezhnev +1, Red Scare -1). Never below 1."""
+        (Containment/Brezhnev +1, Red Scare -1). A modified value is never
+        below 1 or above 4 (the cards say so; the China Card's own +1 for
+        all-Asia Ops is a separate bonus, applied on top in `_handle_ops_type`)."""
         ops = card.ops
         if self.turn_effects.get("containment") and side is Side.US:
             ops += 1
@@ -1284,7 +1286,7 @@ class Engine:
             ops += 1
         if self.turn_effects.get("red_scare") == side.value:
             ops -= 1
-        return max(1, ops)
+        return max(RULES["ops_modifier_min"], min(RULES["ops_modifier_max"], ops))
 
     def _fire_event(self, side: Side, cid: str) -> None:
         """Resolve `cid`'s event for the phasing `side`. Unimplemented events

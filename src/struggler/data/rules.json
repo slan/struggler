@@ -9,6 +9,8 @@
   },
   "vp_to_win": 20,
   "military_ops_max": 5,
+  "ops_modifier_min": 1,
+  "ops_modifier_max": 4,
   "coup_min_defcon": {
     "EUROPE": 5,
     "ASIA": 4,
