@@ -95,6 +95,21 @@ def append_ledger(row: str, path: Path = LEDGER) -> None:
         f.write(row)
 
 
+def opponent_specs(control: str | None, champion: str | None) -> dict[str, str]:
+    """The comparison field as `parse_policy` specs, keyed by role: Greedy
+    always; the control and the champion (if any, and if distinct) from
+    this rules version's ladder, checked to exist."""
+    specs = {"greedy": "greedy"}
+    for role, version in (("control", control), ("champion", champion)):
+        if not version or (role == "champion" and version == control):
+            continue
+        path = baseline.ladder_dir() / version / "joshua.pt"
+        if not path.exists():
+            raise SystemExit(f"{role} {version!r}: no {path} (the ladder of rules version {baseline.RULES_VERSION})")
+        specs[role] = f"{role}={path}"
+    return specs
+
+
 def latest_version() -> str | None:
     versions = sorted((d.name for d in baseline.ladder_dir().glob("v*") if d.is_dir()), key=lambda v: int(v[1:]))
     return versions[-1] if versions else None
@@ -123,14 +138,7 @@ def main(argv: list[str] | None = None) -> None:
     elif run_dir.exists():
         raise SystemExit(f"runs/{args.run} exists: an A/B run is trained from scratch, pick a new name (or --existing)")
     champion = args.champion or latest_version()
-    opponents = {"greedy": "greedy"}
-    if args.control:
-        opponents["control"] = str(baseline.ladder_dir() / args.control / "joshua.pt")
-    if champion and champion != args.control:
-        opponents["champion"] = str(baseline.ladder_dir() / champion / "joshua.pt")
-    for name, spec in opponents.items():
-        if spec != "greedy" and not Path(spec).exists():
-            raise SystemExit(f"{name}: no {spec}")
+    opponents = opponent_specs(args.control, champion)
 
     if not args.existing:
         train.main(["--run", args.run, "--games", str(args.games), "--recipe", args.recipe, "--workers", str(args.workers), *args.train_args])

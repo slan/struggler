@@ -497,3 +497,21 @@ def test_diagnose_attributes_vp_and_classifies_endings():
     assert all(e["reason"] in {"vp", "final_vp", "defcon_1", "europe_control", "cuban_missile_crisis", "held_scoring_card", "draw"} for e in traced["endings"])
     assert traced["track"][1] == 0.0  # the printed game opens at 0
     assert all(e["to_ussr"] >= 0 and e["to_us"] >= 0 for e in traced["vp_by_card"])
+
+
+def test_ab_opponent_specs_are_named_checkpoints_from_this_ladder(tmp_path, monkeypatch):
+    from wopr import ab, baseline
+    from wopr.eval import policy_name
+
+    monkeypatch.setattr(baseline, "BASELINES_DIR", tmp_path)
+    ladder = baseline.ladder_dir()
+    for v in ("v1", "v3"):
+        (ladder / v).mkdir(parents=True)
+        (ladder / v / "joshua.pt").write_bytes(b"")
+    specs = ab.opponent_specs("v1", "v3")
+    assert [policy_name(s) for s in specs.values()] == ["greedy", "control", "champion"]
+    assert specs["control"].endswith("joshua.pt") and "=" in specs["control"]  # what parse_policy needs
+    assert ab.opponent_specs(None, None) == {"greedy": "greedy"}
+    assert "champion" not in ab.opponent_specs("v1", "v1")  # the same version is not compared with itself
+    with pytest.raises(SystemExit):
+        ab.opponent_specs("v2", None)
