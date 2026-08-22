@@ -490,6 +490,23 @@ class Engine:
         )
 
     def _end_of_turn(self) -> None:
+        # A scoring card still in hand at the end of the turn loses the game
+        # for its holder (scoring cards must be played the turn they are
+        # held). Holding one each is a draw. A physical hand's unrevealed
+        # cards (HIDDEN_CARD) cannot be checked.
+        holders = [
+            side
+            for side in (Side.US, Side.USSR)
+            if any(cid != HIDDEN_CARD and self.cards[cid].scoring for cid in self.hands[side.value])
+        ]
+        if len(holders) == 1:
+            self._win(holders[0].opponent, "held_scoring_card")
+            return
+        if len(holders) == 2:
+            self._game_over_reason = "held_scoring_card"
+            self.phase = "complete"  # draw: terminal with no winner
+            self._decision_stack.clear()
+            return
         # Required military operations: a side that spent fewer military Ops
         # (coups) than the current DEFCON hands the deficit to its opponent.
         for side in (Side.US, Side.USSR):
@@ -924,34 +941,20 @@ class Engine:
                 self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
             return
         hand = self.hands[side.value]
-        scoring_in_hand = [cid for cid in hand if self.cards[cid].scoring]
-        # A scoring card may not be held past the end of the turn. Once a side
-        # has as many scoring cards as it has action rounds left, every
-        # remaining round must spend one (the China Card is not offered then).
-        must_play_scoring = bool(scoring_in_hand) and len(
-            scoring_in_hand
-        ) >= self._remaining_action_rounds(side)
-
+        # A scoring card held past the end of the turn loses the game
+        # (`_end_of_turn`); the choice to risk that is the player's, so the
+        # whole hand is offered.
         # Missile Envy: "next round your opponent must use this card for
-        # Operations" -- the scoring deadline still takes priority if both
-        # apply at once, since carrying a scoring card past end of turn isn't
-        # legal at all.
+        # Operations".
         forced_missile_envy = (
-            not must_play_scoring
-            and self.game_effects.get("missile_envy_forced") == side.value
-            and "Missile_Envy" in hand
+            self.game_effects.get("missile_envy_forced") == side.value and "Missile_Envy" in hand
         )
-
-        if forced_missile_envy:
-            playable = ["Missile_Envy"]
-        else:
-            playable = scoring_in_hand if must_play_scoring else list(hand)
+        playable = ["Missile_Envy"] if forced_missile_envy else list(hand)
         options = [
             Action(DecisionKind.ACTION_ROUND_PLAY, {"card": cid}) for cid in playable
         ]
         if (
-            not must_play_scoring
-            and not forced_missile_envy
+            not forced_missile_envy
             and side.value == self.china_card_owner
             and self.china_card_available
         ):
