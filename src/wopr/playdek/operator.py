@@ -248,14 +248,14 @@ class PlaydekOperator(Bridge):
             self._pump()
             return True
         if self.prompt_side(prompt) is self.other and self.emulate is not None:
-            self._choose(prompt, self.emulate(prompt))
+            self._choose(prompt, self._reasked(prompt) or self.emulate(prompt))
             return True
         option = self._reply(prompt)
         if option is None:
             self.diverge("decision mismatch", f"engine asks {decision.actor.value} {decision.kind.value} (context {dict(decision.context)}); "
                          f"the DLL asks {self.prompt_side(prompt).value} {prompt.text!r} {[o.text for o in prompt.visible]} and nothing of the bot's is left to answer it "
                          f"(queued for {self.other.value}: {[m.option.text for m in self.moves[self.other]]}, rolls {list(self.rolls)}; "
-                         f"recent records: {list(self.recent)})", fatal=True)
+                         f"state: {'; '.join(self.state_diffs(hands=False)) or 'no difference'}; recent records: {list(self.recent)})", fatal=True)
             return False
         self._choose(prompt, option)
         return True
@@ -277,6 +277,15 @@ class PlaydekOperator(Bridge):
         if self.emulate is not None and self.report.prompts == 1:
             self._first = ((prompt.player_id, prompt.text, prompt.options), option)
         self.game.choose(option.index)
+
+    def _reasked(self, prompt: Prompt) -> Option | None:
+        """The hotseat re-ask of the very first prompt, whose first answer
+        the DLL drops (its records stand): that answer again."""
+        if self._first is None:
+            return None
+        key, option = self._first
+        self._first = None
+        return option if key == (prompt.player_id, prompt.text, prompt.options) else None
 
     def _answer(self, d: Decision) -> Action | None:
         if d.actor is self.other:
@@ -321,22 +330,38 @@ class PlaydekOperator(Bridge):
                     return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card} (fired)")
         return super()._answer(d)
 
+    def first_change(self, country: str, side: Side, op: str) -> int | None:
+        """When, since the two states last agreed, the DLL's influence of
+        `side` in `country` first went above ("place") or below ("remove")
+        what the engine has there now; None if it never did."""
+        column = 0 if side is Side.USSR else 1
+        mine = self.engine.board.influence[country][side.value] if country in self.engine.board.influence else None
+        if mine is None:
+            return None
+        for seq, value in self.influence_history.get(country, ()):
+            if seq <= self.synced_seq:
+                continue
+            if (value[column] > mine) if op == "place" else (value[column] < mine):
+                return seq
+        return None
+
     def _answer_ops_type(self, d: Decision) -> Action | None:
         """Ops an event granted (a boycotted Olympic Games' sponsor, CIA
         Created, ...): no use record names the type, the dice or the
         influence that followed do."""
-        kinds = {r.kind for r in self.rolls if r.side in (None, self.other)}
-        if DecisionKind.COUP_ROLL in kinds:
-            want = "coup"
-        elif DecisionKind.REALIGNMENT_ACTOR_ROLL in kinds:
-            want = "realignment"
-        else:
-            column = 0 if self.other is Side.USSR else 1
-            placed = any(theirs[column] > self.engine.board.influence[c][self.other.value]
-                         for c, theirs in self.influence.items() if c in self.engine.board.influence)
-            if not placed:
-                return None
-            want = "influence"
+        # The earliest fact not yet accounted for: an Ops granted before the
+        # seat's own action round must not take the dice of that round.
+        firsts: list[tuple[int, str]] = []
+        for r in self.rolls:
+            if r.side in (None, self.other) and r.kind in (DecisionKind.COUP_ROLL, DecisionKind.REALIGNMENT_ACTOR_ROLL):
+                firsts.append((self.roll_seq.get(id(r), 0), "coup" if r.kind is DecisionKind.COUP_ROLL else "realignment"))
+        for c in self.influence:
+            seq = self.first_change(c, self.other, "place")
+            if seq is not None:
+                firsts.append((seq, "influence"))
+        if not firsts:
+            return None
+        want = min(firsts)[1]
         return self._pick(d, lambda a: a.payload["type"] == want, f"ops type {want} (from what followed)")
 
     def _answer_country(self, d: Decision) -> Action | None:
@@ -353,24 +378,21 @@ class PlaydekOperator(Bridge):
                 return self._pick(d, lambda a: a.payload["country"] == roll.country, f"realignment in {roll.country} (from the roll record)")
             stop = next((a for a in d.options if a.payload["country"] == "stop"), None)
             return stop  # no further roll reported: the AI stopped (or must roll first: None, the DLL is advanced)
-        # Influence, Ops or an event's: the countries where the DLL's absolute
-        # state is ahead of the engine's in the right direction. Order does
-        # not matter to legality: a point's cost depends only on the points
-        # already placed in its own country.
+        # Influence, Ops or an event's: the countries where the DLL's
+        # influence went past the engine's in the right direction since the
+        # two last agreed -- the earliest such change first, so that a
+        # placement a later action in the same chunk undid is still made
+        # (and undone by that action's own records). Order does not matter
+        # to legality: a point's cost depends only on the points already
+        # placed in its own country.
         if kind is DecisionKind.EVENT_INFLUENCE:
             inf_side, op = Side(d.context["inf_side"]), d.context["op"]
         else:
             inf_side, op = d.actor, "place"
-        column = 0 if inf_side is Side.USSR else 1
-
-        def gap(country: str) -> int:
-            theirs = self.influence.get(country)
-            if theirs is None:
-                return 0
-            return theirs[column] - self.engine.board.influence[country][inf_side.value]
-
-        wanted = (lambda g: g > 0) if op == "place" else (lambda g: g < 0)
-        candidates = [a for a in d.options if wanted(gap(a.payload["country"]))]
+        candidates = sorted((seq, i, a) for i, a in enumerate(d.options)
+                            if (seq := self.first_change(a.payload["country"], inf_side, op)) is not None)
+        if candidates:
+            return candidates[0][2]
         if not candidates:
             if d.context.get("event") == "De_Stalinization" and op == "place" and self.game.prompt is not None:
                 # The DLL is done (at the bot's prompt) and placed fewer than it
@@ -397,16 +419,12 @@ class PlaydekOperator(Bridge):
             # defusing): the ones where the DLL has less of the chooser's
             # influence than the engine, i.e. a removal; failing that, more;
             # the decline ("Done Removing") once none is left.
-            column = 0 if self.other is Side.USSR else 1
-            down, up = [], []
-            for a in d.options:
-                theirs = self.influence.get(a.payload["choice"])
-                if theirs is None:
-                    continue
-                gap = theirs[column] - self.engine.board.influence[a.payload["choice"]][self.other.value]
-                (down if gap < 0 else up if gap > 0 else []).append(a)
+            down = sorted((seq, i, a) for i, a in enumerate(d.options)
+                          if a.payload["choice"] in ids.INDEX_BY_COUNTRY and (seq := self.first_change(a.payload["choice"], self.other, "remove")) is not None)
+            up = sorted((seq, i, a) for i, a in enumerate(d.options)
+                        if a.payload["choice"] in ids.INDEX_BY_COUNTRY and (seq := self.first_change(a.payload["choice"], self.other, "place")) is not None)
             if down or up:
-                return (down or up)[0]
+                return (down or up)[0][2]
             decline = next((a for a in d.options if a.payload["choice"] in DECLINES), None)
             return decline  # None: nothing moved yet and no way to decline -- the DLL is advanced
         if set(choices) <= {"raise", "lower", "none"} or all(c.isdigit() for c in choices):
@@ -465,12 +483,17 @@ class PlaydekOperator(Bridge):
         return not self.state_diffs(hands=False)
 
     def _queues(self) -> tuple:
-        return copy.deepcopy((self.rolls, self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
-                              self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken))
+        # The rolls keep their identity (`roll_seq` is keyed by it): the
+        # deque is copied shallowly, everything else deeply.
+        return (list(self.rolls), copy.deepcopy((self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
+                                                 self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired,
+                                                 self._revealed, self._taken)))
 
     def _set_queues(self, queues: tuple) -> None:
-        (self.rolls, self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
-         self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken) = copy.deepcopy(queues)
+        rolls, rest = queues
+        self.rolls = collections.deque(rolls)
+        (self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
+         self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken) = copy.deepcopy(rest)
 
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
@@ -544,7 +567,7 @@ class PlaydekOperator(Bridge):
             if prompt is None:
                 return
             if self.prompt_side(prompt) is self.other and self.emulate is not None:
-                self._choose(prompt, self.emulate(prompt))
+                self._choose(prompt, self._reasked(prompt) or self.emulate(prompt))
                 continue
             option = self._reply(prompt)
             if option is None:
@@ -563,14 +586,17 @@ class PlaydekOperator(Bridge):
     def _reply_or_raise(self, prompt: Prompt) -> Option | None:
         visible = prompt.visible
         meanings = {T.meaning(o).meaning for o in visible}
-        if self._first is not None:
-            key, option = self._first
-            self._first = None
-            if key == (prompt.player_id, prompt.text, prompt.options):
-                return option  # the hotseat re-ask of the first prompt: the first answer was dropped
+        again = self._reasked(prompt)
+        if again is not None:
+            return again
         if meanings <= UI_ONLY:
             # "Continue with this card" after an event-first resolution.
             return next((o for o in visible if T.meaning(o).meaning is T.Meaning.SWITCH_CARD), visible[0])
+        if meanings <= UI_ONLY | {T.Meaning.STOP} and not (self.outgoing and self._fits(self.outgoing[0][0], meanings)):
+            # A decline the DLL asks alone ("Do Not Discard": Blockade with
+            # nothing to discard) where the engine resolved the event without
+            # asking the bot.
+            return T.find_stop(prompt)
         if self._un_target is not None:
             if any(o.hint == SelectionHint.PLAY_OPPONENT_CARD for o in visible):
                 card, self._un_target = self._un_target, None
@@ -663,7 +689,14 @@ class PlaydekOperator(Bridge):
         if k in COUNTRY_KINDS:
             return T.Meaning.COUNTRY in meanings or (k is DecisionKind.REALIGNMENT_TARGET and T.Meaning.STOP in meanings)
         if k is DecisionKind.EVENT_CHOICE:
-            return bool(meanings & {T.Meaning.CHOICE, T.Meaning.CARD, T.Meaning.COUNTRY, T.Meaning.STOP, T.Meaning.SWITCH_CARD})
+            # By what the choices are: the DLL resolves a single country or
+            # card on its own, and its next prompt is then something else.
+            choices = {a.payload.get("choice") for a in d.options}
+            if choices <= set(ids.INDEX_BY_COUNTRY) | DECLINES:
+                return bool(meanings & {T.Meaning.COUNTRY, T.Meaning.STOP})
+            if choices <= set(ids.NUMBER_BY_CARD) | DECLINES:
+                return bool(meanings & {T.Meaning.CARD, T.Meaning.STOP, T.Meaning.SWITCH_CARD})
+            return bool(meanings & {T.Meaning.CHOICE, T.Meaning.STOP, T.Meaning.SWITCH_CARD})
         return False
 
     @staticmethod

@@ -757,11 +757,16 @@ the bot's seat, the DLL leads for the AI's:
   headline from the card's move to the headline location; its coup,
   war and realignment targets from the roll records (and "stop" once
   no further realignment is reported); its influence, Ops or an
-  event's, from the absolute influence state — the countries where the
-  DLL is ahead of the engine in the right direction, in option order,
-  which is legal in any order since a point's cost depends only on its
-  own country; Ops an event grants (a boycotted Olympic Games' sponsor)
-  from the dice or influence that followed; a discard from the card
+  event's, from the influence *history* — each country's values since
+  the two states last agreed at rest, the earliest change past the
+  engine's value in the right direction first, so that a placement a
+  later action in the same chunk undid (a Marshall Plan point realigned
+  away) is still made and then undone by that action's own dice; any
+  order is legal since a point's cost depends only on its own country.
+  Ops an event grants (a boycotted Olympic Games' sponsor, CIA Created)
+  from the earliest of the dice or influence changes that followed —
+  not the first kind found, or the seat's own action round's coup would
+  be taken for the granted Op; a discard from the card
   that left its hand, a Five Year Plan discard from the resolve record
   of the card it fired, a Grain Sales draw from the reveal record. The
   China Card has no card location: its holder comes from `CHINA_CARD`.
@@ -781,13 +786,24 @@ the bot's seat, the DLL leads for the AI's:
   same protocol against a DLL-prompt policy on the other seat, its
   records feeding the engine exactly as the AI's would, at 10k prompts
   a second instead of 15 s a decision — how the operator is tested.
-  One thing differs: a hotseat game re-emits an action's records at
+  Two things differ: a hotseat game re-emits an action's records at
   its commit (the next action boundary, after the next `ACTION_ROUND`
   record), a game against the AI does not. `Bridge.replayed` matches
-  the re-emission off a FIFO of the records acted on (dice and card
-  plays, in emission order) in hotseat mode only: kept against the AI,
-  the FIFO's head would be the game's oldest record and a later roll
-  equal to it would be taken for a replay.
+  the re-emission off a FIFO of the records acted on (dice, card plays
+  and influence values, in emission order) in hotseat mode only: kept
+  against the AI, the FIFO's head would be the game's oldest record and
+  a later roll equal to it would be taken for a replay. The influence
+  values must go through it too: a re-emitted `COUNTRY_INFLUENCE`
+  carries the value of its time, stale if a later action changed it,
+  and would otherwise enter the history as a new change. And the
+  hotseat re-asks the very first prompt, dropping the first answer
+  *and* the records it produced: `_reasked` answers it again and takes
+  those records back.
+- **What a game costs.** The AI spends 15 s on every decision, a card
+  play being three or four of them: a game that runs six or more turns
+  is 30–50 minutes of one core. (The "2½ minutes" measured earlier was
+  a random opponent ending games in a turn or two.) The eval's
+  `--workers` is the only lever; a hundred games are an afternoon.
 - **Desync.** A fatal divergence (the engine asks what the DLL cannot
   answer, the bot's action has no option in the DLL, no choice
   reproduces the DLL's state) ends the game as a `Desync`; the game
@@ -797,7 +813,7 @@ the bot's seat, the DLL leads for the AI's:
 `python -m wopr.playdek.eval --games 20 --policy joshua=baselines/r2/v1/joshua.pt
 --difficulty hard --workers 8 --out runs/playdek/<name>` plays the games
 in a process pool (one Playdek instance per worker, one game at a time
-each, ~3–5 minutes of one core per game), seats alternating by game
+each), seats alternating by game
 index, seed `--seed + index`, and writes every game's replay log
 (`<out>/games/`), every result (`<out>/results.jsonl`) and the tally
 (`<out>/summary.json`): the policy's win rate per seat with a Wilson 95%

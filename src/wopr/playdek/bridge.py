@@ -124,6 +124,10 @@ class Bridge:
         self._replays = ai_difficulty is None
         self._replay: collections.deque[GameEvent] = collections.deque()
         self.recent: collections.deque[str] = collections.deque(maxlen=24)  # the last records, for diagnostics
+        self._seq = 0  # absorbed records, counted: the arrival order of the facts below
+        self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
+        self.roll_seq: dict[int, int] = {}  # id(Roll) -> when it arrived
+        self.synced_seq = 0  # the record count when the two states last agreed at rest
         self._last_state_diff = ""
         self.known: collections.Counter[str] = collections.Counter()
 
@@ -161,8 +165,18 @@ class Bridge:
     def _absorb(self, ev: GameEvent) -> bool:
         """Absorb one record into the facts. False if it was a replay."""
         f = ev.fields
+        self._seq += 1
         if ev.kind == EventType.COUNTRY_INFLUENCE:
-            self.influence[ids.country_id(f["id"])] = (f["ussr_influence"], f["us_influence"])
+            # Absolute, but a hotseat re-emission carries the value of its
+            # time, which a later action may have changed since: matched
+            # off the replay FIFO like the dice, so that neither the state
+            # nor its history takes a stale value for a new one.
+            if self.replayed(ev):
+                return False
+            country = ids.country_id(f["id"])
+            if self.influence.get(country) != (f["ussr_influence"], f["us_influence"]):
+                self.influence_history.setdefault(country, []).append((self._seq, (f["ussr_influence"], f["us_influence"])))
+            self.influence[country] = (f["ussr_influence"], f["us_influence"])
         elif ev.kind == EventType.DEFCON_LEVEL and not f["isSimulating"]:
             self.defcon = f["defcon_level"]
         elif ev.kind == EventType.TURN_NUMBER and f["turn_number"] != self._dll_turn:
@@ -214,6 +228,8 @@ class Bridge:
             self.recent.append(str(ev))
             if self.trace:
                 print(f"  EV  {ev}")
+            for roll in rolls:
+                self.roll_seq[id(roll)] = self._seq
             self.rolls.extend(rolls)
         return True
 
@@ -519,6 +535,8 @@ class Bridge:
         if diffs and text != self._last_state_diff:
             self.diverge("state", f"turn {e.turn} AR {e.action_round}: " + text)
         self._last_state_diff = text
+        if not diffs:
+            self.synced_seq = self._seq
 
     # -- the end ----------------------------------------------------------
 
