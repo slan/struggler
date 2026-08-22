@@ -133,6 +133,7 @@ class PlaydekOperator(Bridge):
         self._played: tuple[str, int] | None = None  # (card, turn) of the other seat's last queued play: its further use records add no card
         self._headlined: tuple[str, int] | None = None  # (card, turn) of the other seat's headline: reshuffled and headlined again next turn, it is queued again
         self._plays_seen: set[str] = set()  # the other seat's cards seen played: they left its hand, but not as a discard
+        self._play_seq: dict[str, int] = {}  # card -> record seq of its latest play animation, dropped when it is dealt again
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
@@ -174,6 +175,8 @@ class PlaydekOperator(Bridge):
                 return
             if f["location"] not in HAND_OF:
                 self._taken.pop(card, None)
+            elif self._last_moves.get(card, (None, None, None))[1:] == (f["location"], self._move_seq):
+                self._play_seq.pop(card, None)  # just moved into a hand (dealt, handed, returned): its next exit is a fresh move
             if HEADLINE_OF.get(f["location"]) is self.other and self._headlined != (card, self._dll_turn):
                 self._headlined = (card, self._dll_turn)
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"headline {card}"))
@@ -220,6 +223,7 @@ class PlaydekOperator(Bridge):
             actor = self.last_hand_of(card)
             if card in self._taken and actor is self._taken[card]:
                 actor = actor.opponent
+            self._play_seq[card] = self._seq
             self.recent.append(f"play {card} {hint:#x} by {actor}")
             if actor is not self.other:
                 return True
@@ -256,10 +260,14 @@ class PlaydekOperator(Bridge):
             self.diverge("rules", f"Flower Power: the engine pays the USSR 2 VP for the US playing {card} whose event cannot happen, "
                          "the DLL does not", fatal=True)
 
+    def _exit_is_play(self, card: str, record_seq: int) -> bool:
+        played = self._play_seq.get(card)
+        return played is not None and played < record_seq
+
     def card_that_left_any(self, owner: Side) -> list[str]:
         """Cards that left `owner`'s hand for the discard or removed pile and
         have not been accounted for, latest first (not consumed)."""
-        gone = sorted(((seq, c) for seq, c, was in self._exits
+        gone = sorted(((seq, c) for seq, c, was, _ in self._exits
                        if was == HAND_LOCATION[owner] and c not in self._plays_seen and (c, self._dll_turn) != self._headlined
                        and seq > self._synced_move_seq), reverse=True)
         return [c for _, c in gone]
