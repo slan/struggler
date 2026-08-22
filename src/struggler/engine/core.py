@@ -2465,9 +2465,9 @@ class Engine:
             if self.physical_mode and side is self.physical_side
             else self.hands[side.value]
         )
-        payable = [
+        payable = [  # 2+ Ops as they count for `side` this turn (Red Scare makes the trap harder to leave)
             cid for cid in source
-            if not self.cards[cid].scoring and self.cards[cid].ops >= 2
+            if not self.cards[cid].scoring and self._effective_ops(side, self.cards[cid]) >= 2
         ]
         if payable:
             options = tuple(
