@@ -1,0 +1,137 @@
+{
+  "version": "v2",
+  "commit": "ce56517ea4e511f5a33421edc2eab3d7388d722d",
+  "rules_version": 2,
+  "run": "engine-fixes",
+  "games_trained": 12000,
+  "protocol": {
+    "games_per_opponent": 200,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "anchors": [
+      "random",
+      "first",
+      "greedy"
+    ],
+    "events": true
+  },
+  "elo": {
+    "v2": {
+      "mean": 1267.1149,
+      "std": 156.4483
+    },
+    "random": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "first": {
+      "mean": 242.749,
+      "std": 101.0972
+    },
+    "greedy": {
+      "mean": 828.3883,
+      "std": 122.7937
+    },
+    "v1": {
+      "mean": 915.0978,
+      "std": 156.0351
+    }
+  },
+  "win_rate": {
+    "random": {
+      "win_rate": {
+        "mean": 0.99,
+        "std": 0.0071
+      },
+      "as_us": {
+        "mean": 0.99,
+        "std": 0.0082
+      },
+      "as_ussr": {
+        "mean": 0.99,
+        "std": 0.0082
+      }
+    },
+    "first": {
+      "win_rate": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_us": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_ussr": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "greedy": {
+      "win_rate": {
+        "mean": 0.9008,
+        "std": 0.019
+      },
+      "as_us": {
+        "mean": 0.84,
+        "std": 0.0216
+      },
+      "as_ussr": {
+        "mean": 0.9617,
+        "std": 0.0165
+      }
+    },
+    "v1": {
+      "win_rate": {
+        "mean": 0.8367,
+        "std": 0.0085
+      },
+      "as_us": {
+        "mean": 0.74,
+        "std": 0.0141
+      },
+      "as_ussr": {
+        "mean": 0.9333,
+        "std": 0.0125
+      }
+    }
+  },
+  "sampled": {
+    "seed": 0,
+    "table": {
+      "random": {
+        "win_rate": 0.99,
+        "as_us": 0.99,
+        "as_ussr": 0.99,
+        "games": 200
+      },
+      "first": {
+        "win_rate": 0.995,
+        "as_us": 1.0,
+        "as_ussr": 0.99,
+        "games": 200
+      },
+      "greedy": {
+        "win_rate": 0.86,
+        "as_us": 0.8,
+        "as_ussr": 0.92,
+        "games": 200
+      },
+      "v1": {
+        "win_rate": 0.855,
+        "as_us": 0.83,
+        "as_ussr": 0.88,
+        "games": 200
+      }
+    },
+    "elo": {
+      "v2": 1206.0363126984555,
+      "random": 0.0,
+      "first": 344.84971275660047,
+      "greedy": 834.7770672940592,
+      "v1": 870.5002395213812
+    }
+  }
+}

@@ -1,0 +1,8 @@
+Deterministic (argmax), 200 games per opponent, eval seed 1
+
+v3 vs random: 0.995 over 200 | as US 1.000 | as USSR 0.990
+v3 vs first: 1.000 over 200 | as US 1.000 | as USSR 1.000
+v3 vs greedy: 0.920 over 200 | as US 0.920 | as USSR 0.920
+v3 vs v1: 0.855 over 200 | as US 0.790 | as USSR 0.920
+v3 vs v2: 0.665 over 200 | as US 0.440 | as USSR 0.890
+Elo: v3 +1354, v2 +1093, v1 +983, greedy +919, first +287, random +0

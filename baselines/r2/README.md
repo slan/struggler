@@ -27,3 +27,26 @@ snapshot every 5 updates; 8 collectors, 49 min).
   154), Europe to the USSR (625 vs 51).
 - Informal, cross-ladder (not a rating): 0.585 vs r1/v11, 0.685 vs
   r1/v16 on this engine.
+
+## v2
+
+Commit `ce56517` — run `engine-fixes`, 12,000 games trained.
+
+- Loop generation 1: v1 continued for 4,000 games; gate 0.55 cleared at 0.825 (worst seed) against v1.
+- Elo vs random: **+1267 ± 156** over seeds [0, 1, 2]
+- vs random: 0.990 (US 0.990 / USSR 0.990)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.901 (US 0.840 / USSR 0.962)
+- vs v1: 0.837 (US 0.740 / USSR 0.933)
+
+## v3
+
+Commit `ce56517` — run `engine-fixes`, 16,000 games trained.
+
+- Loop generation 2: v2 continued for 4,000 games; gate 0.55 cleared at 0.642 (worst seed) against v2.
+- Elo vs random: **+1370 ± 84** over seeds [0, 1, 2]
+- vs random: 0.995 (US 1.000 / USSR 0.990)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.947 (US 0.943 / USSR 0.950)
+- vs v1: 0.873 (US 0.810 / USSR 0.937)
+- vs v2: 0.651 (US 0.455 / USSR 0.847)
