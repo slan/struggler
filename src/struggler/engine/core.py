@@ -2679,8 +2679,16 @@ class Engine:
             options = tuple(
                 Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid}) for cid in payable
             )
+            if self.physical_mode and side is self.physical_side:
+                # The hidden pool's candidates may not be in this hand at
+                # all: "none" says no 2+-Ops card is, and the scoring step
+                # follows (the operator can see the hand).
+                options += (Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}),)
             self._push(side, DecisionKind.QUAGMIRE_DISCARD, options, {"key": key})
             return
+        self._push_trap_scoring_step(side, key, source)
+
+    def _push_trap_scoring_step(self, side: Side, key: str, source: list[str]) -> None:
         # No Ops-2+ card: no roll this round. The card: "if out of
         # appropriate cards, the player may only play scoring cards" --
         # may, so a scoring card in hand is offered, with "none" to keep
@@ -2712,6 +2720,11 @@ class Engine:
                 self._file_card(side, cid, fired=True)
                 if not self.is_terminal:
                     self._push_trap_step(side, key)  # any further scoring card?
+            return
+        if cid == "none":
+            # Physical mode: none of the hidden pool's 2+-Ops cards is in
+            # the hand after all -- the scoring step, no roll.
+            self._push_trap_scoring_step(side, key, self._physical_hand_candidates(side))
             return
         self._file_card(side, cid, fired=False)
         self._push(
