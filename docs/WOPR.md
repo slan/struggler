@@ -977,7 +977,10 @@ Findings from the first four random games, and what became of each:
   "held scoring card in the hand the engine cannot see" (48 of the
   differ's 280 games stopped there, and 8-22 of every 120 emulated); and
   De-Stalinization's excluded sources count once per event, not per
-  placement (435 hits over 128 games became 128).
+  placement (435 hits over 128 games became 128). With both hands in
+  view at the turn's end, one game of the 280 (seed 149) has both
+  holding a scoring card: the engine calls that a draw, the DLL gave the
+  game to the US -- `known`, the rulebook naming no winner for it.
   Operator and bridge bugs, one commit each: a DEFCON choice (Summit, How
   I Learned to Stop Worrying) was read off the DLL's current level, which
   the turn's end had already restored after a last-round Summit -- the
@@ -1004,11 +1007,12 @@ Findings from the first four random games, and what became of each:
   before the engine has reached the choice (Tear Down This Wall's free Op
   with no target) is sent at once and the bot's decision cut down to the
   decline when it comes (503).
-- **After the seventh pass:** the differ 280/280; the hotseat
-  emulation 32/32; the wide sweeps (`--games 120`) at `--seed 40`, `200`
-  and `400`: 120/120, 120/120, 120/120; the hidden-prompt emulation
-  (`emu_grain.py 1 60`, seeds 1-59) 59/59. The Greedy-vs-AI runs of the
-  sixth pass were not repeated.
+- **After the seventh pass:** the differ 280/280, every game now played
+  to its end (none stops at a scoring card the engine could not see);
+  the hotseat emulation 32/32; the wide sweeps (`--games 120`) at
+  `--seed 40`, `200` and `400`: 120/120, 120/120, 120/120; the
+  hidden-prompt emulation (`emu_grain.py 1 60`, seeds 1-59) 59/59. The
+  Greedy-vs-AI runs of the sixth pass were not repeated.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

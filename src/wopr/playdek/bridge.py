@@ -901,9 +901,11 @@ class Bridge:
         if self.engine.is_terminal and self.game.result is not None:
             pd_winner = self._sides_by_player.get(self.game.result.winner_id)
             if pd_winner != self.engine.winner:
-                if (self.game.result.win_type is ffi.GameOverType.HELD_CARDS and pd_winner is not self.engine.physical_side
-                        and getattr(self.engine, "_game_over_reason", None) == "held_scoring_card"):
-                    self.known["held scoring card in both hands: the DLL's loser is the one the engine cannot see"] += 1
+                if (self.game.result.win_type is ffi.GameOverType.HELD_CARDS
+                        and getattr(self.engine, "_game_over_reason", None) == "held_scoring_card" and self.engine.winner is None):
+                    # Both hands held a scoring card: the engine calls it a
+                    # draw, the DLL names a winner (the US, in the game seen).
+                    self.known["held scoring card in both hands: the DLL names a winner, the engine a draw"] += 1
                 else:
                     self.diverge("winner", f"Playdek {pd_winner}, engine {self.engine.winner}")
         self.game.close()
