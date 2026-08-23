@@ -639,10 +639,13 @@ class PlaydekOperator(Bridge):
         action = self._simulate(d)
         if not (self.stop and len(self.report.divergences) > before):
             return action
+        failed = self.report.divergences[before:]
+        del self.report.divergences[before:]  # lifted while the variants are tried: a fatal on the report stops every simulation step
         if self._simulate_one(take, extra_ops=2, extra_first=True) or self._simulate_one(take, extra_ops=2):
-            del self.report.divergences[before:]
             self.known["Grain Sales: the DLL conducts Grain Sales' Ops as well as playing the taken card (its text: only if returned)"] += 1
             self.diverge("rules", "Grain Sales: the DLL conducted its 2 Ops and played the taken card; the engine plays the card alone", fatal=True)
+        else:
+            self.report.divergences.extend(failed)
         return action
 
     # -- choices the records do not name: try each, keep what reproduces the DLL --
