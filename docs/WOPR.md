@@ -405,7 +405,10 @@ next `vN` with the full protocol, gets its README entry, and becomes the
 champion. One that does not is trained further — the run never rolls
 back, the PFSP pool is what guards against regression — but `--patience`
 generations below 0.5 against the champion stop the loop: that is a
-regression to look at, not to train through. Arguments after `--` go to
+regression to look at, not to train through — and so does the plateau
+of the decision points, two misses among the last three generations
+(`--plateau-misses`), so a long `--generations` runs unattended until
+the rule fires. Arguments after `--` go to
 `train.py` — and a resumed segment takes its PPO hyperparameters from
 those flags, not from the zip (`n_steps` excepted: it sizes the buffer)
 — which is how a hyperparameter experiment runs through the loop;

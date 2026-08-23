@@ -623,3 +623,12 @@ def test_bootstrap_rule_confirms_plateaus_and_reads_ticks_back(tmp_path):
     read = read_evals(path)
     assert [(t.games, t.seed, t.counts.as_us, t.counts.as_ussr) for t in read] == [(210, 1001, 0.52, 0.68), (410, 1002, 0.64, 0.76)]
     assert rule.assess(read).signal == 0.58 and rule.assess(read).rolling == 0.65  # a resumed run continues its rolling means
+
+
+def test_loop_plateau_is_two_misses_in_the_last_three():
+    from wopr.loop import plateaued
+
+    assert not plateaued([True], 2) and not plateaued([True, False], 2)
+    assert plateaued([True, False, True], 2)  # the decision point's rule
+    assert plateaued([False, True, True], 2) and not plateaued([True, False, False, False], 2)  # an old miss ages out
+    assert not plateaued([True, True, True], 0)  # disabled

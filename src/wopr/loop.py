@@ -13,7 +13,9 @@ protocol), its README entry appended, and becomes the champion. One that
 does not is simply trained further; the run never rolls back -- the PFSP
 pool is what guards against regression -- but a challenger that keeps
 *losing* to the champion (`--patience` generations below 0.5) stops the
-loop, since that is a regression to look at, not to train through.
+loop, since that is a regression to look at, not to train through --
+and so does the plateau rule of docs/WOPR.md ("Decision points"): two
+misses in the last three generations (`--plateau-misses`, 0 to disable).
 
 Training arguments after `--` go to `train.py` unchanged, which is how a
 hyperparameter experiment runs through the loop:
@@ -93,6 +95,12 @@ def gate_passes(report: dict[str, Any], gate: float) -> bool:
     return versus["min_seed"] >= gate
 
 
+def plateaued(misses: Sequence[bool], threshold: int) -> bool:
+    """The decision point's plateau: `threshold` misses among the last
+    three generations (0 disables the rule)."""
+    return threshold > 0 and sum(misses[-3:]) >= threshold
+
+
 def append_row(path: Path, row: dict[str, Any]) -> None:
     new = not path.exists()
     with path.open("a", newline="") as f:
@@ -110,6 +118,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--generation-games", type=int, default=4000, help="games trained per generation")
     p.add_argument("--gate", type=float, default=0.55, help="win rate against the champion, on every eval seed, that promotes")
     p.add_argument("--patience", type=int, default=3, help="stop after this many generations below 0.5 against the champion")
+    p.add_argument("--plateau-misses", type=int, default=2, help="stop once this many of the last three generations missed the gate (0: never)")
     p.add_argument("--eval-games", type=int, default=200, help="games per pair in the gate evaluation")
     p.add_argument("--eval-seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--workers", type=int, default=8, help="collector processes for training and pair processes for evaluation")
@@ -122,6 +131,7 @@ def main(argv: list[str] | None = None) -> None:
     if champion is not None and not (baseline.ladder_dir() / champion / "joshua.pt").exists():
         raise SystemExit(f"champion {champion!r}: no {baseline.ladder_dir() / champion}/joshua.pt (the ladder of rules version {baseline.RULES_VERSION})")
     losing = 0
+    misses: list[bool] = []
     for generation in range(1, args.generations + 1):
         target = games_done(run_dir) + args.generation_games
         print(f"[loop] generation {generation}: training {args.run!r} to {target} games, champion {champion or 'greedy'}", flush=True)
@@ -175,6 +185,10 @@ def main(argv: list[str] | None = None) -> None:
         })
         if losing >= args.patience:
             print(f"[loop] stopping: {losing} generations below 0.5 against {champion}", flush=True)
+            return
+        misses.append(not promoted)
+        if plateaued(misses, args.plateau_misses):
+            print(f"[loop] stopping: plateau -- {sum(misses[-3:])} of the last 3 generations missed the gate (docs/WOPR.md)", flush=True)
             return
 
 
