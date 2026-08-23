@@ -732,6 +732,7 @@ class PlaydekOperator(Bridge):
                 left = len(self.rolls) + sum(len(q) for q in self.moves.values())
                 if self.trace:
                     print(f"  SIM {d.kind.value} {dict(option.payload)}: {'matches' if ok else 'no'}, {left} facts left"
+                          f"{' (the copy ended)' if self.engine.is_terminal else ''}"
                           f"{'' if ok else ': ' + ('; '.join(self.state_diffs(hands=False)) or 'stopped short')}")
             except Exception as e:  # an option the engine rejects downstream is simply not it
                 ok = False
@@ -771,6 +772,9 @@ class PlaydekOperator(Bridge):
                     self.engine.push_event_operations(Side.US, self._extra_ops_pending)
                     self._extra_ops_pending = 0
                     continue
+                if d.kind is DecisionKind.EVENT_RESUME and len(d.options) == 1:
+                    self.engine.step(d.options[0])  # a forced step, not a decision: the DLL may be past the turn's end already
+                    continue
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
             if a is None or self.stop:
@@ -778,6 +782,12 @@ class PlaydekOperator(Bridge):
                     print(f"  SIM   stuck at {d.actor.value} {d.kind.value}: {'no answer' if a is None else self.report.divergences[-1]}")
                 return False
             self.engine.step(a)
+        if self.game.result is not None:
+            # The copy's game ended as the DLL's did: the winner says whether
+            # it is the same end (a scoring card held past the turn's end
+            # stops the engine before the turn end's bookkeeping, the DLL
+            # after it -- the military Ops it reset say nothing).
+            return self._sides_by_player.get(self.game.result.winner_id) == self.engine.winner
         return not self.state_diffs(hands=False)
 
     def _queues(self) -> tuple:
