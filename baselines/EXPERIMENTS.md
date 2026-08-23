@@ -16,3 +16,4 @@ docs/JOSHUA.md, or docs/archive/JOSHUA-r1.md for `r1`.
 | 2026-08-22 | r1 | `h256-e4` +4k at `--handicap 8` | `62edff9` | v11 | 40,000 | — | 0.489 [0.480] (US 0.18 / USSR 0.80) vs v16 | 0.980 | — | handicap gen 2: miss; closed |
 | 2026-08-22 | r1 | `h256-e4` +8k at `--margin 0.5` | `03ab712` | v11 | 48,000 | — | 0.376 / 0.390 [0.355] (US 0.05–0.10) vs v16 | 0.960 / 0.975 | — | margin reward: regression, games shorten; closed |
 | 2026-08-22 | r2 | `engine-fixes` | `b55daf5` | v11 | 8,000 | — | — | 0.748 [0.740] (US 0.74 / USSR 0.76) | 0.520 | first r2 clean run: recipe v11 on the nine engine fixes (b55daf5); no control on a fresh ladder; Greedy is the fixed one (cc04ffa) |
+| 2026-08-23 | r3 | `r3` | `dd2f4e1` | v11 | 14,020 | — | — | 0.865 [0.855] (US 0.79 / USSR 0.94) | 0.625 | the r3 bootstrap: recipe v11 from scratch, confirmed at 14,020 games; frozen as r3/v1 |

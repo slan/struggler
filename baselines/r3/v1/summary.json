@@ -1,0 +1,112 @@
+{
+  "version": "v1",
+  "commit": "dd2f4e157543ce65826eb4a33b24d295ea18ae95",
+  "rules_version": 3,
+  "run": "r3",
+  "games_trained": 14020,
+  "protocol": {
+    "games_per_opponent": 200,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "anchors": [
+      "random",
+      "first",
+      "greedy"
+    ],
+    "events": true
+  },
+  "elo": {
+    "v1": {
+      "mean": 822.8771,
+      "std": 122.0052
+    },
+    "random": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "first": {
+      "mean": 72.2672,
+      "std": 86.3728
+    },
+    "greedy": {
+      "mean": 440.193,
+      "std": 125.2455
+    }
+  },
+  "win_rate": {
+    "random": {
+      "win_rate": {
+        "mean": 0.975,
+        "std": 0.0071
+      },
+      "as_us": {
+        "mean": 0.98,
+        "std": 0.0082
+      },
+      "as_ussr": {
+        "mean": 0.97,
+        "std": 0.0082
+      }
+    },
+    "first": {
+      "win_rate": {
+        "mean": 0.99,
+        "std": 0.0041
+      },
+      "as_us": {
+        "mean": 0.99,
+        "std": 0.0
+      },
+      "as_ussr": {
+        "mean": 0.99,
+        "std": 0.0082
+      }
+    },
+    "greedy": {
+      "win_rate": {
+        "mean": 0.865,
+        "std": 0.0071
+      },
+      "as_us": {
+        "mean": 0.79,
+        "std": 0.0082
+      },
+      "as_ussr": {
+        "mean": 0.94,
+        "std": 0.0082
+      }
+    }
+  },
+  "sampled": {
+    "seed": 0,
+    "table": {
+      "random": {
+        "win_rate": 0.97,
+        "as_us": 0.99,
+        "as_ussr": 0.95,
+        "games": 200
+      },
+      "first": {
+        "win_rate": 0.975,
+        "as_us": 0.98,
+        "as_ussr": 0.97,
+        "games": 200
+      },
+      "greedy": {
+        "win_rate": 0.8175,
+        "as_us": 0.77,
+        "as_ussr": 0.865,
+        "games": 200
+      }
+    },
+    "elo": {
+      "v1": 684.2343777780511,
+      "random": 0.0,
+      "first": 69.77598455984423,
+      "greedy": 391.6053545341122
+    }
+  }
+}

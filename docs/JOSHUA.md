@@ -180,9 +180,42 @@ here because it is a change to a pre-registered rule: the reading of
 the stop is unchanged, the estimator behind one of its three branches
 is not the one written down above.
 
-**Result.** *(pending)*
+**Result.** **Confirmed at 14,020 games**, frozen as `r3/v1` (89 min
+of training in two segments; the 28 evaluations cost 36 s of waiting in
+all — the collectors finished each one inside the PPO update). The
+curve against Greedy (200 games a tick): 0.05 at 500 games, 0.19 at
+1,500, 0.42 at 4,000, 0.60 at 8,000, 0.73 at 12,000, 0.875 at 14,000;
+the rolling mean crossed 0.75 on both seats at tick 28 (US 0.777 /
+USSR 0.925) and the confirmation held it: 0.876 over 600 (US 0.813 /
+USSR 0.938). Protocol: vs Greedy **0.865** [worst seed 0.855] (US 0.79
+/ USSR 0.94), sampled 0.818; Elo +823 ± 122 vs random. The seats
+separated early and stayed apart: the USSR seat reached 0.65 at 5,500
+games and 0.91 at 11,000 while the US seat sat at 0.3–0.5 until 8,500
+and was the last 3,000 games' whole story (0.48 → 0.81). Against r2's
+reference points the climb is slower — r2/v1 was 0.748 at 8,000, r2/v2
+0.901 at 12,000 — on a run that is otherwise the same recipe.
+`wopr.diagnose`: against itself the **USSR edge is 0.667** (0.625 on
+the ledger's seed), games run to turn 7.2, endings USSR by VP 49 /
+US by DEFCON 20 / USSR by DEFCON 14 / USSR by final scoring 11 / US by
+VP 9 / US by final scoring 8 / held scoring card 7 (turns 2–4); the
+track is at −3.8 by turn 4 and −5.9 by turn 6; Europe Scoring is the
+USSR's card (569 vs 107), Middle East the US's (164 vs 486), Asia and
+Africa the USSR's. Against Greedy it wins 0.925 (seed 7) at a mean
+final turn of 5.2, mostly by VP as USSR (52) and by DEFCON as US (37).
 
-**Decision.** *(pending)*
+**Decision.** The yardstick is met at the first version, so the loop
+starts from `v1` without a diagnosis step in between. Two things are
+carried as findings, not as numbers to act on yet: the seat edge at
+equal strength is the game's (0.67 at 14,000 games, where r2/v1 had
+measured even at 8,000 and r2/v3 0.695 at 16,000 — the USSR's early
+scoring through Europe, as on r2), and the recipe reaches the same
+place more slowly on this engine (14,000 games to a confirmed 0.75
+against a fixed Greedy, versus 8,000 for a single-eval 0.748 on r2).
+DEFCON endings are 28% of self-play games (34 of 120, both seats) —
+higher than r2/v1's 22% — and worth a look when the loop's first
+generation is diagnosed. Next: the Playdek easy AI, 60 games a seat,
+the first number against an opponent that is not ours. Ledger: row
+`r3`.
 
 ## Road map
 
