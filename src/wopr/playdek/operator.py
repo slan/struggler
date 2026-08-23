@@ -145,6 +145,8 @@ class PlaydekOperator(Bridge):
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
         self._from_discard: list[str] = []  # cards an event played out of the discard pile (Star Wars), not yet accounted for
+        self._auto_declined = 0  # lone "Pass" prompts of the bot's answered before the engine asked the choice
+        self._declined_for_dll: Decision | None = None
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
         self._handed: set[str] = set()  # cards Grain Sales handed the US that the engine has not played yet (the DLL discards them at once)
         self._revealed: list[str] = []  # cards shown out of a hand (Grain Sales' draw, CIA Created's hand)
@@ -811,6 +813,8 @@ class PlaydekOperator(Bridge):
     def before_bot_decision(self, d: Decision) -> None:
         if self.engine.phase == "headline":
             self.mark_setup_done()
+        if d.kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY):
+            self._auto_declined = 0  # a lone decline the engine never asked about (Blockade with nothing to discard)
         if d.kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY) and not self.outgoing and not self.moves[self.other]:
             self.compare_state()
             if self.synced_seq == self._seq:
@@ -824,6 +828,16 @@ class PlaydekOperator(Bridge):
         reported as the differ reports it; the engine's stricter cases
         (options only the DLL has) cannot be added and are left alone."""
         prompt = self.game.prompt
+        if self._auto_declined and d.kind is DecisionKind.EVENT_CHOICE and not self.outgoing and (
+                prompt is None or self.prompt_side(prompt) is not self.side
+                or not self._fits(d, {T.meaning(o).meaning for o in prompt.visible})):
+            # The DLL had its lone "Pass" for this choice before the engine
+            # asked it (`_reply_or_raise`): the bot's decision is the decline.
+            decline = tuple(a for a in d.options if a.payload["choice"] in DECLINES)
+            if decline:
+                self._auto_declined -= 1
+                self._declined_for_dll = d
+                return dataclasses.replace(d, options=decline[:1])
         if prompt is None or d.kind not in COUNTRY_KINDS | CARD_KINDS | {DecisionKind.EVENT_CHOICE} or self.prompt_side(prompt) is not self.side:
             return d
         if self.outgoing or self._un_target is not None:
@@ -943,6 +957,14 @@ class PlaydekOperator(Bridge):
             # `narrow` then cuts down to the decline.
             if not self.outgoing and self._next_bot_decision_fits(meanings):
                 return None
+            if not self.outgoing:
+                # The engine is behind (the bot's own play not yet applied,
+                # the other seat's still to resolve) and may ask the bot this
+                # choice later (Tear Down This Wall's free Op with no target
+                # in the DLL): the decline is sent now and the bot's decision
+                # cut down to it when it comes (`narrow`), or forgotten at
+                # the bot's next card play.
+                self._auto_declined += 1
             return T.find_stop(prompt)
         if self._un_target is not None:
             if any(o.hint == SelectionHint.PLAY_OPPONENT_CARD for o in visible):
@@ -959,6 +981,10 @@ class PlaydekOperator(Bridge):
                 break
             if len(d.options) == 1:
                 self.outgoing.popleft()  # a forced step the DLL did not ask about
+                continue
+            if d.kind is DecisionKind.EVENT_CHOICE and self._declined_for_dll is not None and d.context is self._declined_for_dll.context:
+                self.outgoing.popleft()  # the DLL had its "Pass" before the engine asked (`narrow` cut the choice to the decline)
+                self._declined_for_dll = None
                 continue
             raise LookupError(f"the DLL asks {prompt.text!r} {[(o.text, hex(o.hint)) for o in visible]}; the bot's next action is "
                               f"{d.kind.value} {dict(a.payload)} of {[dict(x.payload) for x in d.options][:12]}")
