@@ -523,6 +523,23 @@ class Engine:
         )
 
     def _end_of_turn(self) -> None:
+        # The turn's end in the rules' order: the Military Operations check
+        # (step E) before the held card is revealed (step F) -- a game lost
+        # to a held scoring card ends at the score the penalty left.
+        # Required military operations: a side that spent fewer military Ops
+        # (coups) than the current DEFCON hands the deficit to its opponent.
+        # Both deficits are one adjustment of the marker: their net, so that
+        # a side 3 short against an opponent 2 short moves it by 1, and the
+        # automatic victory is checked on where the marker ends up, not on
+        # where one of the two penalties alone would have put it.
+        net = 0  # positive: in the US's favour
+        for side in (Side.US, Side.USSR):
+            deficit = max(0, self.defcon - self.military_ops[side.value])
+            net += deficit if side is Side.USSR else -deficit
+        if net:
+            self._award_vp(Side.US if net > 0 else Side.USSR, abs(net))
+            if self.is_terminal:
+                return
         # A scoring card still in hand at the end of the turn loses the game
         # for its holder (scoring cards must be played the turn they are
         # held). Holding one each is a draw. A physical hand's unrevealed
@@ -540,20 +557,6 @@ class Engine:
             self.phase = "complete"  # draw: terminal with no winner
             self._decision_stack.clear()
             return
-        # Required military operations: a side that spent fewer military Ops
-        # (coups) than the current DEFCON hands the deficit to its opponent.
-        # Both deficits are one adjustment of the marker: their net, so that
-        # a side 3 short against an opponent 2 short moves it by 1, and the
-        # automatic victory is checked on where the marker ends up, not on
-        # where one of the two penalties alone would have put it.
-        net = 0  # positive: in the US's favour
-        for side in (Side.US, Side.USSR):
-            deficit = max(0, self.defcon - self.military_ops[side.value])
-            net += deficit if side is Side.USSR else -deficit
-        if net:
-            self._award_vp(Side.US if net > 0 else Side.USSR, abs(net))
-            if self.is_terminal:
-                return
         # DEFCON recovers by one at the end of every turn.
         self._change_defcon(+1, caused_by=Side.US)
         # A China Card passed this turn becomes available to its new owner.

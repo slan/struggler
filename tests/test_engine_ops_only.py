@@ -251,6 +251,22 @@ def test_end_of_turn_with_a_scoring_card_in_hand_loses():
     assert engine.is_terminal and engine.winner is None
 
 
+def test_military_ops_penalty_is_paid_before_the_held_card_loss():
+    # The turn's end in the rules' order: Military Operations (step E), then
+    # the held card (F): the US loses to its held scoring card at the score
+    # the USSR's penalty left, not at the score before it.
+    engine = Engine.new_game(seed=2, events=False)
+    engine.defcon = 5
+    engine.vp = 0
+    engine.military_ops = {"US": 5, "USSR": 3}  # the USSR 2 short
+    engine.hands["US"] = ["Asia_Scoring"]
+    engine.hands["USSR"] = ["Fidel"]
+    engine._end_of_turn()
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.serialize()["game_over_reason"] == "held_scoring_card"
+    assert engine.vp == 2  # the penalty's 2 VP to the US, then the loss
+
+
 
 def _give_europe_control_tier(engine: Engine, holder: Side) -> None:
     """Every European Battleground plus Austria and Finland: the Control

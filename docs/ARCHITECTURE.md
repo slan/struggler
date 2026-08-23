@@ -205,7 +205,8 @@ The required Military Operations are settled as one move of the VP
 marker: each side's shortfall against DEFCON goes to its opponent, the
 two netted before the marker moves, and the automatic victory at 20 VP
 is checked on the result -- not after the first of the two penalties
-alone (`Engine._end_of_turn`).
+alone (`Engine._end_of_turn`); the penalty is paid before a held scoring
+card is revealed and loses the game (turn steps E, then F).
 
 ## Starting VP (a handicap)
 
@@ -247,7 +248,8 @@ player; UN Intervention on any opponent-event card; the bonus
 Realignment attempt stays in its region; the China Card's and Vietnam
 Revolts' bonuses stack; Cuban Missile Crisis cancelled by either side,
 and before the banned coup; the end-of-turn Military Operations
-penalties netted before the marker moves; Marine Barracks Bombing
+penalties netted before the marker moves, and paid before a held
+scoring card loses the game; Marine Barracks Bombing
 removing two points, not two countries; Willy Brandt prevented once
 Tear Down This Wall has been played).
 
