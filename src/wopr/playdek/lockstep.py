@@ -121,14 +121,6 @@ class Lockstep(Bridge):
             prompt = Prompt(prompt.player_id, prompt.text, tuple(o for o in prompt.options if T.meaning(o).meaning is T.Meaning.STOP))
         option = self.policy(prompt)
         m = T.meaning(option)
-        if (option.hint == SelectionHint.TRAP_PASS and side is not self.engine.physical_side
-                and not any(self.engine.cards[c].scoring for c in self.engine.hands[side.value])):
-            # "You May Play a Scoring Card" -> "Pass": the DLL lets the trapped
-            # seat keep its scoring card for a later round; the engine (which
-            # sees this hand) has played it already.
-            self.known["trap step: the DLL lets the trapped seat keep its scoring card, the engine plays it"] += 1
-            self.diverge("rules", f"{side.value} is trapped with no 2+-Ops card: the DLL offers to keep the scoring card (Pass), "
-                         "the engine played it", fatal=True)
         grain = self.grain_card(prompt)
         if grain is not None:
             # Grain Sales: "Play <the drawn card>?" / "Return It". The card

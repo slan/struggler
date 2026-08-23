@@ -465,15 +465,19 @@ class Bridge:
                 return self._pick(d, lambda a: a.payload.get("choice") == m.country, f"defuse in {m.country}")
             return self._pick(d, lambda a: a.payload.get("choice") == "skip", "skip defusing")
         if mv.option.hint == SelectionHint.TRAP_PASS:
-            # "You May Play a Scoring Card" -> "Pass": the DLL lets a trapped
-            # seat with no 2+-Ops card keep its scoring card for a later
-            # round; the engine plays it at once (docs/WOPR.md).
+            # "You May Play a Scoring Card" -> "Pass": a trapped seat with no
+            # 2+-Ops card keeps its scoring card for a later round. The hand
+            # the engine cannot see is first asked which of the hidden
+            # pool's 2+-Ops cards it discards: none, and the Pass answers
+            # the scoring step that follows.
+            if d.kind is DecisionKind.QUAGMIRE_DISCARD and any(a.payload["card"] == "none" for a in d.options):
+                if d.context.get("scoring_only"):
+                    q.popleft()
+                    return self._pick(d, lambda a: a.payload["card"] == "none", "keep the scoring card (trapped)")
+                return self._pick(d, lambda a: a.payload["card"] == "none", "no 2+-Ops card in the trapped hand")
             q.popleft()
-            if d.kind is DecisionKind.QUAGMIRE_DISCARD and d.context.get("forced_scoring"):
-                return self._pick(d, lambda a: a.payload["card"] == "none", "keep the scoring card (trapped)")
-            self.known["trap step: the DLL lets the trapped seat keep its scoring card, the engine plays it"] += 1
-            self.diverge("rules", f"{side.value} is trapped with no 2+-Ops card: the DLL offers to keep the scoring card (Pass), "
-                         "the engine plays it", fatal=True)
+            self.diverge("decision mismatch", f"{side.value} keeps its scoring card in the trap (Pass), the engine asks "
+                         f"{d.actor.value} {d.kind.value}", fatal=True)
             return self._answer(d)
         if m.meaning is T.Meaning.STOP and d.kind is DecisionKind.ACTION_ROUND_PLAY and any(a.payload["card"] == PASS_ROUND for a in d.options):
             q.popleft()  # "Pass" in "Play Your Action Round": the extra action round declined
@@ -513,6 +517,11 @@ class Bridge:
             # Space Race box 6's optional discard before the deal: the DLL's
             # next move is the headline pick, not a discard -- declined.
             return self._pick(d, lambda a: a.payload["card"] == "none", "no held-card discard")
+        if (d.kind is DecisionKind.QUAGMIRE_DISCARD and not d.context.get("scoring_only") and m.meaning is T.Meaning.CARD
+                and m.card in self.engine.cards and self.engine.cards[m.card].scoring and any(a.payload["card"] == "none" for a in d.options)):
+            # The trapped hand the engine cannot see plays a scoring card:
+            # no 2+-Ops card in it, the scoring step follows and takes the card.
+            return self._pick(d, lambda a: a.payload["card"] == "none", "no 2+-Ops card in the trapped hand (a scoring card is played)")
         if d.kind in CARD_KINDS and m.meaning is T.Meaning.CARD:
             q.popleft()
             self._check_cards(d, mv)
@@ -700,7 +709,7 @@ class Bridge:
         k = d.kind
         opts = d.options
         if mv.option.hint == SelectionHint.TRAP_PASS:
-            return k is DecisionKind.QUAGMIRE_DISCARD  # the trapped seat keeping its scoring card: `_answer` classifies it
+            return k is DecisionKind.QUAGMIRE_DISCARD and any(a.payload.get("card") == "none" for a in opts)  # the trapped seat keeps its scoring card
         if m.meaning is T.Meaning.CARD:
             if k is DecisionKind.ACTION_ROUND_PLAY and m.card == UN:
                 return True  # played as the opponent card's mode; see `_answer`
