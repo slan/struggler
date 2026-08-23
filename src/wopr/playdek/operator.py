@@ -629,8 +629,15 @@ class PlaydekOperator(Bridge):
             # decline: the decline would punish the seat for a card it paid.
             others = [c for c in self.card_that_left_any(self.other) if c not in choices]
             if others:
+                # With the hand sizes and the records: a card the engine has no
+                # slot for (an Ask Not that emptied the hand the engine cannot
+                # see, one card more than it held) is told apart from a
+                # threshold difference by them.
+                hand = self.engine.hands[self.other.value]
                 self.diverge("illegal in engine", f"{self.other.value} {d.context.get('event')}: the DLL discarded {others[0]}, "
-                             f"the engine offers {[dict(a.payload) for a in d.options]}", fatal=True)
+                             f"the engine offers {[dict(a.payload) for a in d.options]} (unaccounted exits {others}; "
+                             f"{self.other.value} hand: DLL {self.game.hand_count(self._player_of[self.other])}, "
+                             f"engine {len(hand)} {sorted(hand)}; recent records: {list(self.recent)})", fatal=True)
                 return d.options[0]
             decline = next((a for a in d.options if a.payload["choice"] in DECLINES), None)
             if decline is not None:

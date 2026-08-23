@@ -409,10 +409,18 @@ class Bridge:
         physical = e.physical_side
         if physical is None or HIDDEN_CARD not in e.hands[physical.value]:
             return
-        # The DLL is pumped to the bot's next prompt, which past a turn's end
-        # is the next turn's headline pick, its deal done: a card the DLL
-        # dealt this turn of its own while the engine is still ending the
-        # previous one is not a card held over.
+        # Only while the two agree on the hand's size: a slot then stands
+        # for a card the DLL has there. The DLL is pumped whole actions
+        # ahead of the engine -- an Ask Not's discards and its replacement
+        # draw arrive together, and a scoring card drawn would take, one
+        # discard at a time, a slot of the hand being discarded, leaving
+        # the last discard none (the engine draws its own slots at "stop",
+        # the reveal follows). A deal at the turn's end is the same case
+        # (the sizes differ until the engine deals), the `ahead` check its
+        # older guard: a card the DLL dealt for the next turn while the
+        # engine is still ending this one is not a card held over.
+        if self.game.hand_count(self._player_of[physical]) != len(e.hands[physical.value]):
+            return
         ahead = self._dll_turn != e.turn
         for card, loc in self.card_loc.items():
             if (loc == HAND_LOCATION[physical] and card in e.hidden_pool and e.cards[card].scoring
