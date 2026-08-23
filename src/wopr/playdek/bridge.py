@@ -81,6 +81,7 @@ class Move:
     option: Option
     meaning: T.OptionMeaning
     use_spent: bool = False  # a USE answers up to three engine decisions
+    seq: int = 0  # the record count when it was queued: where it stands among the facts
 
 
 @dataclass
@@ -367,6 +368,7 @@ class Bridge:
             self.synced_seq = self._seq
 
     def queue(self, side: Side, move: Move) -> None:
+        move.seq = self._seq
         self.moves[side].append(move)
         if move.meaning.meaning is T.Meaning.CARD:
             self._last_played[side] = move.meaning.card

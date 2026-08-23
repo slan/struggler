@@ -526,7 +526,11 @@ class PlaydekOperator(Bridge):
             return self._pick(d, lambda a: a.payload["country"] == roll.country, f"{kind.value} {roll.country} (from the roll record)")
         if kind is DecisionKind.REALIGNMENT_TARGET:
             roll = next((r for r in self.rolls if r.kind is DecisionKind.REALIGNMENT_ACTOR_ROLL and r.side is self.other), None)
-            if roll is not None:
+            # A roll recorded after a play of the seat's the engine has not
+            # got to yet is that play's: this action stopped before it (a
+            # headlined ABM Treaty's realignments, then the action round's).
+            later = next((m.seq for m in self.moves[self.other] if m.meaning.meaning is T.Meaning.CARD), None)
+            if roll is not None and (later is None or self.roll_seq.get(id(roll), 0) < later):
                 return self._pick(d, lambda a: a.payload["country"] == roll.country, f"realignment in {roll.country} (from the roll record)")
             stop = next((a for a in d.options if a.payload["country"] == "stop"), None)
             return stop  # no further roll reported: the AI stopped (or must roll first: None, the DLL is advanced)
