@@ -968,7 +968,16 @@ Findings from the first four random games, and what became of each:
   Glasnost is not in the removed pile) -- the DLL then offers Europe
   coup targets the engine, and the card ("for the rest of the game"),
   refuse (the differ's seed 157, non-fatal; the AI taking such a coup
-  would void the game).
+  would void the game). Two changes to the `known` bookkeeping: the
+  scoring cards the DLL shows in the hand the engine cannot see are
+  revealed to the engine as they appear (`_reveal_hidden_scoring_cards`,
+  via `_reveal_in_hand`: one hidden slot, off the hidden pool), so the
+  engine's own end-of-turn check ends a game for a held scoring card as
+  the DLL does and the ending is compared instead of counted under
+  "held scoring card in the hand the engine cannot see" (48 of the
+  differ's 280 games stopped there, and 8-22 of every 120 emulated); and
+  De-Stalinization's excluded sources count once per event, not per
+  placement (435 hits over 128 games became 128).
   Operator and bridge bugs, one commit each: a DEFCON choice (Summit, How
   I Learned to Stop Worrying) was read off the DLL's current level, which
   the turn's end had already restored after a last-round Summit -- the

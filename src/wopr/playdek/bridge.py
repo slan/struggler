@@ -168,6 +168,7 @@ class Bridge:
         self._last_state_diff = ""
         self.reshuffled = False  # the DLL reshuffled its discards into the deck since the engine last folded them into its hidden pool
         self.known: collections.Counter[str] = collections.Counter()
+        self._destal_counted: set[tuple[int, int, str]] = set()  # the De-Stalinization events already counted under `known`
 
     # -- divergences ------------------------------------------------------
 
@@ -398,9 +399,39 @@ class Bridge:
 
     # -- the engine side --------------------------------------------------
 
+    def _reveal_hidden_scoring_cards(self) -> None:
+        """Tell the engine about every scoring card the DLL shows in the hand
+        the engine cannot see (`_reveal_in_hand`: the card takes one of the
+        hand's hidden slots and leaves the hidden pool). The engine's own
+        end-of-turn check then ends the game for a scoring card held past
+        the turn, as the DLL does, instead of playing on blind."""
+        e = self.engine
+        physical = e.physical_side
+        if physical is None or HIDDEN_CARD not in e.hands[physical.value]:
+            return
+        # The DLL is pumped to the bot's next prompt, which past a turn's end
+        # is the next turn's headline pick, its deal done: a card the DLL
+        # dealt this turn of its own while the engine is still ending the
+        # previous one is not a card held over.
+        ahead = self._dll_turn != e.turn
+        for card, loc in self.card_loc.items():
+            if (loc == HAND_LOCATION[physical] and card in e.hidden_pool and e.cards[card].scoring
+                    and not (ahead and card in self._dealt[physical])):
+                e._reveal_in_hand(physical, card)
+                if HIDDEN_CARD not in e.hands[physical.value]:
+                    return
+
+    def _count_destalinization(self) -> None:
+        """One `known` per De-Stalinization event, not per placement."""
+        key = (self.engine.turn, self.engine.action_round, self.engine.phase)
+        if key not in self._destal_counted:
+            self._destal_counted.add(key)
+            self.known["De-Stalinization: DLL excludes the source countries"] += 1
+
     def _answer(self, d: Decision) -> Action | None:
         """The engine's action for `d` from the queues, or None if the DLL
         must be advanced first."""
+        self._reveal_hidden_scoring_cards()
         if d.kind is DecisionKind.EVENT_RESUME:
             return d.options[0]
         if d.actor is Side.CHANCE:
@@ -797,7 +828,7 @@ class Bridge:
         if d.kind is DecisionKind.EVENT_INFLUENCE and d.context.get("event") == "De_Stalinization" and ours > theirs:
             # Known: the DLL will not relocate influence back into a country it
             # was just removed from; the card text has no such clause.
-            self.known["De-Stalinization: DLL excludes the source countries"] += 1
+            self._count_destalinization()
             ours = theirs
         if theirs != ours:
             self.diverge("country options", f"{d.actor.value} {d.kind.value} {mv.prompt.text!r}: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")

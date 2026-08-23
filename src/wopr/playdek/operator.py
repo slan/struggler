@@ -812,6 +812,7 @@ class PlaydekOperator(Bridge):
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
     def before_bot_decision(self, d: Decision) -> None:
+        self._reveal_hidden_scoring_cards()
         if self.engine.phase == "headline":
             self.mark_setup_done()
         if d.kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY):
@@ -865,7 +866,7 @@ class PlaydekOperator(Bridge):
             return d
         dropped = [dict(a.payload) for a in d.options if a not in options]
         if d.context.get("event") == "De_Stalinization":
-            self.known["De-Stalinization: DLL excludes the source countries"] += 1  # documented (docs/WOPR.md)
+            self._count_destalinization()  # documented (docs/WOPR.md)
         elif d.context.get("event") == "Junta":
             self.known["Junta: DLL confines the free Coup/Realignment to the country placed in"] += 1  # documented (docs/WOPR.md)
         else:
