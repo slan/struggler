@@ -609,13 +609,18 @@ class PlaydekOperator(Bridge):
             return decline  # None: nothing moved yet and no way to decline -- the DLL is advanced
         if set(choices) <= {"raise", "lower", "none"} or all(c.isdigit() for c in choices):
             # A DEFCON choice, read off the DLL's DEFCON -- unless something
-            # else moved it in the same chunk, which the simulation sorts out.
+            # else moved it in the same chunk (a Summit in the last action
+            # round, the turn's end restoring the level it lowered; a coup
+            # after a headlined one), which the simulation sorts out: the
+            # read is kept only when it reproduces the DLL's state.
             if choices[0].isdigit():
                 want = str(self.defcon)
             else:
                 want = "raise" if self.defcon > self.engine.defcon else "lower" if self.defcon < self.engine.defcon else "none"
             if want in choices:
-                return next(a for a in d.options if a.payload["choice"] == want)
+                option = next(a for a in d.options if a.payload["choice"] == want)
+                if self._simulate_one(option):
+                    return option
         return self._simulate(d)
 
     def _answer_grain_sales(self, d: Decision) -> Action | None:
