@@ -43,6 +43,7 @@ UI_ONLY = {T.Meaning.CANCEL, T.Meaning.SWITCH_CARD, T.Meaning.BLANK}  # never a 
 CMC_DEFUSE = "Cuban_Missile_Crisis_defuse"
 GRANTED_OPS_PROMPT = "Select Use For Operations"  # Ops an event grants, UN Intervention's, Missile Envy's exchanged card
 SCORING_PROMPT = "You May Play a Scoring Card"  # a trapped seat with no 2+-Ops card
+OPPONENT_HAND_PROMPT = "Discard a Card from Opponent Hand"  # Aldrich Ames Remix: the cards shown are the other seat's
 #: Prompts whose country is a point of Influence to place or remove: their
 #: moves answer PLACE_INFLUENCE / EVENT_INFLUENCE, never an either/or whose
 #: choices happen to be countries (Independent Reds' match, De-Stalinization's
@@ -352,6 +353,8 @@ class Bridge:
         owners.discard(None)
         if len(owners) == 1:
             side = owners.pop()
+            if prompt.text == OPPONENT_HAND_PROMPT:
+                side = side.opponent  # the hand shown is the other seat's: the USSR picks the US's discard
         return side
 
     @staticmethod
