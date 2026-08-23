@@ -1598,7 +1598,11 @@ class Engine:
             # card has a US associated event, the event occurs immediately");
             # a USSR or neutral event, or a scoring card, is just discarded.
             info = self.cards[card]
-            if not info.scoring and info.side.value == owner.opponent.value and self._has_event(card):
+            if (not info.scoring and info.side.value == owner.opponent.value and self._has_event(card)
+                    and EVENTS[card].eligible(self, owner)):
+                # An event whose precondition is unmet (NATO before Marshall
+                # Plan/Warsaw Pact) does not occur: the card is a plain
+                # discard, not removed as a fired one.
                 self._file_card(owner, card, fired=True)
                 self._fire_event(owner, card)
             elif card == "Defectors":

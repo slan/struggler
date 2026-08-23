@@ -643,6 +643,18 @@ def test_five_year_plan_fires_a_discarded_us_event():
     assert "Duck_and_Cover" in engine.discard_pile
 
 
+def test_five_year_plan_discards_an_ineligible_us_event_without_removing_it():
+    # NATO's event cannot occur before Marshall Plan / Warsaw Pact Formed:
+    # drawn by Five Year Plan it is discarded, not removed as a fired event.
+    engine = _bare(seed=2)
+    engine.hands["USSR"] = ["NATO"]
+    engine._fire_event(Side.US, "Five_Year_Plan")
+    engine.step(engine.pending_decision.options[0])
+    assert "nato" not in engine.game_effects
+    assert "NATO" in engine.discard_pile
+    assert "NATO" not in engine.removed_cards
+
+
 def test_five_year_plan_revealing_defectors_in_the_headline_cancels_the_ussr_headline():
     # The US headlines Five Year Plan (3 Ops, resolves before Nasser's 1):
     # the random discard is Defectors, whose headline clause cancels the
