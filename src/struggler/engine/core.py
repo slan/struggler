@@ -1011,7 +1011,7 @@ class Engine:
                 options.append(
                     Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]})
                 )
-            if options and self._in_extra_action_round():
+            if options and (self._in_extra_action_round() or self._only_the_china_card(options)):
                 options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": PASS_ROUND}))
             if options:
                 self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
@@ -1035,12 +1035,17 @@ class Engine:
             and self.china_card_available
         ):
             options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]}))
-        if options and self._in_extra_action_round():
+        if options and (self._in_extra_action_round() or self._only_the_china_card(options)):
             # Space Race box 8 and North Sea Oil grant a round the side "may"
-            # take: declining it is a choice, not a forced play.
+            # take: declining it is a choice, not a forced play. A hand
+            # holding nothing but the China Card may keep it (8.1.6).
             options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": PASS_ROUND}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+
+    @staticmethod
+    def _only_the_china_card(options: list[Action]) -> bool:
+        return all(a.payload["card"] == RULES["china_card_id"] for a in options)
 
     def _in_extra_action_round(self) -> bool:
         """Whether the action round being dispatched is one granted beyond

@@ -72,6 +72,26 @@ def test_the_extra_action_round_may_be_passed():
     assert engine.phase != "action_rounds"  # the turn ended
 
 
+def test_a_hand_holding_only_the_china_card_may_pass():
+    # 8.1.6: a player whose hand is down to the China Card may play it or
+    # pass; with any other card in hand the round must be played.
+    engine = _bare()
+    engine.hands = {"USSR": [], "US": []}
+    engine.china_card_owner = "USSR"
+    engine.china_card_available = True
+    _at_action_round(engine, 0)  # the USSR's first base round
+    d = engine.pending_decision
+    assert d.actor is Side.USSR and d.kind is DecisionKind.ACTION_ROUND_PLAY
+    assert {a.payload["card"] for a in d.options} == {"The_China_Card", PASS_ROUND}
+
+    engine = _bare()
+    engine.hands = {"USSR": ["Duck_and_Cover"], "US": []}
+    engine.china_card_owner = "USSR"
+    engine.china_card_available = True
+    _at_action_round(engine, 0)
+    assert PASS_ROUND not in {a.payload["card"] for a in engine.pending_decision.options}
+
+
 def test_reaching_box_6_offers_held_card_discard_at_end_of_turn():
     engine = Engine.new_game(seed=1, events=False)
     discard_scoring_cards(engine)  # a held scoring card would end the game at _end_of_turn
