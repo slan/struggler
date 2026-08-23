@@ -2475,42 +2475,32 @@ class Engine:
             )
             self._push(side, DecisionKind.QUAGMIRE_DISCARD, options, {"key": key})
             return
-        # No Ops-2+ card: no roll this round -- but any scoring card in hand
-        # must still be played.
-        if self.physical_mode and side is self.physical_side:
-            # Unlike `payable` (which only ever feeds a genuine operator
-            # decision), `source`'s hidden_pool candidates might not
-            # actually be in THIS hand at all -- so, unlike the bot branch
-            # below, we must not auto-file one of them. Offer them as an
-            # explicit choice instead (plus "none"), so the physical
-            # player -- who can see their own hand -- confirms which, if
-            # any, applies.
-            scoring_candidates = [cid for cid in source if self.cards[cid].scoring]
-            if scoring_candidates:
-                options = tuple(
-                    Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid})
-                    for cid in scoring_candidates
-                ) + (Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}),)
-                self._push(
-                    side, DecisionKind.QUAGMIRE_DISCARD, options,
-                    {"key": key, "forced_scoring": True},
-                )
-            return
-        for cid in list(self.hands[side.value]):
-            if self.cards[cid].scoring:
-                self._resolve_scoring_card(cid)
-                self._file_card(side, cid, fired=True)
-                if self.is_terminal:
-                    return
+        # No Ops-2+ card: no roll this round. The card: "if out of
+        # appropriate cards, the player may only play scoring cards" --
+        # may, so a scoring card in hand is offered, with "none" to keep
+        # it (a scoring card held past the turn's end still loses the
+        # game, `_end_of_turn`; with action rounds left the choice is
+        # the player's). In physical mode the candidates are the hidden
+        # pool's, and the operator, who can see the hand, says which, if
+        # any, is really there.
+        scoring_candidates = [cid for cid in source if self.cards[cid].scoring]
+        if scoring_candidates:
+            options = tuple(
+                Action(DecisionKind.QUAGMIRE_DISCARD, {"card": cid})
+                for cid in scoring_candidates
+            ) + (Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}),)
+            self._push(
+                side, DecisionKind.QUAGMIRE_DISCARD, options,
+                {"key": key, "scoring_only": True},
+            )
 
     def _handle_quagmire_discard(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         key = decision.context["key"]
         cid = action.payload["card"]
-        if decision.context.get("forced_scoring"):
-            # Physical mode's must-play-a-scoring-card fallback (see
-            # _push_trap_step): a genuine operator decision, not an
-            # automatic resolution -- no roll this round either way.
+        if decision.context.get("scoring_only"):
+            # No 2+-Ops card to discard (see _push_trap_step): a scoring
+            # card played, or none -- no roll this round either way.
             if cid != "none":
                 self._resolve_scoring_card(cid)
                 self._file_card(side, cid, fired=True)
