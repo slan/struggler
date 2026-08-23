@@ -39,6 +39,12 @@ REALIGNMENT_STOP = "stop"  # the REALIGNMENT_TARGET option that ends the attempt
 RESHUFFLE_NOW = "reshuffle_now"
 PASS_ROUND = "pass"  # the ACTION_ROUND_PLAY option that declines an extra action round (Space Race box 8, North Sea Oil: "may")
 
+# The `we_will_bury_you` game effect's value once the US's next action round
+# turned out to be a trap step (Quagmire): the 3 VP are due, and paid when
+# that round is over (see `_dispatch_action_round`). Truthy like the plain
+# flag, so every reader that only asks whether the VP are pending is unchanged.
+WE_WILL_BURY_YOU_TRAPPED = "trapped_round"
+
 # Which region each scoring card scores, keyed by card id.
 SCORING_CARD_REGION: dict[str, Region] = {
     "Asia_Scoring": Region.ASIA,
@@ -466,6 +472,8 @@ class Engine:
             return
 
         if self.phase == "action_rounds":
+            if self._settle_we_will_bury_you_trapped():
+                return
             total = self._total_action_rounds()
             if self._ars_played >= total:
                 self._end_of_turn()
@@ -485,6 +493,18 @@ class Engine:
             else:
                 self._dispatch_action_round(side)
             return
+
+    def _settle_we_will_bury_you_trapped(self) -> bool:
+        """The 3 VP of a We Will Bury You whose US round was a trap step,
+        now that the round is over (the stack drained: the discard and
+        the roll are done, or no card could be discarded). Called before
+        the next round or the turn's end is set up. True when the game
+        ended on the VP."""
+        if self.game_effects.get("we_will_bury_you") != WE_WILL_BURY_YOU_TRAPPED:
+            return False
+        self.game_effects.pop("we_will_bury_you")
+        self._award_vp(Side.USSR, 3)
+        return self.is_terminal
 
     # -- turn boundaries ----------------------------------------------------
 
@@ -962,14 +982,15 @@ class Engine:
         otherwise its ordinary card play."""
         trap_key = self._trap_key_for(side)
         if trap_key is not None:
-            if side is Side.US and self.game_effects.pop("we_will_bury_you", None):
+            if side is Side.US and self.game_effects.get("we_will_bury_you"):
                 # We Will Bury You: the US's next action round is this one,
                 # and a trapped round plays no card -- UN Intervention is not
-                # played, the USSR scores now (see _handle_play_mode for the
-                # ordinary round).
-                self._award_vp(Side.USSR, 3)
-                if self.is_terminal:
-                    return
+                # played, the USSR scores once the round is over, its
+                # discard and roll done (`_settle_we_will_bury_you_trapped`,
+                # from `_advance_once`): the ordinary round pays at the
+                # play, not before the card is picked (`_handle_play_mode`).
+                # The flag stays set meanwhile -- the VP are still due.
+                self.game_effects["we_will_bury_you"] = WE_WILL_BURY_YOU_TRAPPED
             self._push_trap_step(side, trap_key)
         else:
             self._push_action_round_play(side)
