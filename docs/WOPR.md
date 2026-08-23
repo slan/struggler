@@ -916,6 +916,24 @@ Findings from the first four random games, and what became of each:
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
   Down This Wall, which the card says prevents it
   (`fix/willy-brandt-after-tear-down-this-wall`).
+- **After the sixth pass:** the differ is 279/280 (seed 93's trap
+  fatal, `known`); the hotseat emulation 32/32, and a wider sweep
+  (`--games 120 --seed 40`) 5 desyncs where the hand-over code had 18 --
+  the wider sweep found four more operator bugs on the way (a card's play
+  taken for a discard; the Ops half's point removed by the event half of
+  the same play read as a transient; Missile Envy's exchanged card
+  arriving as the fired push; the same card pushed into the resolve slot
+  again being a new play, the China Card after Ussuri River Skirmish).
+  Greedy against the hard AI, 30 games a seat (`--seed 300`): **US 30/30
+  and USSR 30/30 with zero desyncs and zero void** on the final code
+  (`runs/playdek/greedy-hard-us`, `greedy-hard-ussr-run6`; the earlier
+  runs of the pass, `-run1..5`, are the trail of the fixes). Greedy wins
+  none of them. Still open, all in the emulation's wider sweep: an
+  Olympic Games after a DEFCON/VP drift (seed 64), a late placement
+  inference (84), a held-card discard reshuffled and dealt again (104), a
+  realignment read as a placement (121), a US hand drift (136); and the
+  hidden-prompt emulation (`runs/playdek/trace/emu_grain.py`, the other
+  seat's Grain Sales inferred from records as the AI's is) at ~8%.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
