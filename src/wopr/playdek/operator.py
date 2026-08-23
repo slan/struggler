@@ -947,7 +947,7 @@ class PlaydekOperator(Bridge):
             if len(d.options) == 1:
                 self.outgoing.popleft()  # a forced step the DLL did not ask about
                 continue
-            raise LookupError(f"the DLL asks {prompt.text!r} {[o.text for o in visible]}; the bot's next action is "
+            raise LookupError(f"the DLL asks {prompt.text!r} {[(o.text, hex(o.hint)) for o in visible]}; the bot's next action is "
                               f"{d.kind.value} {dict(a.payload)} of {[dict(x.payload) for x in d.options][:12]}")
         if not self.outgoing:
             return None

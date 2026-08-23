@@ -413,6 +413,7 @@ class SelectionHint(IntEnum):
     OPS_COUP = 0xA050
     WAR_COUNTRY = 0xA052  # "War in <country>" (Indo-Pakistani War)
     OPS_SPACE_RACE = 0xA060
+    REGION = 0xA080  # + n: "Select Region for Chernobyl" lists Europe 0xA081, Asia, Middle East, Africa, Central America, South America 0xA086
     DEFCON_SET = 0xA070  # + n: "set DEFCON to n" -- How I Learned's "Choose DEFCON Level" lists 0xA071..0xA075;
     # Summit's "You May Adjust DEFCON Level" lists the three reachable levels (at DEFCON 2: Degrade 0xA071, Pass 0xA072, Improve 0xA073)
     DISCARD_CARD = 0xA091  # "Discard <card>" (Blockade's alternative)

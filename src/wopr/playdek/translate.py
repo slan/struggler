@@ -132,6 +132,8 @@ def meaning(option: Option) -> OptionMeaning:
         return OptionMeaning(Meaning.CHOICE, label=option.text)
     if SelectionHint.DEFCON_SET < hint <= SelectionHint.DEFCON_SET + 5:
         return OptionMeaning(Meaning.CHOICE, defcon=hint - SelectionHint.DEFCON_SET, label=option.text)
+    if SelectionHint.REGION < hint <= SelectionHint.REGION + 6:
+        return OptionMeaning(Meaning.CHOICE, label=option.text)  # a region (Chernobyl), matched by its name's words
     # The Cuban Missile Crisis defusing entry of the action-round prompt
     # ("Remove 2 Influence from West Germany") and any unknown hint: a
     # country named in the label is a country target ("Coup in Poland",
