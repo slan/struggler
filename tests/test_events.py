@@ -2618,15 +2618,30 @@ def test_trapped_side_with_no_payable_card_wastes_the_round_with_no_roll():
     assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
 
 
-def test_trapped_side_with_no_payable_card_still_must_play_scoring_cards():
-    # The one exception to "no card -> no roll, round wasted": a scoring
-    # card may never be held past end of turn, so it's forced regardless.
+def test_trapped_side_with_no_payable_card_may_play_a_scoring_card_or_keep_it():
+    # "If out of appropriate cards, the player may only play scoring cards":
+    # the scoring card is offered, and so is keeping it (holding it past the
+    # turn's end is still a loss, the player's risk to take).
     engine = _bare()
     engine.game_effects["quagmire"] = True  # traps the US
     engine.turn = 1
     engine.hands["US"] = ["Nasser", "Europe_Scoring"]  # 1-Op + a scoring card
     engine._push_trap_step(Side.US, "quagmire")
-    assert "Europe_Scoring" not in engine.hands["US"]  # forced into play
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.QUAGMIRE_DISCARD and d.actor is Side.US
+    assert {a.payload["card"] for a in d.options} == {"Europe_Scoring", "none"}
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}))
+    assert engine.hands["US"] == ["Nasser", "Europe_Scoring"]  # kept
+    assert engine.pending_decision is None  # no roll
+    assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
+
+    engine = _bare()
+    engine.game_effects["quagmire"] = True
+    engine.turn = 1
+    engine.hands["US"] = ["Nasser", "Europe_Scoring"]
+    engine._push_trap_step(Side.US, "quagmire")
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "Europe_Scoring"}))
+    assert "Europe_Scoring" not in engine.hands["US"]  # played
     assert "Nasser" in engine.hands["US"]  # not discardable, so it stays
     assert engine.pending_decision is None  # still no roll
     assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
