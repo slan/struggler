@@ -123,7 +123,7 @@ class Bridge:
         # not the card's latest move, which may already be its re-deal after
         # a reshuffle in the same pump (the AI's Blockade discard, reshuffled
         # and dealt to the other hand before the engine asked which card).
-        self._exits: list[tuple[int, str, int, int]] = []  # (move seq, card, the hand it left, record seq)
+        self._exits: list[tuple[int, str, int, int, bool]] = []  # (move seq, card, the hand it left, record seq, whether it was its play)
         # Entries before this index left before the DLL's latest reshuffle:
         # stale once the engine has reshuffled too (the card may be in a
         # hand again, and offered again), still wanted until then.
@@ -313,7 +313,10 @@ class Bridge:
                 self._move_seq += 1
                 self._last_moves[card] = (was, loc, self._move_seq)
                 if was in HAND_OF and loc in PILES:
-                    self._exits.append((self._move_seq, card, was, self._seq))
+                    # Whether the move is the card's play is settled now: the
+                    # card may come back to a hand (SALT Negotiations) and be
+                    # played again, and this exit must stay what it was.
+                    self._exits.append((self._move_seq, card, was, self._seq, self._exit_is_play(card, self._seq)))
             if was != loc:
                 self.recent.append(f"card {card}: {ffi.ECardLocation(was).name if was is not None else '?'} -> {ffi.ECardLocation(loc).name}")
                 if self.trace:
@@ -641,8 +644,8 @@ class Bridge:
         """The latest card to leave `owner`'s hand for the discard or removed
         pile, among `offered`; consumed once named."""
         for i in range(len(self._exits) - 1, -1, -1):
-            seq, card, was, rseq = self._exits[i]
-            if was == HAND_LOCATION[owner] and card in offered and not self._exit_is_play(card, rseq):
+            seq, card, was, rseq, play = self._exits[i]
+            if was == HAND_LOCATION[owner] and card in offered and not play:
                 del self._exits[i]
                 if i < self._exits_before_reshuffle:
                     self._exits_before_reshuffle -= 1

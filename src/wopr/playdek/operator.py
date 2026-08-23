@@ -267,7 +267,7 @@ class PlaydekOperator(Bridge):
     def card_that_left_any(self, owner: Side) -> list[str]:
         """Cards that left `owner`'s hand for the discard or removed pile and
         have not been accounted for, latest first (not consumed)."""
-        gone = sorted(((seq, c) for seq, c, was, _ in self._exits
+        gone = sorted(((seq, c) for seq, c, was, _, _ in self._exits
                        if was == HAND_LOCATION[owner] and c not in self._plays_seen and (c, self._dll_turn) != self._headlined
                        and seq > self._synced_move_seq), reverse=True)
         return [c for _, c in gone]
