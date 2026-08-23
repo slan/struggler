@@ -43,6 +43,7 @@ UI_ONLY = {T.Meaning.CANCEL, T.Meaning.SWITCH_CARD, T.Meaning.BLANK}  # never a 
 CMC_DEFUSE = "Cuban_Missile_Crisis_defuse"
 GRANTED_OPS_PROMPT = "Select Use For Operations"  # Ops an event grants, UN Intervention's, Missile Envy's exchanged card
 SCORING_PROMPT = "You May Play a Scoring Card"  # a trapped seat with no 2+-Ops card
+REFORMER_KNOWN = "The Reformer: the DLL lets the USSR coup in Europe once Glasnost is gone (the card bans it for the rest of the game)"
 OPPONENT_HAND_PROMPT = "Discard a Card from Opponent Hand"  # Aldrich Ames Remix: the cards shown are the other seat's
 #: Prompts whose country is a point of Influence to place or remove: their
 #: moves answer PLACE_INFLUENCE / EVENT_INFLUENCE, never an either/or whose
@@ -771,6 +772,16 @@ class Bridge:
         if theirs != ours:
             self.diverge("card options", f"{d.actor.value} {d.kind.value} {mv.prompt.text!r}: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")
 
+    def _reformer_lapsed_in_dll(self, countries: set[str]) -> bool:
+        """Whether `countries` are coup targets the DLL offers the USSR and
+        the engine does not because of The Reformer: the card bans USSR
+        coups in Europe for the rest of the game, the DLL keeps the ban
+        on the card "in play", which it is not once Glasnost has already
+        been played (its Lua: `PutThisCardInPlay` only if Glasnost is not
+        in the removed pile)."""
+        return bool(countries) and bool(self.engine.game_effects.get("reformer")) and all(
+            c in self.engine.board.countries and self.engine.board.countries[c].region.name == "EUROPE" for c in countries)
+
     def _check_countries(self, d: Decision, mv: Move) -> None:
         if not mv.prompt.options:
             return  # a move learned from the records, not a prompt: nothing to compare
@@ -780,6 +791,9 @@ class Bridge:
         ours = {a.payload["country"] for a in d.options}
         if d.kind is DecisionKind.COUP_TARGET and theirs - ours == {"stop"}:
             theirs.discard("stop")  # an event's free coup: the DLL declines at the target, the engine asked before
+        if d.kind is DecisionKind.COUP_TARGET and theirs > ours and self._reformer_lapsed_in_dll(theirs - ours):
+            self.known[REFORMER_KNOWN] += 1
+            theirs = ours
         if d.kind is DecisionKind.EVENT_INFLUENCE and d.context.get("event") == "De_Stalinization" and ours > theirs:
             # Known: the DLL will not relocate influence back into a country it
             # was just removed from; the card text has no such clause.

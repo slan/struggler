@@ -39,7 +39,7 @@ from struggler.engine.rules import RULES
 from struggler.engine.types import Action, Decision, DecisionKind, Observation, Side
 from struggler.runner import play_game
 from wopr.playdek import ids, translate as T
-from wopr.playdek.bridge import (CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, GRANTED_OPS_PROMPT, HAND_LOCATION, HAND_OF, HEADLINE_OF, PILES,
+from wopr.playdek.bridge import (CARD_KINDS, CHINA, CMC_DEFUSE, COUNTRY_KINDS, GRANTED_OPS_PROMPT, HAND_LOCATION, HAND_OF, HEADLINE_OF, PILES, REFORMER_KNOWN,
                                  UI_ONLY, UN, Bridge, Move, Report)
 from wopr.playdek import ffi
 from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
@@ -549,6 +549,11 @@ class PlaydekOperator(Bridge):
             roll = next((r for r in self.rolls if r.kind is want), None)
             if roll is None:
                 return None
+            if (kind is DecisionKind.COUP_TARGET and d.actor is Side.USSR and not any(a.payload["country"] == roll.country for a in d.options)
+                    and self._reformer_lapsed_in_dll({roll.country})):
+                self.known[REFORMER_KNOWN] += 1
+                self.diverge("rules", f"The Reformer: the DLL let the USSR coup {roll.country} in Europe (Glasnost gone), the engine bans it", fatal=True)
+                return d.options[0]
             return self._pick(d, lambda a: a.payload["country"] == roll.country, f"{kind.value} {roll.country} (from the roll record)")
         if kind is DecisionKind.REALIGNMENT_TARGET:
             roll = next((r for r in self.rolls if r.kind is DecisionKind.REALIGNMENT_ACTOR_ROLL and r.side is self.other), None)

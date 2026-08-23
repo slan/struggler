@@ -961,7 +961,14 @@ Findings from the first four random games, and what became of each:
   2+-Ops cards is really there (`fix/trapped-seat-may-keep-scoring-card`,
   two commits). The DLL's "You May Play a Scoring Card" -> "Pass" now
   answers those steps in the bridge, the operator and the differ; the
-  `known` entry and the fatal it raised are gone.
+  `known` entry and the fatal it raised are gone. One more DLL
+  difference, `known`: The Reformer's ban on USSR coups in Europe is
+  kept by the DLL on the card "in play", which it never is once Glasnost
+  has already been played (its Lua puts the card in play only while
+  Glasnost is not in the removed pile) -- the DLL then offers Europe
+  coup targets the engine, and the card ("for the rest of the game"),
+  refuse (the differ's seed 157, non-fatal; the AI taking such a coup
+  would void the game).
   Operator and bridge bugs, one commit each: a DEFCON choice (Summit, How
   I Learned to Stop Worrying) was read off the DLL's current level, which
   the turn's end had already restored after a last-round Summit -- the
