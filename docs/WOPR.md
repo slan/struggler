@@ -934,6 +934,56 @@ Findings from the first four random games, and what became of each:
   realignment read as a placement (121), a US hand drift (136); and the
   hidden-prompt emulation (`runs/playdek/trace/emu_grain.py`, the other
   seat's Grain Sales inferred from records as the AI's is) at ~8%.
+- **Seventh pass, the emulation's wider sweeps** (the five open seeds of
+  the sixth pass, then two fresh ranges of 120 -- `--seed 200` and
+  `--seed 400` -- every desync traced until it reproduced clean). Four
+  more engine fixes, each its own `fix/*` branch merged `--no-ff`:
+  Iran-Contra Scandal took its -1 off the US's own realignment attempts
+  only, where the card ("all US Realignment rolls") and the DLL's
+  continuous "opponent realignment rolls are reduced by 1" take it off
+  every US die -- a USSR 6 against a US 5 + 1 in Jordan was a wash here
+  and a point removed there (seeds 64 and 84,
+  `fix/iran-contra-defending-rolls`); the extra action round Space Race
+  box 8 or North Sea Oil grants had to be played where the rules say
+  "may" -- `PASS_ROUND` (`"pass"`) is now offered beside the cards there,
+  and likewise when a hand holds nothing but the China Card (8.1.6)
+  (seeds 84 and 453, `fix/extra-action-round-may-be-passed`,
+  `fix/china-card-only-hand-may-pass`); Five Year Plan fired any US event
+  it drew, eligible or not, so a NATO drawn before Marshall Plan left the
+  game as a fired card where the DLL merely discarded it, reshuffled it
+  and dealt it again (seed 224, `fix/five-year-plan-ineligible-event`).
+  Operator and bridge bugs, one commit each: a DEFCON choice (Summit, How
+  I Learned to Stop Worrying) was read off the DLL's current level, which
+  the turn's end had already restored after a last-round Summit -- the
+  read is kept only when a copy reproduces the state (64); a headlined ABM
+  Treaty's realignment took the action round's rolls too -- a roll
+  recorded after the seat's next queued play (`Move.seq`) is that play's
+  (121); whether a card's exit from a hand was its play is settled when
+  the exit is logged, since a SALT Negotiations recovery dropped the play
+  record and the old exit then passed for a discard, one card too many
+  for Ask Not (136); a deal asked once the DLL's game has ended (a
+  scoring card held in the hand the engine cannot see) defers to the
+  game-over handling instead of failing on the frozen hand (104);
+  "Discard a Card from Opponent Hand" (Aldrich Ames Remix) is the
+  opponent's prompt of the hand shown (136); Star Wars' copy is read off
+  the push from the discard pile, no hand move reports it (136); the other
+  seat's unrecorded pass of an extra round, and the bot's own, are the
+  pass option, in the differ too (84); Chernobyl's region options (hints
+  `0xA081`-`0xA086`) are choices (313); the emulated seat's Grain Sales
+  takes a scoring card it plays (270); the preview of a realignment just
+  answered is never a replay of an earlier realignment of the same
+  country with the same dice (472); a simulated copy steps through the
+  bot's forced `event_resume` and, once it has ended as the DLL's game
+  has, is judged by the winner (513); a lone "Pass" the DLL asks the bot
+  before the engine has reached the choice (Tear Down This Wall's free Op
+  with no target) is sent at once and the bot's decision cut down to the
+  decline when it comes (503).
+- **After the seventh pass:** the differ 279/280 (seed 93's trap,
+  `known`); the hotseat emulation 32/32; the wide sweeps (`--games 120`)
+  at `--seed 40`, `200` and `400`: 0 desyncs + 1 void (the trap's kept
+  scoring card, `known`), 0, 0; the hidden-prompt emulation
+  (`emu_grain.py 1 60`) 60/60. The Greedy-vs-AI runs of the sixth pass
+  were not repeated.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
