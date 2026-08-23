@@ -597,17 +597,22 @@ def test_bootstrap_rule_confirms_plateaus_and_reads_ticks_back(tmp_path):
     assert rule.assess(ticks).signal is None  # one tick is not a rolling mean
     ticks.append(tick(1000, 0.7, 0.8))
     a = rule.assess(ticks)
-    assert (a.rolling_us, a.rolling_ussr, a.signal, a.best, a.since_best) == (0.6, 0.7, 0.6, 0.6, 0)
+    assert (a.rolling_us, a.rolling_ussr, a.rolling, a.signal, a.best, a.since_best) == (0.6, 0.7, 0.65, 0.6, 0.65, 0)
     assert not rule.ready(a)
     ticks.append(tick(1500, 0.8, 0.9))
     a = rule.assess(ticks)
     assert a.signal == 0.75 and rule.ready(a)  # both seats' rolling means at the target
     assert rule.confirmed(EvalCounts(225, 0, 300, 240, 0, 300)) and not rule.confirmed(EvalCounts(224, 0, 300, 300, 0, 300))
-    for games in (2000, 2500, 3000):
-        ticks.append(tick(games, 0.7, 0.9))  # the US seat slips: no new best of the weaker seat
+    # The plateau watches the overall rolling mean, not the weaker seat: a
+    # US slip while the USSR seat climbs is not a plateau (r3's false stop).
+    ticks.append(tick(2000, 0.6, 1.0))
     a = rule.assess(ticks)
-    assert a.best == 0.75 and a.since_best == 3 and not rule.plateaued(a)
-    ticks.append(tick(3500, 0.7, 0.9))
+    assert a.signal == 0.7 and a.rolling == 0.825 and a.since_best == 0
+    for games in (2500, 3000, 3500):
+        ticks.append(tick(games, 0.7, 0.8))  # flat overall
+    a = rule.assess(ticks)
+    assert a.best == 0.825 and a.since_best == 3 and not rule.plateaued(a)
+    ticks.append(tick(4000, 0.7, 0.8))
     assert rule.plateaued(rule.assess(ticks))
 
     path = tmp_path / "metrics.csv"
@@ -617,4 +622,4 @@ def test_bootstrap_rule_confirms_plateaus_and_reads_ticks_back(tmp_path):
     )
     read = read_evals(path)
     assert [(t.games, t.seed, t.counts.as_us, t.counts.as_ussr) for t in read] == [(210, 1001, 0.52, 0.68), (410, 1002, 0.64, 0.76)]
-    assert rule.assess(read).signal == 0.58  # (0.52 + 0.64) / 2: a resumed run continues its rolling mean
+    assert rule.assess(read).signal == 0.58 and rule.assess(read).rolling == 0.65  # a resumed run continues its rolling means

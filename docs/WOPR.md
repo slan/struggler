@@ -42,8 +42,11 @@ decides.
    rolling mean over the last two ticks** (200 games a seat, ±0.07):
    both seats ≥ 0.75 → a confirmatory 600-game evaluation on fresh
    decks, and the run stops only if both seats clear 0.75 there too; no
-   new best of the weaker seat's rolling mean for four ticks (~2,000
-   games) → stop at the plateau; a cap of 20,000 games → stop. Whatever
+   new best of the *overall* rolling mean (400 games, ±0.05 — the
+   weaker seat's alone is too noisy for a four-tick window: r3's first
+   attempt stopped on it at 6,500 games while the curve was still
+   climbing) for four ticks (~2,000 games) → stop at the plateau; a cap
+   of 20,000 games → stop. Whatever
    stopped it, the last evaluated checkpoint is frozen as `v1` with the
    full protocol and its README entry says which rule fired.
    `runs/<run>/bootstrap.csv` has every tick's decision. The Greedy
@@ -440,7 +443,8 @@ runs/<run>/
   config.json      arguments + games_done (resume reads it), the commit,
                    the layout version (a run from another version is refused),
                    the recipe and the --init checkpoint if any
-  ppo.zip          SB3 model (optimizer state included)
+  ppo.zip          SB3 model (optimizer state included), written with every
+                   pool snapshot and at exit: a killed run resumes from its last snapshot
   joshua.pt        latest plain checkpoint: what `--us joshua` loads
   pool/            snapshots + stats.json
   metrics.csv

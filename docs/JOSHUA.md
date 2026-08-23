@@ -154,8 +154,8 @@ recipe v11 from scratch, an evaluation against Greedy every 500 games
 collectors during the update. Stop rule, written before the run:
 rolling mean over the last two evaluations ≥ 0.75 on **both** seats →
 a 600-game confirmation (300 a seat) that must also clear 0.75 on both
-seats; else plateau (no new best of the weaker seat's rolling mean for
-four evaluations) or the cap (20,000 games). Whichever fires, the last
+seats; else plateau (no new best of the overall rolling mean for four
+evaluations) or the cap (20,000 games). Whichever fires, the last
 evaluated checkpoint is frozen as `r3/v1` with the full protocol.
 Reading: *confirmed* → the yardstick is met, the loop starts from
 `v1`; *plateau* → diagnose before the loop; *cap* → continue the run.
@@ -165,6 +165,20 @@ Reference points: r2/v1 reached 0.748 at 8,000 games, r2/v2 0.901 at
 seat edge and the endings of this game, a ledger row
 (`wopr.ab --existing`), and the first evaluation against Playdek's
 easy AI, 60 games a seat.
+
+*Amended mid-run, 2026-08-23, at 6,521 games.* The plateau signal as
+first written was the **weaker seat's** rolling mean (100 games a seat
+per tick). It fired at tick 13: the US seat had spiked to 0.47 at tick
+9 and read 0.28 / 0.33 / 0.425 / 0.42 after, while the USSR seat went
+0.45 → 0.65 and the overall curve 0.37 → 0.49 → 0.48 → 0.475 — a run
+still climbing, declared flat by one seat's noise against one seat's
+spike. The premature `v1` was discarded before its protocol finished,
+the plateau signal changed to the overall rolling mean (400 games,
+half the noise; the confirmation trigger stays per seat), and the same
+run resumed from its `ppo.zip` with its thirteen ticks kept. Recorded
+here because it is a change to a pre-registered rule: the reading of
+the stop is unchanged, the estimator behind one of its three branches
+is not the one written down above.
 
 **Result.** *(pending)*
 

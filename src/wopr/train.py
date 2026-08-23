@@ -306,6 +306,19 @@ def run(
         model = build_model(args, env, device)
     wire_buffer(model, env)
 
+    config: dict[str, Any] = {
+        **vars(args), "device": device, "games_done": games_done,
+        "commit": git_commit(), "layout_version": F.LAYOUT_VERSION, "rules_version": RULES_VERSION,
+    }
+    config_path.write_text(json.dumps(config, indent=2))
+
+    def save_model(games: int) -> None:
+        # With every pool snapshot, so a killed run resumes from its last
+        # snapshot (a `ppo.zip` only written at exit was lost with the process).
+        model.save(model_path)
+        config["games_done"] = games
+        config_path.write_text(json.dumps(config, indent=2))
+
     tracker = WoprCallback(
         run_dir=run_dir,
         env=env,
@@ -319,21 +332,15 @@ def run(
         eval_games=args.eval_games,
         eval_seed=args.eval_seed,
         eval_opponent=args.eval_opponent,
+        on_snapshot=save_model,
     )
-    config: dict[str, Any] = {
-        **vars(args), "device": device, "games_done": games_done,
-        "commit": git_commit(), "layout_version": F.LAYOUT_VERSION, "rules_version": RULES_VERSION,
-    }
-    config_path.write_text(json.dumps(config, indent=2))
     print(f"[wopr] device={device} n_envs={args.n_envs} n_steps={args.n_steps} params={sum(p.numel() for p in model.policy.parameters())}")
     try:
         extra = [] if callbacks is None else list(callbacks(tracker))
         model.learn(total_timesteps=2**62, callback=[tracker, StopAtGames(tracker), *extra], reset_num_timesteps=not model_path.exists())
     finally:
         env.close()  # collector processes, if any
-        model.save(model_path)
-        config["games_done"] = tracker.games
-        config_path.write_text(json.dumps(config, indent=2))
+        save_model(tracker.games)
         print(f"[wopr] saved {model_path} after {tracker.games} games")
     return tracker
 

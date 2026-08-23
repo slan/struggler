@@ -12,7 +12,10 @@ What gets logged, and why each number is there:
   says the step size is too big, EV near 0 says the value head is lost.
 
 Snapshots go to the `CheckpointPool` every `snapshot_every` rollouts and
-to `<run>/joshua.pt` (the latest, what `JoshuaPlayer` loads) every rollout.
+to `<run>/joshua.pt` (the latest, what `JoshuaPlayer` loads) every rollout;
+`on_snapshot` (train.py: save `ppo.zip` and the game count) runs with
+each pool snapshot, so a run killed mid-way resumes from its last one
+rather than from nothing.
 
 With `eval_every` set, every time the game count crosses a multiple of it
 the just-saved `joshua.pt` plays `eval_games` against `eval_opponent`
@@ -30,7 +33,7 @@ import csv
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any, Mapping, NamedTuple
+from typing import Any, Callable, Mapping, NamedTuple
 
 import numpy as np
 import torch
@@ -115,6 +118,7 @@ class WoprCallback(BaseCallback):
         eval_games: int = 200,
         eval_seed: int = 1000,
         eval_opponent: str = "greedy",
+        on_snapshot: Callable[[int], None] | None = None,
         verbose: int = 1,
     ) -> None:
         super().__init__(verbose)
@@ -130,6 +134,7 @@ class WoprCallback(BaseCallback):
         self.eval_games = eval_games
         self.eval_seed = eval_seed
         self.eval_opponent = eval_opponent
+        self.on_snapshot = on_snapshot
         self.evals: list[EvalTick] = read_evals(run_dir / "metrics.csv") if eval_every else []
         self._eval_tick = max((t.games // eval_every for t in self.evals), default=games_done // eval_every) if eval_every else 0
         self._eval_in_flight: tuple[int, float] | None = None  # (deck seed, started at)
@@ -187,6 +192,8 @@ class WoprCallback(BaseCallback):
         save_checkpoint(self.model.policy.net, self.run_dir / "joshua.pt", extra={"games": self.games, "update": self.update})
         if self.snapshot_every > 0 and self.update % self.snapshot_every == 0:
             self.pool.add(f"u{self.update:05d}", self.model.policy.net, extra={"games": self.games, "update": self.update})
+            if self.on_snapshot is not None:
+                self.on_snapshot(self.games)
         if self.eval_every and self.games // self.eval_every > self._eval_tick:
             self._eval_tick = self.games // self.eval_every
             self._start_eval(self.eval_seed + self._eval_tick)

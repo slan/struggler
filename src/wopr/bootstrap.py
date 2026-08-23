@@ -15,8 +15,11 @@ a budget:
   evaluation of `--confirm-games` (600: 300 a seat) on fresh decks; both
   seats at or above the target there → **stop, confirmed**. A miss trains
   on; the next tick may ask again.
-- No new best of the rolling mean's weaker seat for `--plateau`
-  evaluations (four, about 2,000 games) → **stop, plateau**.
+- No new best of the **overall** rolling mean (both seats, 400 games,
+  about ±0.05) for `--plateau` evaluations (four, about 2,000 games) →
+  **stop, plateau**. Not the weaker seat's: at 100 games a seat one
+  spike sets a best the next four ticks cannot beat while the run is
+  still climbing (r3's first attempt, docs/JOSHUA.md).
 - `--games` is the budget cap → **stop, cap**.
 
 Whatever stopped it, the last evaluated checkpoint (`runs/<run>/joshua.pt`)
@@ -46,7 +49,7 @@ from wopr.eval import EvalCounts
 from wopr.repo import git_commit
 
 BOOTSTRAP_COLUMNS = (
-    "tick", "games", "seed", "eval_us", "eval_ussr", "rolling_us", "rolling_ussr", "signal", "best", "since_best",
+    "tick", "games", "seed", "eval_us", "eval_ussr", "rolling_us", "rolling_ussr", "rolling", "signal", "best", "since_best",
     "confirm_games", "confirm_us", "confirm_ussr", "decision",
 )
 
@@ -57,11 +60,13 @@ class Assessment:
 
     rolling_us: float | None
     rolling_ussr: float | None
-    best: float | None  # the best signal (weaker seat's rolling mean) so far, this tick included
+    rolling: float | None  # both seats together: the plateau's signal
+    best: float | None  # the best overall rolling mean so far, this tick included
     since_best: int  # ticks since the best was set (0: this tick set it)
 
     @property
     def signal(self) -> float | None:
+        """The weaker seat's rolling mean: what the target is held against."""
         return None if self.rolling_us is None or self.rolling_ussr is None else min(self.rolling_us, self.rolling_ussr)
 
 
@@ -85,12 +90,11 @@ class StopRule:
             rolling = self.rolling(ticks[: i + 1])
             if rolling is None:
                 continue
-            signal = min(rolling.as_us, rolling.as_ussr)
-            if best is None or signal > best:
-                best, best_at = signal, i
+            if best is None or rolling.win_rate > best:
+                best, best_at = rolling.win_rate, i
         if rolling is None:
-            return Assessment(None, None, None, 0)
-        return Assessment(rolling.as_us, rolling.as_ussr, best, len(ticks) - 1 - best_at)
+            return Assessment(None, None, None, None, 0)
+        return Assessment(rolling.as_us, rolling.as_ussr, rolling.win_rate, best, len(ticks) - 1 - best_at)
 
     def ready(self, assessment: Assessment) -> bool:
         """Both seats' rolling means at the target: ask for the confirmation."""
@@ -137,7 +141,7 @@ class BootstrapGate(BaseCallback):
         row: dict[str, Any] = {
             "tick": len(ticks), "games": tick.games, "seed": tick.seed,
             "eval_us": _r(tick.counts.as_us), "eval_ussr": _r(tick.counts.as_ussr),
-            "rolling_us": _r(assessment.rolling_us), "rolling_ussr": _r(assessment.rolling_ussr),
+            "rolling_us": _r(assessment.rolling_us), "rolling_ussr": _r(assessment.rolling_ussr), "rolling": _r(assessment.rolling),
             "signal": _r(assessment.signal), "best": _r(assessment.best), "since_best": assessment.since_best,
         }
         decision = "train"
@@ -184,7 +188,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--recipe", default="v11", choices=sorted(train.RECIPES))
     p.add_argument("--target", type=float, default=0.75, help="win rate against Greedy wanted on both seats")
     p.add_argument("--window", type=int, default=2, help="evaluations the rolling mean spans")
-    p.add_argument("--plateau", type=int, default=4, help="evaluations without a new best rolling mean (weaker seat) that stop the run")
+    p.add_argument("--plateau", type=int, default=4, help="evaluations without a new best overall rolling mean that stop the run")
     p.add_argument("--eval-every", type=int, default=500, help="training games between evaluations")
     p.add_argument("--eval-games", type=int, default=200, help="games per evaluation (half a seat)")
     p.add_argument("--eval-seed", type=int, default=1000, help="deck seed of the first evaluation (+ the tick number after)")
@@ -232,7 +236,8 @@ def main(argv: list[str] | None = None) -> None:
         "games": tracker.games, "train_s": round(train_s, 1), "stopped_by": stopped_by,
         "rule": {"target": rule.target, "window": rule.window, "plateau": rule.plateau, "cap": args.games,
                  "eval_every": args.eval_every, "eval_games": args.eval_games, "confirm_games": args.confirm_games},
-        "rolling": {"us": assessment.rolling_us, "ussr": assessment.rolling_ussr, "best": assessment.best, "since_best": assessment.since_best},
+        "rolling": {"us": assessment.rolling_us, "ussr": assessment.rolling_ussr, "overall": assessment.rolling,
+                    "best": assessment.best, "since_best": assessment.since_best},
         "ticks": [{"games": t.games, "seed": t.seed, **t.counts._asdict()} for t in tracker.evals],
         "confirmations": gate.confirmations,
         "version": None if args.no_freeze else version,
