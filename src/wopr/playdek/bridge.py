@@ -545,6 +545,8 @@ class Bridge:
         if d.kind is DecisionKind.DEAL_CARD:
             # A card the DLL has in that hand and the engine has not been
             # told about yet (the DLL deals, undoes and re-deals at commit).
+            if self.game.result is not None and self.game.prompt is None:
+                return None  # the DLL's game ended at the turn's end (a scoring card held in the hand the engine cannot see): `_more` says how
             side = Side(d.context["side"])
             if self.reshuffled:
                 self._engine_reshuffled()
