@@ -1013,6 +1013,39 @@ Findings from the first four random games, and what became of each:
   `--seed 40`, `200` and `400`: 120/120, 120/120, 120/120; the
   hidden-prompt emulation (`emu_grain.py 1 60`, seeds 1-59) 59/59. The
   Greedy-vs-AI runs of the sixth pass were not repeated.
+- **Eighth pass, Greedy against the hard AI again** (30 games a seat,
+  `--seed 300`, on the seventh pass's code: 29/30 and 29/30, one desync
+  each, no void). One engine fix, `fix/we-will-bury-you-trap-round-end`
+  (stacked on `fix/we-will-bury-you-trap-round`): We Will Bury You's 3 VP
+  for a US round spent in Quagmire were paid at the round's start,
+  before the US was asked its discard; the DLL pays them once the round
+  is over, after the discard and the `TRAP_ROLL` (`emu7/g-64*.log`), as
+  the ordinary round pays at the play and not before the card is
+  picked. Unseen until the VP crossed 20: the USSR at 17 headlined the
+  card and played OPEC, the engine's game ended on the 3 VP while the
+  DLL still asked "You Must Discard a Card" (seed 322 as the US). The
+  effect's value is `WE_WILL_BURY_YOU_TRAPPED` for the trapped round
+  (truthy: Joshua's flag is unchanged) and
+  `_settle_we_will_bury_you_trapped` pays from `_advance_once`, before
+  the next round or the turn's end. One bridge fix: the scoring cards
+  the DLL shows in the hand the engine cannot see were revealed whenever
+  they appeared, and the DLL is pumped whole actions ahead -- the AI's
+  Ask Not discarded its hand and drew the replacements in one pump, and
+  a Southeast Asia Scoring it drew was revealed into a slot of the hand
+  the engine was still discarding, one discard at a time, so the last
+  discard the DLL made (Cultural Revolution) had no slot ("illegal in
+  engine", seed 315 as the USSR, turn 5; the hand sizes had agreed at
+  the bot's prompt before, 9 and 9). `_reveal_hidden_scoring_cards`
+  now waits until the DLL's hand count is the engine's: the engine
+  draws its own slots at "stop" and the reveal follows at the next
+  answer; a deal at the turn's end is the same case. The "the DLL
+  discarded X" mismatch now carries every unaccounted exit, the hand
+  sizes and the recent records. Neither game reproduces by volume (six
+  traced repeats of seed 315 took other lines by turn 3: the AI is not
+  deterministic); the emulation on the new code is 32/32 and 120/120
+  at `--seed 40`, 47 held-card endings among them, and Greedy against
+  the hard AI on it (`--seed 300`) is 30/30 a seat, zero desyncs, zero
+  void (`runs/playdek/greedy-hard-ussr-run8`, `greedy-hard-us-run4`).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
