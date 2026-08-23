@@ -353,6 +353,9 @@ class PlaydekOperator(Bridge):
 
     def _choose(self, prompt: Prompt, option: Option) -> None:
         self.report.prompts += 1
+        m = T.meaning(option)
+        if m.meaning is T.Meaning.COUNTRY and m.country in ids.INDEX_BY_COUNTRY:
+            self._answered_countries.add(ids.INDEX_BY_COUNTRY[m.country])  # its preview is not a replay (`mark_replays`)
         grain = self._grain_card(prompt)
         if grain is not None and self.prompt_side(prompt) is self.other:
             # The emulated seat's Grain Sales: taken when the drawn card is played (a scoring card under its own hint)

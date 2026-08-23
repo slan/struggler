@@ -151,6 +151,12 @@ class Bridge:
         self._replay: collections.deque[tuple[int, GameEvent]] = collections.deque()  # (the batch it arrived in, the record)
         self._batch_no = 0
         self._replay_overflow = False
+        # The countries of the targets just answered (a realignment's, a
+        # coup's): the records at the head of the next batch describing them
+        # are the preview of that answer, never a replay -- a second
+        # realignment of the same country can roll the same dice as the
+        # first, whose records may by then be the FIFO's head.
+        self._answered_countries: set[int] = set()
         self.recent: collections.deque[str] = collections.deque(maxlen=24)  # the last records, for diagnostics
         self._seq = 0  # absorbed records, counted: the arrival order of the facts below
         self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
@@ -201,6 +207,13 @@ class Bridge:
         replay = [False] * len(batch)
         k = 0
         while k < len(stable):
+            head = batch[stable[k]]
+            if (k == 0 and head.kind == EventType.OUTPUT_ANIMATION_TARGET_COUNTRY
+                    and head.fields.get("country_instance_id") in self._answered_countries):
+                self._answered_countries.discard(head.fields["country_instance_id"])
+                self._replay.append((self._batch_no, head))  # the preview of the target just chosen
+                k += 1
+                continue
             # The replay starts with the oldest outstanding record and copies
             # the chunk up to where it was committed -- the whole FIFO when
             # the action's last choice committed it (a realignment's rolls
@@ -228,6 +241,8 @@ class Bridge:
                         start, n = self._replay_run(batch, stable, k, j)
                     j += 1
             if n:
+                if self.trace:
+                    print(f"  RPL {n} record(s) at batch position {k} replay FIFO[{start}:{start + n}] of {len(self._replay)}: {batch[stable[k]]}")
                 for _ in range(start):
                     self._replay.popleft()
                 for j in range(n):
@@ -237,6 +252,7 @@ class Bridge:
                 continue
             self._replay.append((self._batch_no, batch[stable[k]]))
             k += 1
+        self._answered_countries.clear()
         if len(self._replay) > REPLAY_FIFO_LIMIT and not self._replay_overflow:
             self._replay_overflow = True
             self.diverge("harness", f"{len(self._replay)} records outstanding without a re-emission matching them: the replay "
