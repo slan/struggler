@@ -2098,6 +2098,31 @@ def test_trapped_side_with_no_payable_card_may_play_a_scoring_card_or_keep_it():
     assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
 
 
+def test_physical_trapped_hand_may_say_it_holds_no_payable_card():
+    # The hand the engine cannot see: the hidden pool's 2+-Ops cards are
+    # offered with "none"; "none" leads to the scoring step, with "none"
+    # again to keep the scoring card.
+    from struggler.engine.core import HIDDEN_CARD
+
+    engine = _bare()
+    engine.physical_mode = True
+    engine.physical_side = Side.US
+    engine.hands["US"] = [HIDDEN_CARD, HIDDEN_CARD]
+    engine.hidden_pool = ["Duck_and_Cover", "Europe_Scoring"]
+    engine.game_effects["quagmire"] = True
+    engine._push_trap_step(Side.US, "quagmire")
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.QUAGMIRE_DISCARD and not d.context.get("scoring_only")
+    assert {a.payload["card"] for a in d.options} == {"Duck_and_Cover", "none"}
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}))
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.QUAGMIRE_DISCARD and d.context.get("scoring_only")
+    assert {a.payload["card"] for a in d.options} == {"Europe_Scoring", "none"}
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "none"}))
+    assert engine.pending_decision is None  # no roll
+    assert engine._trap_key_for(Side.US) == "quagmire"  # still trapped
+
+
 def test_trap_intercepts_the_normal_action_round_play():
     engine = Engine.new_game(seed=3, events=True)
     engine.phase = "action_rounds"

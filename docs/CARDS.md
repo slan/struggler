@@ -285,7 +285,10 @@ that frees the side on a 1–4. With no legal card to discard, that action
 round is simply wasted with no roll at all — except that a scoring card in
 hand may be played (the card: "may only play scoring cards"), offered
 beside `none` to keep it; holding one past the end of the turn still
-loses the game (`_end_of_turn`), the player's risk to take.
+loses the game (`_end_of_turn`), the player's risk to take. In physical
+mode the hidden hand's 2+-Ops candidates come with a `none` too (the
+hidden pool's cards may not be in the hand), which leads to the scoring
+step.
 
 ## Space Race boxes
 
