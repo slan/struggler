@@ -154,7 +154,7 @@ separate check in `_handle_coup_roll`, untouched by this.
 
 **Forced random discard** (`RANDOM_DISCARD`, a seeded CHANCE decision that
 reveals only the drawn card). Five Year Plan (a discarded US event
-fires; a USSR or neutral one is just discarded), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
+fires if its precondition is met, else it is discarded like any other; a USSR or neutral one is just discarded), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
 
 **Per-turn coup/realign modifiers.** Nuclear Subs (US Battleground coups
 skip the DEFCON degrade — on top of the base rule that only Battleground
