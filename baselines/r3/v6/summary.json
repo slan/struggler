@@ -1,0 +1,237 @@
+{
+  "version": "v6",
+  "commit": "c4e88a3f930e5b83fe771424029198eae3fc9143",
+  "rules_version": 3,
+  "run": "r3",
+  "games_trained": 34020,
+  "protocol": {
+    "games_per_opponent": 200,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "anchors": [
+      "random",
+      "first",
+      "greedy"
+    ],
+    "events": true
+  },
+  "elo": {
+    "v6": {
+      "mean": 1374.6807,
+      "std": 43.0108
+    },
+    "random": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "first": {
+      "mean": 297.2705,
+      "std": 24.6666
+    },
+    "greedy": {
+      "mean": 726.1651,
+      "std": 27.3236
+    },
+    "v1": {
+      "mean": 939.5188,
+      "std": 39.4174
+    },
+    "v2": {
+      "mean": 1001.3642,
+      "std": 38.5901
+    },
+    "v3": {
+      "mean": 1022.996,
+      "std": 61.4831
+    },
+    "v4": {
+      "mean": 1084.9557,
+      "std": 43.8032
+    },
+    "v5": {
+      "mean": 1187.5097,
+      "std": 73.2438
+    }
+  },
+  "win_rate": {
+    "random": {
+      "win_rate": {
+        "mean": 0.995,
+        "std": 0.0041
+      },
+      "as_us": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_ussr": {
+        "mean": 0.99,
+        "std": 0.0082
+      }
+    },
+    "first": {
+      "win_rate": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_us": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_ussr": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "greedy": {
+      "win_rate": {
+        "mean": 0.975,
+        "std": 0.0071
+      },
+      "as_us": {
+        "mean": 0.9733,
+        "std": 0.0094
+      },
+      "as_ussr": {
+        "mean": 0.9767,
+        "std": 0.0047
+      }
+    },
+    "v1": {
+      "win_rate": {
+        "mean": 0.89,
+        "std": 0.0108
+      },
+      "as_us": {
+        "mean": 0.81,
+        "std": 0.0216
+      },
+      "as_ussr": {
+        "mean": 0.97,
+        "std": 0.0
+      }
+    },
+    "v2": {
+      "win_rate": {
+        "mean": 0.8258,
+        "std": 0.0072
+      },
+      "as_us": {
+        "mean": 0.685,
+        "std": 0.0178
+      },
+      "as_ussr": {
+        "mean": 0.9667,
+        "std": 0.0094
+      }
+    },
+    "v3": {
+      "win_rate": {
+        "mean": 0.795,
+        "std": 0.0108
+      },
+      "as_us": {
+        "mean": 0.63,
+        "std": 0.0163
+      },
+      "as_ussr": {
+        "mean": 0.96,
+        "std": 0.0082
+      }
+    },
+    "v4": {
+      "win_rate": {
+        "mean": 0.7217,
+        "std": 0.0012
+      },
+      "as_us": {
+        "mean": 0.545,
+        "std": 0.0319
+      },
+      "as_ussr": {
+        "mean": 0.8983,
+        "std": 0.0306
+      }
+    },
+    "v5": {
+      "win_rate": {
+        "mean": 0.595,
+        "std": 0.0309
+      },
+      "as_us": {
+        "mean": 0.3983,
+        "std": 0.0419
+      },
+      "as_ussr": {
+        "mean": 0.7917,
+        "std": 0.0327
+      }
+    }
+  },
+  "sampled": {
+    "seed": 0,
+    "table": {
+      "random": {
+        "win_rate": 0.99,
+        "as_us": 1.0,
+        "as_ussr": 0.98,
+        "games": 200
+      },
+      "first": {
+        "win_rate": 0.995,
+        "as_us": 1.0,
+        "as_ussr": 0.99,
+        "games": 200
+      },
+      "greedy": {
+        "win_rate": 0.98,
+        "as_us": 0.96,
+        "as_ussr": 1.0,
+        "games": 200
+      },
+      "v1": {
+        "win_rate": 0.845,
+        "as_us": 0.78,
+        "as_ussr": 0.91,
+        "games": 200
+      },
+      "v2": {
+        "win_rate": 0.85,
+        "as_us": 0.75,
+        "as_ussr": 0.95,
+        "games": 200
+      },
+      "v3": {
+        "win_rate": 0.81,
+        "as_us": 0.7,
+        "as_ussr": 0.92,
+        "games": 200
+      },
+      "v4": {
+        "win_rate": 0.6825,
+        "as_us": 0.525,
+        "as_ussr": 0.84,
+        "games": 200
+      },
+      "v5": {
+        "win_rate": 0.5725,
+        "as_us": 0.4,
+        "as_ussr": 0.745,
+        "games": 200
+      }
+    },
+    "elo": {
+      "v6": 1283.752019228899,
+      "random": 0.0,
+      "first": 399.8711745132803,
+      "greedy": 579.2441717229107,
+      "v1": 935.1778736725475,
+      "v2": 897.4894713564294,
+      "v3": 953.3900621103255,
+      "v4": 1079.8417184745551,
+      "v5": 1116.750125270216
+    }
+  }
+}
