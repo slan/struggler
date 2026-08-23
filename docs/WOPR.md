@@ -982,7 +982,7 @@ Findings from the first four random games, and what became of each:
   `known`); the hotseat emulation 32/32; the wide sweeps (`--games 120`)
   at `--seed 40`, `200` and `400`: 0 desyncs + 1 void (the trap's kept
   scoring card, `known`), 0, 0; the hidden-prompt emulation
-  (`emu_grain.py 1 60`) 60/60. The Greedy-vs-AI runs of the sixth pass
+  (`emu_grain.py 1 60`, seeds 1-59) 59/59. The Greedy-vs-AI runs of the sixth pass
   were not repeated.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
