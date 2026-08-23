@@ -37,6 +37,7 @@ REALIGNMENT_STOP = "stop"  # the REALIGNMENT_TARGET option that ends the attempt
 # instead of silently drifting from the physical deck. No real card id ever
 # looks like this either.
 RESHUFFLE_NOW = "reshuffle_now"
+PASS_ROUND = "pass"  # the ACTION_ROUND_PLAY option that declines an extra action round (Space Race box 8, North Sea Oil: "may")
 
 # Which region each scoring card scores, keyed by card id.
 SCORING_CARD_REGION: dict[str, Region] = {
@@ -1010,6 +1011,8 @@ class Engine:
                 options.append(
                     Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]})
                 )
+            if options and self._in_extra_action_round():
+                options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": PASS_ROUND}))
             if options:
                 self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
             return
@@ -1032,8 +1035,17 @@ class Engine:
             and self.china_card_available
         ):
             options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": RULES["china_card_id"]}))
+        if options and self._in_extra_action_round():
+            # Space Race box 8 and North Sea Oil grant a round the side "may"
+            # take: declining it is a choice, not a forced play.
+            options.append(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": PASS_ROUND}))
         if options:
             self._push(side, DecisionKind.ACTION_ROUND_PLAY, tuple(options), {})
+
+    def _in_extra_action_round(self) -> bool:
+        """Whether the action round being dispatched is one granted beyond
+        the turn's base rounds (`_extra_action_round_sides`)."""
+        return self._ars_played - 1 >= 2 * action_rounds(self.turn)
 
     def _handle_missile_envy_forced_play(self, side: Side, cid: str) -> None:
         self.game_effects.pop("missile_envy_forced", None)
@@ -1063,6 +1075,8 @@ class Engine:
     def _handle_action_round_play(self, decision: Decision, action: Action) -> None:
         side = decision.actor
         cid = action.payload["card"]
+        if cid == PASS_ROUND:
+            return  # the extra round is declined: nothing is played, the turn goes on
         if cid == "Missile_Envy" and self.game_effects.get("missile_envy_forced") == side.value:
             self._handle_missile_envy_forced_play(side, cid)
             return
