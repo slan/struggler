@@ -355,7 +355,8 @@ class PlaydekOperator(Bridge):
         self.report.prompts += 1
         grain = self._grain_card(prompt)
         if grain is not None and self.prompt_side(prompt) is self.other:
-            self._grain = (grain, option.hint == SelectionHint.SWITCH_CARD)  # the emulated seat's Grain Sales
+            # The emulated seat's Grain Sales: taken when the drawn card is played (a scoring card under its own hint)
+            self._grain = (grain, option.hint in (SelectionHint.SWITCH_CARD, SelectionHint.PLAY_SCORING_CARD))
         if self.trace:
             print(f"  PD  {self.prompt_side(prompt).value:4s} {prompt.text!r} -> {option.text!r}")
         if self.emulate is not None and self.report.prompts == 1:
