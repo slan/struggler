@@ -135,7 +135,8 @@ fires), Terrorism (opponent discards, twice after Iranian Hostage Crisis).
 skip the DEFCON degrade — on top of the base rule that only Battleground
 coups degrade DEFCON at all), Latin American Death Squads (±1 to Americas coup
 rolls), SALT Negotiations (−1 to both sides' coups), Iran-Contra Scandal
-(−1 to US realignment via `_realignment_modifier`), Chernobyl (a region
+(−1 to every US realignment die this turn, the US's own attempts and its
+die against the USSR's, via `_realignment_modifier`), Chernobyl (a region
 chosen by the US bars USSR Ops influence, via `_chernobyl_blocks`). How I
 Learned to Stop Worrying takes the set-DEFCON branch (`set_defcon` plus 5
 military Ops).

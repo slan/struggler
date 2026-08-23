@@ -2606,7 +2606,10 @@ class Engine:
             actor_roll + self._realignment_bonus(side, country)
             + self._realignment_modifier(side)
         )
-        opp_total = opp_roll + self._realignment_bonus(opponent, country)
+        opp_total = (
+            opp_roll + self._realignment_bonus(opponent, country)
+            + self._realignment_modifier(opponent)
+        )
         margin = actor_total - opp_total
         if margin > 0:
             removed = min(margin, self.board.influence[country][opponent.value])
@@ -2631,8 +2634,10 @@ class Engine:
         return bonus
 
     def _realignment_modifier(self, side: Side) -> int:
-        """Per-turn additive modifier to the acting side's realignment roll
-        (Iran-Contra Scandal: -1 to US realignment rolls this turn)."""
+        """Per-turn additive modifier to `side`'s die in a realignment,
+        whichever side initiated it (Iran-Contra Scandal: -1 to all US
+        realignment rolls this turn -- the US's own attempts and its die
+        against the USSR's)."""
         if side is Side.US and self.turn_effects.get("iran_contra"):
             return -1
         return 0

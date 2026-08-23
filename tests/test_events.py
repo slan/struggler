@@ -935,6 +935,30 @@ def test_iran_contra_penalises_only_us_realignment():
     assert engine._realignment_modifier(Side.USSR) == 0
 
 
+def _ussr_realigns_jordan(engine: Engine, ussr_die: int, us_die: int) -> None:
+    """The USSR realigns Jordan (US 1, USSR 0, no adjacent control) with
+    fixed dice (bypassing the RNG): the US's die gets +1 for holding more
+    Influence there."""
+    engine.board.influence["Jordan"] = {"US": 1, "USSR": 0}
+    context = {"side": "USSR", "country": "Jordan", "card_ops": 1, "spent": 0, "bonus": None, "non_bonus": None}
+    engine._push(Side.CHANCE, DecisionKind.REALIGNMENT_OPPONENT_ROLL,
+                 (Action(DecisionKind.REALIGNMENT_OPPONENT_ROLL, {"value": us_die}),),
+                 {**context, "actor_roll": ussr_die})
+    engine.step(Action(DecisionKind.REALIGNMENT_OPPONENT_ROLL, {"value": us_die}))
+
+
+def test_iran_contra_penalises_the_us_die_in_a_ussr_realignment():
+    # "-1 to all US Realignment rolls": the US's die against the USSR's
+    # attempt too, not only the US's own attempts.
+    engine = _bare()
+    _ussr_realigns_jordan(engine, ussr_die=6, us_die=5)
+    assert engine.board.influence["Jordan"]["US"] == 1  # 6 vs 5 + 1: a wash
+    engine = _bare()
+    engine.turn_effects["iran_contra"] = True
+    _ussr_realigns_jordan(engine, ussr_die=6, us_die=5)
+    assert engine.board.influence["Jordan"]["US"] == 0  # 6 vs 5 + 1 - 1: one point out
+
+
 def test_flower_power_scores_ussr_when_us_plays_a_war_card():
     engine = _bare()
     engine.game_effects["flower_power"] = True
