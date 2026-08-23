@@ -952,6 +952,16 @@ Findings from the first four random games, and what became of each:
   it drew, eligible or not, so a NATO drawn before Marshall Plan left the
   game as a fired card where the DLL merely discarded it, reshuffled it
   and dealt it again (seed 224, `fix/five-year-plan-ineligible-event`).
+  And a fifth, the differ's seed 93 and the wide sweep's one void: a
+  trapped seat with no 2+-Ops card had every scoring card in its hand
+  played at once, where Bear Trap and Quagmire say it "may only play
+  scoring cards" -- the scoring card is offered with "none" to keep it
+  (holding it past the turn's end is still the loss), and the hand the
+  engine cannot see is first asked whether any of the hidden pool's
+  2+-Ops cards is really there (`fix/trapped-seat-may-keep-scoring-card`,
+  two commits). The DLL's "You May Play a Scoring Card" -> "Pass" now
+  answers those steps in the bridge, the operator and the differ; the
+  `known` entry and the fatal it raised are gone.
   Operator and bridge bugs, one commit each: a DEFCON choice (Summit, How
   I Learned to Stop Worrying) was read off the DLL's current level, which
   the turn's end had already restored after a last-round Summit -- the
@@ -978,12 +988,11 @@ Findings from the first four random games, and what became of each:
   before the engine has reached the choice (Tear Down This Wall's free Op
   with no target) is sent at once and the bot's decision cut down to the
   decline when it comes (503).
-- **After the seventh pass:** the differ 279/280 (seed 93's trap,
-  `known`); the hotseat emulation 32/32; the wide sweeps (`--games 120`)
-  at `--seed 40`, `200` and `400`: 0 desyncs + 1 void (the trap's kept
-  scoring card, `known`), 0, 0; the hidden-prompt emulation
-  (`emu_grain.py 1 60`, seeds 1-59) 59/59. The Greedy-vs-AI runs of the sixth pass
-  were not repeated.
+- **After the seventh pass:** the differ 280/280; the hotseat
+  emulation 32/32; the wide sweeps (`--games 120`) at `--seed 40`, `200`
+  and `400`: 120/120, 120/120, 120/120; the hidden-prompt emulation
+  (`emu_grain.py 1 60`, seeds 1-59) 59/59. The Greedy-vs-AI runs of the
+  sixth pass were not repeated.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
