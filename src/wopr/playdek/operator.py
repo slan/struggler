@@ -775,6 +775,11 @@ class PlaydekOperator(Bridge):
             self.engine.push_event_operations(Side.US, extra_ops)  # the DLL's Grain Sales Ops, before the taken card
         elif extra_ops:
             self._extra_ops_pending = extra_ops  # ...or after it: granted at the bot's next decision, in whichever nested simulation gets there
+        return self._run_copy()
+
+    def _run_copy(self) -> bool:
+        """Play the copy on from the records until the bot's next decision,
+        and say whether the DLL's state is reproduced there."""
         while not self.engine.is_terminal:
             d = self.engine.pending_decision
             if d.actor is self.side:
@@ -785,6 +790,15 @@ class PlaydekOperator(Bridge):
                 if d.kind is DecisionKind.EVENT_RESUME and len(d.options) == 1:
                     self.engine.step(d.options[0])  # a forced step, not a decision: the DLL may be past the turn's end already
                     continue
+                if (d.kind in (DecisionKind.EVENT_CHOICE, DecisionKind.EVENT_INFLUENCE) and len(d.options) <= 8
+                        and not self._trying_bot and self._records_left()):
+                    # A choice of the bot's inside the other seat's event that
+                    # the DLL resolved without asking (Independent Reds with
+                    # one country worth choosing) and played on past: its
+                    # state is not this point's. Try the bot's few options,
+                    # and judge at the next point the DLL stopped at. (Not
+                    # the bot's Ops: the DLL asks those, and they fan out.)
+                    return self._try_each(d)
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
             if a is None or self.stop:
@@ -799,6 +813,37 @@ class PlaydekOperator(Bridge):
             # after it -- the military Ops it reset say nothing).
             return self._sides_by_player.get(self.game.result.winner_id) == self.engine.winner
         return not self.state_diffs(hands=False)
+
+    _trying_bot = False  # inside `_try_each`: one level, no fan-out of fan-outs
+
+    def _records_left(self) -> bool:
+        return bool(self.rolls) or any(self.moves.values())
+
+    def _try_each(self, d: Decision) -> bool:
+        """Each option of the bot's `d` on its own copy; True at the first
+        that reproduces the DLL's state downstream (that copy's records are
+        kept, so the caller's count of what was consumed is right)."""
+        for option in d.options:
+            real, queues = self.engine, self._queues()
+            divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
+            self.engine = Engine.deserialize(real.serialize())
+            self._trying_bot = True
+            try:
+                self.engine.step(option)
+                ok = self._run_copy()
+            except Exception:
+                ok = False
+            finally:
+                self._trying_bot = False
+            if ok:
+                if self.trace:
+                    print(f"  SIM   the bot's {d.kind.value} {dict(option.payload)} (the DLL chose for it) reproduces the state")
+                return True
+            self.engine = real
+            self._set_queues(queues)
+            del self.report.divergences[divergences:]
+            self.known, self._last_state_diff = known, last
+        return False
 
     def _queues(self) -> tuple:
         # The rolls keep their identity (`roll_seq` is keyed by it): the

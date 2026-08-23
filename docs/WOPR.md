@@ -971,7 +971,14 @@ Findings from the first four random games, and what became of each:
   with no penalty — `_trapped_held_scoring_card`, `known` and void. A
   game ended by such a `rules` difference is `MatchResult.void` (the
   reason), not a desync: the eval reports `void` by reason beside
-  `desyncs`, and neither counts. Two engine
+  `desyncs`, and neither counts. One simulation gap from the same
+  games (seed 332 as US, reproducible): a simulated option is judged
+  at the bot's next decision, but when that decision is a choice
+  inside the other seat's event that the DLL resolved without asking
+  (Independent Reds with one country worth choosing) and played on
+  past, the DLL's state is not that point's — `_run_copy` then tries
+  the bot's few options (`_try_each`: event choices of at most eight
+  options, one level) and judges at the next point the DLL stopped at. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
