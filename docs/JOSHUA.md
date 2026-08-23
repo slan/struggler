@@ -217,22 +217,81 @@ generation is diagnosed. Next: the Playdek easy AI, 60 games a seat,
 the first number against an opponent that is not ours. Ledger: row
 `r3`.
 
+### 2026-08-23 — r3/v1 against Playdek's easy AI
+
+**Question.** The first number against an opponent that is not ours:
+what does 0.865 against Greedy buy against the official game's weakest
+AI, seat by seat?
+
+**Setup.** `wopr.playdek.eval --difficulty easy --games 60 --policy
+joshua=baselines/r3/v1/joshua.pt --side ussr|us` (argmax, seeds
+300–359, 6 games in parallel; `runs/playdek/r3v1-easy-{ussr,us,us-b}`
+— the US seat in two batches, 39 + 21, after the first was killed by
+hand at 39). Desyncs are the bridge's, not the game's, and are
+triaged apart.
+
+**Result.** **USSR seat: 1 win in 55 decided games (0.018, 95% upper
+bound 0.10). US seat: 0 in 56 (upper bound 0.06).** The games are
+short — 20 VP by turn 4.4 as USSR (36 of 54 losses), by turn 4.1 as US
+(50 of 56) — and the VP has one address: **Asia Scoring, 407 : 10 for
+the AI with Joshua as USSR and 365 : 3 with Joshua as US.** Europe
+goes the AI's way too from either seat (208 : 81 and 180 : 11, with
+four Europe-control wins against the US seat); the Middle East is the
+only region Joshua's USSR holds (259 : 49). The other loss is a trick:
+**14 of the 18 DEFCON losses as USSR are Joshua playing CIA Created
+(10) or Grain Sales to Soviets (4) for Ops at DEFCON 2** — the event
+hands the AI Ops inside the USSR's own round, the AI coups a
+battleground, DEFCON reaches 1 and the phasing player loses. Against
+its own pool neither happens: the pool never fights for Asia the way
+the AI does, and never takes the free coup. Bridge side: zero
+unexplained desyncs that were not the bridge's — the USSR seat's four
+were a trapped seat's held scoring card (a DLL rules difference, now
+`known`/void) and three Grain Sales inferences, the US seat's three a
+trapped AI's scoring card the operator did not infer, a simulation
+gap fixed the same day (seed 332) and an early placement-legality
+difference (seed 357); `docs/WOPR.md` has the list.
+
+**Decision.** The Greedy yardstick measures something the official
+AI does not share. A policy at 0.87 against Greedy and 0.98 against
+random is at 0.01 against the weakest opponent that plays a
+different game, and the two failure modes are concrete: a region it
+never learned to contest (Asia), and a two-card blunder (CIA Created
+/ Grain Sales at DEFCON 2) that self-play never punished because the
+pool never exploited it. Both are what a pool of one's own past
+selves cannot teach — the first road-map question for r3 is therefore
+**opponent diversity**, not capacity or search: whether Greedy in the
+mix (anchors are off since r1 v5, for a reason that was about reward
+signal, not about coverage), an exploiter trained against the
+champion, or the easy AI's own games as a curriculum closes either
+gap, measured on this eval. The loop from v1 is not the next step
+until that is decided; `wopr.diagnose` against Greedy (0.925 at a
+mean final turn of 5.2, 37 US wins by DEFCON) already hinted that
+its wins are short and by the track, not by the map. The Playdek
+easy eval, 60 a seat, is now a standing yardstick beside Greedy.
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is
 short until it has one.
 
-1. **Ground truth for r3.** The bootstrap freezes `r3/v1`; `wopr.diagnose`
-   records the USSR edge and the end-reason mix of *this* game in the
-   ledger, and the Playdek easy AI gives the first number against an
-   opponent that is not ours. Then the loop, generation by generation,
-   until the gate misses twice in three — that is the r3 plateau, if
-   there is one, and it is measured rather than assumed.
-2. **Diagnose before choosing.** At the plateau, the next experiment is
+1. **Ground truth for r3** — done 2026-08-23: `r3/v1` (0.865 vs
+   Greedy, USSR edge 0.67) and **0.01 against Playdek's easy AI**, with
+   the two reasons named (Asia never contested; CIA Created / Grain
+   Sales for Ops at DEFCON 2).
+2. **Opponent diversity** — the question the easy AI asked. Candidates,
+   each an `wopr.ab` arm from scratch or an `--init` from v1, measured
+   on the Playdek easy eval (60 a seat) as well as Greedy: Greedy back
+   in the mix at a small share; an exploiter (a run trained only
+   against the frozen champion, then added to the champion's pool);
+   the easy AI's games as the pool's opponent through the bridge. The
+   ledger row is written before the run.
+3. **The loop** from whichever version closes a gap, generation by
+   generation, until the gate misses twice in three.
+4. **Diagnose before choosing.** At a plateau, the next experiment is
    chosen from the diagnostics, with its control, metric, budget and
    decision rule written into the ledger row before training starts
    (WOPR.md, "Decision points").
-3. **Candidates carried from r1, unranked until then:** order and recency
+5. **Candidates carried from r1, unranked until then:** order and recency
    features (a layout bump); one-ply search over the learned value; a
    third graph layer.
 

@@ -978,7 +978,16 @@ Findings from the first four random games, and what became of each:
   (Independent Reds with one country worth choosing) and played on
   past, the DLL's state is not that point's — `_run_copy` then tries
   the bot's few options (`_try_each`: event choices of at most eight
-  options, one level) and judges at the next point the DLL stopped at. Two engine
+  options, one level) and judges at the next point the DLL stopped at.
+  Open from the same 120 games (`runs/playdek/r3v1-easy-*`): Grain
+  Sales' random take resolved to the wrong card three times with
+  Joshua as USSR (seeds 319, 328, 333 — a stale reveal picked over the
+  card the DLL took; once a scoring card, scored by the engine as the
+  US); the AI's trapped seat playing its scoring card in the trap step
+  with no prompt to the operator (seed 323, the engine answered
+  "none"); and a turn-1 placement the engine offers and the DLL does
+  not (seed 357, Egypt for the US, reproducible). The AI's line does
+  not repeat on a rerun, so these want traces caught by volume. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
