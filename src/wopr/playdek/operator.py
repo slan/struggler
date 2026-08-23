@@ -341,7 +341,7 @@ class PlaydekOperator(Bridge):
             self.diverge("decision mismatch", f"engine asks {decision.actor.value} {decision.kind.value} (context {dict(decision.context)}); "
                          f"the DLL asks {self.prompt_side(prompt).value} {prompt.text!r} {[o.text for o in prompt.visible]} and nothing of the bot's is left to answer it "
                          f"(queued for {self.other.value}: {[m.option.text for m in self.moves[self.other]]}, rolls {list(self.rolls)}; "
-                         f"state: {'; '.join(self.state_diffs(hands=False)) or 'no difference'}; recent records: {list(self.recent)})", fatal=True)
+                         f"state: {'; '.join(self.state_diffs(hands=True)) or 'no difference'}; recent records: {list(self.recent)})", fatal=True)
             return False
         self._choose(prompt, option)
         return True
