@@ -1592,22 +1592,64 @@ def test_we_will_bury_you_pays_at_the_forced_missile_envy_play():
     assert "we_will_bury_you" not in engine.game_effects
 
 
-def test_we_will_bury_you_pays_when_the_us_round_is_a_quagmire_step():
-    # The US's next action round is spent discarding to Quagmire: no card is
-    # played, so UN Intervention is not, and the USSR scores at that round.
+def _trapped_us_round_under_we_will_bury_you(vp: int = 0) -> Engine:
+    # The USSR's first round is done; the US's next one is a Quagmire step.
     engine = _bare()
     engine.phase = "action_rounds"
-    engine._ars_played = 1  # the USSR's first round is done; the US's is next
+    engine._ars_played = 1
+    engine.vp = vp
     engine.hands["US"] = ["Containment"]
     engine.hands["USSR"] = ["Fidel"]
     engine.game_effects["quagmire"] = True
     engine._fire_event(Side.USSR, "We_Will_Bury_You")
     assert engine.game_effects.get("we_will_bury_you")
+    return engine
+
+
+def test_we_will_bury_you_pays_when_the_us_round_is_a_quagmire_step():
+    # The US's next action round is spent discarding to Quagmire: no card is
+    # played, so UN Intervention is not, and the USSR scores at that round --
+    # once it is over (the discard and the roll done), not before the US
+    # has discarded: the ordinary round pays at the play, not before the
+    # card is picked.
+    engine = _trapped_us_round_under_we_will_bury_you()
     vp = engine.vp
-    engine._dispatch_action_round(Side.US)
+    engine._advance()
     assert engine.pending_decision.kind is DecisionKind.QUAGMIRE_DISCARD
+    assert engine.vp == vp  # due, not paid yet
+    assert engine.game_effects.get("we_will_bury_you")  # still pending (the bot sees it)
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "Containment"}))
+    roll = engine.pending_decision
+    assert roll.kind is DecisionKind.QUAGMIRE_ROLL
+    assert engine.vp == vp
+    engine.step(roll.options[0])
     assert engine.vp == vp - 3
     assert "we_will_bury_you" not in engine.game_effects
+    assert engine.pending_decision.actor is Side.USSR  # the next round is set up after the payment
+
+
+def test_we_will_bury_you_at_a_quagmire_step_ends_the_game_after_the_roll():
+    # 17 VP for the USSR and the 3 due: the game ends on them, but only
+    # once the trapped round is over -- the discard is still asked.
+    engine = _trapped_us_round_under_we_will_bury_you(vp=-17)
+    engine._advance()
+    assert engine.pending_decision.kind is DecisionKind.QUAGMIRE_DISCARD
+    assert not engine.is_terminal
+    engine.step(Action(DecisionKind.QUAGMIRE_DISCARD, {"card": "Containment"}))
+    engine.step(engine.pending_decision.options[0])
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.vp == -20
+
+
+def test_we_will_bury_you_at_a_quagmire_step_pays_with_nothing_to_discard():
+    # No 2+-Ops card: the round is wasted with no roll, and still pays.
+    engine = _trapped_us_round_under_we_will_bury_you()
+    engine.hands["US"] = ["Nasser"]
+    vp = engine.vp
+    engine._advance()
+    assert engine.vp == vp - 3
+    assert "we_will_bury_you" not in engine.game_effects
+    assert engine.pending_decision.actor is Side.USSR
 
 
 def test_we_will_bury_you_degrades_defcon_and_scores_on_the_us_next_play():
