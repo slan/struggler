@@ -1125,6 +1125,19 @@ class PlaydekOperator(Bridge):
             if option is None:
                 if self.engine.is_terminal and self._complete_for_dll(prompt):
                     continue
+                if self._trapped_held_scoring_card():
+                    # The engine's turn ended with a scoring card held by a
+                    # seat in Quagmire / Bear Trap, which loses it the game
+                    # (the card: it may play only scoring cards; the turn's
+                    # end: a held one loses). The DLL lets the trapped seat
+                    # neither play the card (ffi.TRAP_SCORING_CARD) nor
+                    # lose for holding it, and carries it into the next
+                    # turn. The engine cannot play on: known, and void.
+                    loser = self.engine.winner.opponent
+                    self.known["trapped seat's held scoring card: the engine ends the game at the turn's end, the DLL carries the card over"] += 1
+                    self.diverge("rules", f"held scoring card: the engine ends the turn with {loser.value} trapped and holding a scoring card "
+                                 f"({self.engine.winner.value} wins), the DLL plays on to {prompt.text!r}", fatal=True)
+                    break
                 self.diverge("game over", f"the engine is over ({self.engine.winner}) while the DLL still asks {prompt.text!r}", fatal=True)
                 break
             self._choose(prompt, option)
@@ -1132,6 +1145,15 @@ class PlaydekOperator(Bridge):
         if self._completed_for_dll and self.game.result is not None and self._sides_by_player.get(self.game.result.winner_id) is not self.engine.winner:
             self.diverge("game over", f"the engine's game ended ({self.engine.winner}) during the bot's action, the DLL's after it with another result ({self.game.result})", fatal=True)
         return report
+
+    def _trapped_held_scoring_card(self) -> bool:
+        """The engine's game ended on a scoring card held past the turn by a
+        seat the DLL has in a trap (Quagmire holds the US, Bear Trap the USSR)."""
+        e = self.engine
+        if not e.is_terminal or e.winner is None or getattr(e, "_game_over_reason", None) != "held_scoring_card":
+            return False
+        loser = e.winner.opponent
+        return any(e.game_effects.get(key) and side is loser for key, side in e._TRAP_KEYS.items())
 
     def _complete_for_dll(self, prompt: Prompt) -> bool:
         """The engine's game ended in the middle of the bot's action where

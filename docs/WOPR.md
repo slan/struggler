@@ -962,10 +962,16 @@ Findings from the first four random games, and what became of each:
   plays the taken card, against its own card text ("if returned, use
   this card to conduct Operations") -- the AI's favourite headline, so
   one USSR-seat game in ten: when neither take nor return reproduces the
-  state but take with two more Ops does, the game is void. A game ended
-  by such a `rules` difference is `MatchResult.void` (the reason), not a
-  desync: the eval reports `void` by reason beside `desyncs`, and neither
-  counts. Two engine
+  state but take with two more Ops does, the game is void. And one
+  found by Joshua's first games against the easy AI (seed 315): a seat
+  in Quagmire / Bear Trap with no 2+-Ops card keeps its scoring card
+  ("You May Play a Scoring Card" → Pass, the only answer the DLL
+  honours) and the engine ends the turn with the held card lost, as
+  the rules do, where the DLL carries the card into the next turn
+  with no penalty — `_trapped_held_scoring_card`, `known` and void. A
+  game ended by such a `rules` difference is `MatchResult.void` (the
+  reason), not a desync: the eval reports `void` by reason beside
+  `desyncs`, and neither counts. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
