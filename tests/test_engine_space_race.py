@@ -1,6 +1,8 @@
 """Engine: Space Race track mechanics, including the box 6/8 perks (6.4.3-6.4.4)."""
 
 from struggler.engine import Action, DecisionKind, Engine, Side
+from struggler.engine.cards import action_rounds
+from struggler.engine.core import PASS_ROUND
 
 from conftest import bare_engine as _bare
 from conftest import headline_setup as _headline_setup
@@ -36,6 +38,37 @@ def test_reaching_box_8_grants_extra_action_round_cancelled_when_opponent_catche
     _advance_to(engine, Side.USSR, 8)
     assert "space_race_extra_round_holder" not in engine.game_effects
     assert engine._total_action_rounds() == base
+
+
+def _at_action_round(engine: Engine, index: int) -> None:
+    """Put a bare engine at the start of the turn's 0-based play `index`."""
+    engine.phase = "action_rounds"
+    engine._ars_played = index
+    engine._advance()
+
+
+def test_the_extra_action_round_may_be_passed():
+    # 6.4.3: the box 8 holder "may" take the extra round -- it is offered a
+    # pass there, and nowhere in the base rounds.
+    engine = _bare()
+    engine.game_effects["space_race_extra_round_holder"] = "US"
+    engine.hands = {"USSR": [], "US": ["Duck_and_Cover"]}
+    _at_action_round(engine, 1)  # the US's first base round
+    d = engine.pending_decision
+    assert d.actor is Side.US and d.kind is DecisionKind.ACTION_ROUND_PLAY
+    assert PASS_ROUND not in {a.payload["card"] for a in d.options}
+
+    engine = _bare()
+    engine.game_effects["space_race_extra_round_holder"] = "US"
+    engine.hands = {"USSR": [], "US": ["Duck_and_Cover"]}
+    engine.draw_pile = [c for c in engine.cards if c != "Duck_and_Cover" and not engine.cards[c].scoring][:24]  # for the next turn's deal
+    _at_action_round(engine, 2 * action_rounds(engine.turn))  # the extra round
+    d = engine.pending_decision
+    assert d.actor is Side.US and d.kind is DecisionKind.ACTION_ROUND_PLAY
+    assert {a.payload["card"] for a in d.options} == {"Duck_and_Cover", PASS_ROUND}
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": PASS_ROUND}))
+    assert "Duck_and_Cover" in engine.hands["US"]  # nothing played
+    assert engine.phase != "action_rounds"  # the turn ended
 
 
 def test_reaching_box_6_offers_held_card_discard_at_end_of_turn():

@@ -234,7 +234,7 @@ Ask Not… does.
 scores as an Asian Battleground while the US controls it; nullified once
 the US plays the China Card), Shuttle Diplomacy (one USSR-controlled
 Battleground is dropped at the next Middle East/Asia scoring, then
-consumed), North Sea Oil (OPEC becomes ineligible game-long; the US plays
+consumed), North Sea Oil (OPEC becomes ineligible game-long; the US may play
 one extra action round this turn), Arms Race (scores off the Military
 Operations track), Ussuri River Skirmish (take the China Card from the
 USSR, or +4 Influence in Asia). `board.region_tier` takes optional
@@ -290,7 +290,9 @@ of turn.
 
 Box 2 (a second Space Race attempt per turn), box 4 (see below), box 6 (may
 discard the Held Card at end of turn), and box 8 (an extra Action Round) are
-implemented. Each is granted only to the first side to reach the box and is
+implemented. An extra round -- box 8's or North Sea Oil's -- is one the
+side "may" take: its `ACTION_ROUND_PLAY` offers `PASS_ROUND` (`"pass"`)
+beside the cards, and passing plays nothing. Each is granted only to the first side to reach the box and is
 cancelled outright — not transferred — the instant the second side also
 reaches it (rule 6.4.4), via `Engine._update_space_race_ability` and the
 `game_effects` keys `space_race_double_attempt_holder` /

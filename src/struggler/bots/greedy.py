@@ -58,7 +58,7 @@ from struggler.engine import (
 )
 from struggler.engine.board import Board, CountryInfo
 from struggler.engine.cards import load_cards
-from struggler.engine.core import SCORING_CARD_REGION
+from struggler.engine.core import PASS_ROUND, SCORING_CARD_REGION
 from struggler.engine.player import Event
 from struggler.engine.rules import RULES
 
@@ -404,6 +404,8 @@ def _score_action_round_play(
 ) -> float:
     side = observation.side
     cid = action.payload["card"]
+    if cid == PASS_ROUND:
+        return 0.0  # declining an extra round: any card worth playing outscores it
     card = _CARDS[cid]
     if card.scoring:
         return weights.scoring_card_weight * _scoring_card_favorability(board, side, cid)
