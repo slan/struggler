@@ -50,6 +50,8 @@ Policy = Callable[[Prompt], Option]
 
 ANIMATION_HAND = 1  # `animation_source_location` of a card leaving a hand
 ANIMATION_RESOLVE = 6  # `animation_destination_location` of a card being played
+ANIMATION_DISCARD = 4  # `animation_source_location` of a card played out of the discard pile (Star Wars)
+ACTION_PROMPT = "Play Your Action Round"
 ANIMATION_SCORING = 0x1  # the hint of a scoring card's play (no use to choose)
 ANIMATION_FIRED = 0x2  # the hint of a card another event fires out of a hand (Five Year Plan)
 #: EVENT_CHOICE payloads that decline an optional step: the DLL's "Do Not
@@ -136,6 +138,7 @@ class PlaydekOperator(Bridge):
         self._play_seq: dict[str, int] = {}  # card -> record seq of its latest play animation, dropped when it is dealt again
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
+        self._from_discard: list[str] = []  # cards an event played out of the discard pile (Star Wars), not yet accounted for
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
         self._handed: set[str] = set()  # cards Grain Sales handed the US that the engine has not played yet (the DLL discards them at once)
         self._revealed: list[str] = []  # cards shown out of a hand (Grain Sales' draw, CIA Created's hand)
@@ -200,6 +203,14 @@ class PlaydekOperator(Bridge):
             # ACTION_ROUND record, so the round the record arrives in says
             # nothing about whose play it is; the hand the card last left
             # does.
+            if f["animation_source_location"] == ANIMATION_DISCARD and f["animation_destination_location"] == ANIMATION_RESOLVE:
+                # A card played out of the discard pile (Star Wars' copy):
+                # no hand move reports the choice, this push does.
+                try:
+                    self._from_discard.append(ids.card_id(f["card_instance_id"]))
+                except KeyError:
+                    pass
+                return True
             if f["animation_source_location"] != ANIMATION_HAND or f["animation_destination_location"] != ANIMATION_RESOLVE:
                 return True
             try:
@@ -568,6 +579,16 @@ class PlaydekOperator(Bridge):
     def _answer_choice(self, d: Decision) -> Action | None:
         choices = [a.payload["choice"] for a in d.options]
         if all(c in ids.NUMBER_BY_CARD or c in DECLINES for c in choices):
+            if d.context.get("event") == "Star_Wars":
+                # The card copied from the discard pile: pushed into the
+                # resolve slot from there, no hand involved.
+                card = next((c for c in reversed(self._from_discard) if c in choices), None)
+                if card is not None:
+                    self._from_discard.remove(card)
+                    return self._pick(d, lambda a: a.payload["choice"] == card, f"Star Wars copies {card}")
+                if self.game.prompt is None:
+                    return None
+                return next((a for a in d.options if a.payload["choice"] in DECLINES), None)  # at rest with nothing pushed: declined
             # A card taken back from the discard pile (SALT Negotiations):
             # the one that moved there into this seat's hand.
             taken = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
@@ -748,14 +769,15 @@ class PlaydekOperator(Bridge):
         return (list(self.rolls), copy.deepcopy((self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
                                                  self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired,
                                                  self._revealed, self._taken, self._exits, self._exits_before_reshuffle, self.reshuffled,
-                                                 self.synced_seq, self._extra_ops_pending, self._handed)))
+                                                 self.synced_seq, self._extra_ops_pending, self._handed, self._from_discard)))
 
     def _set_queues(self, queues: tuple) -> None:
         rolls, rest = queues
         self.rolls = collections.deque(rolls)
         (self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
          self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken,
-         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq, self._extra_ops_pending, self._handed) = copy.deepcopy(rest)
+         self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq, self._extra_ops_pending, self._handed,
+         self._from_discard) = copy.deepcopy(rest)
 
     # -- the bot's actions -> the DLL's prompts -------------------------------
 
