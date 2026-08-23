@@ -515,3 +515,106 @@ def test_ab_opponent_specs_are_named_checkpoints_from_this_ladder(tmp_path, monk
     assert "champion" not in ab.opponent_specs("v1", "v1")  # the same version is not compared with itself
     with pytest.raises(SystemExit):
         ab.opponent_specs("v2", None)
+
+
+# -- the evaluation on the collectors, and the bootstrap's rule ---------------------------
+
+
+def test_eval_slices_add_up_to_the_pair():
+    """`play_slice` over the parts of [0, half) gives exactly the pair's
+    games (same decks, same seat pairing), so collectors can each play a
+    slice and the counts add."""
+    from wopr.eval import EvalCounts, play_pair, play_slice
+
+    policies = {"random": RandomOpponent(3), "first": PlayerOpponent(FirstLegalPlayer())}
+    whole = play_pair("random", "first", policies, games=6, seed=11, events=True)
+    # Fresh policies per slice: what a collector does (`EvalJob.play`).
+    parts = [
+        play_slice("random", "first", {"random": RandomOpponent(3), "first": PlayerOpponent(FirstLegalPlayer())},
+                   part=part, half=3, seed=11, events=True)
+        for part in (range(0, 2), range(2, 3), range(3, 3))
+    ]
+    assert parts[2] == []
+    assert len(whole) == 6 and {m.a for m in whole} == {"random", "first"}
+    # The slices cover the decks once each; the random seat's stream differs
+    # per slice, so compare the deck structure, not the scores.
+    assert [(m.a, m.b) for m in parts[0] + parts[1]] == [(m.a, m.b) for m in whole[:2] + whole[3:5] + whole[2:3] + whole[5:6]]
+    counts = sum((EvalCounts.from_matches(p, "first", "random") for p in parts), EvalCounts())
+    assert counts.us_games == 3 and counts.ussr_games == 3 and counts.games == 6
+    deterministic = {"first": PlayerOpponent(FirstLegalPlayer()), "greedy": PlayerOpponent(FirstLegalPlayer())}
+    assert play_slice("first", "greedy", deterministic, part=range(0, 3), half=3, seed=11, events=True) == \
+        play_pair("first", "greedy", deterministic, games=6, seed=11, events=True)
+
+
+def test_backends_play_an_evaluation_between_steps(tmp_path):
+    """Both backends answer `start_eval`/`finish_eval` with the counts the
+    pair job gives; the shared-memory one plays it on the collectors and
+    refuses to step while it is out, and steps on afterwards."""
+    from struggler.bots.joshua.model import save_checkpoint
+    from wopr.eval import EvalCounts, EvalJob, run_pair
+
+    torch.manual_seed(0)
+    checkpoint = tmp_path / "net.pt"
+    save_checkpoint(JoshuaNet(SMALL), checkpoint)
+    job = EvalJob(str(checkpoint), games=6, seed=5, opponent="first")
+    expected = EvalCounts.from_matches(run_pair(PairJob(f"learner={checkpoint}", "first", 6, 5)), "learner", "first")
+    assert expected.games == 6 and expected.us_games == 3
+
+    opponents = StandardOpponents(str(tmp_path), seed=1)
+    local = InProcessBackend(Arena(4, seed=9, seat_assigner=self_play), opponents)
+    local.reset()
+    local.start_eval(job)
+    assert local.finish_eval() == expected
+    with pytest.raises(RuntimeError):
+        local.finish_eval()
+
+    shared = SharedMemoryBackend(ArenaSpec(4, 9), self_play, opponents, workers=2)
+    try:
+        shared.reset()
+        before = {name: array.copy() for name, array in shared.buffers.items()}
+        shared.start_eval(job)
+        with pytest.raises(RuntimeError):
+            shared.step(np.zeros(4, dtype=np.int64))
+        assert shared.finish_eval() == expected
+        for name, array in before.items():
+            assert np.array_equal(array, shared.buffers[name]), name  # the training games waited untouched
+        _, dones, _ = shared.step(np.zeros(4, dtype=np.int64))
+        assert dones.shape == (4,)
+    finally:
+        shared.close()
+
+
+def test_bootstrap_rule_confirms_plateaus_and_reads_ticks_back(tmp_path):
+    from wopr.bootstrap import StopRule
+    from wopr.callback import EvalTick, read_evals
+    from wopr.eval import EvalCounts
+
+    def tick(games: int, us: float, ussr: float, n: int = 100) -> EvalTick:
+        return EvalTick(games, 1000 + games // 500, EvalCounts(round(us * n), 0, n, round(ussr * n), 0, n))
+
+    rule = StopRule(target=0.75, window=2, plateau=4)
+    ticks = [tick(500, 0.5, 0.6)]
+    assert rule.assess(ticks).signal is None  # one tick is not a rolling mean
+    ticks.append(tick(1000, 0.7, 0.8))
+    a = rule.assess(ticks)
+    assert (a.rolling_us, a.rolling_ussr, a.signal, a.best, a.since_best) == (0.6, 0.7, 0.6, 0.6, 0)
+    assert not rule.ready(a)
+    ticks.append(tick(1500, 0.8, 0.9))
+    a = rule.assess(ticks)
+    assert a.signal == 0.75 and rule.ready(a)  # both seats' rolling means at the target
+    assert rule.confirmed(EvalCounts(225, 0, 300, 240, 0, 300)) and not rule.confirmed(EvalCounts(224, 0, 300, 300, 0, 300))
+    for games in (2000, 2500, 3000):
+        ticks.append(tick(games, 0.7, 0.9))  # the US seat slips: no new best of the weaker seat
+    a = rule.assess(ticks)
+    assert a.best == 0.75 and a.since_best == 3 and not rule.plateaued(a)
+    ticks.append(tick(3500, 0.7, 0.9))
+    assert rule.plateaued(rule.assess(ticks))
+
+    path = tmp_path / "metrics.csv"
+    path.write_text(
+        "update,games,eval_seed,eval_games,eval_win_rate,eval_win_rate_us,eval_win_rate_ussr\n"
+        "3,90,,,,,\n5,210,1001,200,0.6,0.52,0.68\n9,410,1002,200,0.7,0.64,0.76\n"
+    )
+    read = read_evals(path)
+    assert [(t.games, t.seed, t.counts.as_us, t.counts.as_ussr) for t in read] == [(210, 1001, 0.52, 0.68), (410, 1002, 0.64, 0.76)]
+    assert rule.assess(read).signal == 0.58  # (0.52 + 0.64) / 2: a resumed run continues its rolling mean

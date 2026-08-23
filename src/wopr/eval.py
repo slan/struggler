@@ -24,7 +24,7 @@ import os
 import zlib
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-from typing import Sequence
+from typing import NamedTuple, Sequence
 
 from struggler.bots.greedy import GreedyPlayer
 from struggler.bots.naive import FirstLegalPlayer
@@ -58,7 +58,22 @@ def parse_policy(spec: str, *, seed: int, device: str, deterministic: bool) -> t
 def play_pair(
     a: str, b: str, policies: dict[str, Opponent], *, games: int, seed: int, events: bool, starting_vp: int = 0
 ) -> list[Match]:
+    """`games` games between `a` and `b`, half with each seat assignment on
+    shared decks: the whole of `play_slice` in one process."""
     half = max(1, games // 2)
+    return play_slice(a, b, policies, part=range(half), half=half, seed=seed, events=events, starting_vp=starting_vp)
+
+
+def play_slice(
+    a: str, b: str, policies: dict[str, Opponent], *, part: range, half: int, seed: int, events: bool, starting_vp: int = 0
+) -> list[Match]:
+    """The games of `part` -- a sub-range of the `half` decks of a pair --
+    played with `a` as US and again with `a` as USSR. The decks are the
+    pair's (`Arena` seeds by global slot), so the slices of [0, half)
+    played anywhere, in any order, add up to exactly the pair's games:
+    that is what lets the collectors play an evaluation between rollouts."""
+    if not part:
+        return []
 
     def assign_a_us(slot: int, episode: int, rng) -> dict[Side, str]:
         return {Side.US: a, Side.USSR: b}
@@ -68,12 +83,85 @@ def play_pair(
 
     matches: list[Match] = []
     for assigner in (assign_a_us, assign_a_ussr):
-        arena = Arena(half, seed=seed, seat_assigner=assigner, events=events, starting_vp=starting_vp)
+        arena = Arena(
+            len(part), seed=seed, seat_assigner=assigner, events=events, starting_vp=starting_vp,
+            slot_offset=part.start, total_slots=half,
+        )
         for result in play_out(arena, policies):
             # Recorded US-first: `Match.a` is whoever sat as US.
             score_us = 0.5 if result.winner is None else (1.0 if result.winner is Side.US else 0.0)
             matches.append(Match(result.seats[Side.US], result.seats[Side.USSR], score_us))
     return matches
+
+
+@dataclass(frozen=True)
+class EvalJob:
+    """A checkpoint against a scripted opponent, argmax, half the games on
+    each seat: the evaluation a run plays on its collectors every
+    `--eval-every` games (`backend.start_eval`). Plain data; a collector
+    plays its `part` of the decks with `play_slice`."""
+
+    checkpoint: str
+    games: int
+    seed: int
+    opponent: str = "greedy"  # random | greedy | first
+    events: bool = True
+
+    @property
+    def half(self) -> int:
+        return max(1, self.games // 2)
+
+    def play(self, part: range) -> "EvalCounts":
+        """The counts of `part` (a sub-range of [0, half)), the checkpoint
+        as `learner` -- freshly built policies, so the result is the same
+        whichever process plays it."""
+        policies = {
+            "learner": NetOpponent.from_checkpoint(self.checkpoint, seed=self.seed, deterministic=True),
+            self.opponent: parse_policy(self.opponent, seed=self.seed, device="cpu", deterministic=True)[1],
+        }
+        matches = play_slice("learner", self.opponent, policies, part=part, half=self.half, seed=self.seed, events=self.events)
+        return EvalCounts.from_matches(matches, "learner", self.opponent)
+
+
+class EvalCounts(NamedTuple):
+    """Per-seat wins and draws of an `EvalJob`: what the collectors hand
+    back, and what adds up across them."""
+
+    us_wins: int = 0
+    us_draws: int = 0
+    us_games: int = 0
+    ussr_wins: int = 0
+    ussr_draws: int = 0
+    ussr_games: int = 0
+
+    @classmethod
+    def from_matches(cls, matches: Sequence[Match], learner: str, opponent: str) -> "EvalCounts":
+        as_us = summarize([m for m in matches if m.a == learner], learner, opponent)
+        as_ussr = summarize([m for m in matches if m.b == learner], learner, opponent)
+        return cls(as_us["wins"], as_us["draws"], as_us["games"], as_ussr["wins"], as_ussr["draws"], as_ussr["games"])
+
+    def __add__(self, other: tuple) -> "EvalCounts":  # type: ignore[override]
+        return EvalCounts(*(a + b for a, b in zip(self, other)))
+
+    @property
+    def games(self) -> int:
+        return self.us_games + self.ussr_games
+
+    @staticmethod
+    def _rate(wins: int, draws: int, games: int) -> float | None:
+        return (wins + 0.5 * draws) / games if games else None
+
+    @property
+    def as_us(self) -> float | None:
+        return self._rate(self.us_wins, self.us_draws, self.us_games)
+
+    @property
+    def as_ussr(self) -> float | None:
+        return self._rate(self.ussr_wins, self.ussr_draws, self.ussr_games)
+
+    @property
+    def win_rate(self) -> float | None:
+        return self._rate(self.us_wins + self.ussr_wins, self.us_draws + self.ussr_draws, self.games)
 
 
 @dataclass(frozen=True)

@@ -22,12 +22,13 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import statistics
 import subprocess
 import time
 from pathlib import Path
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from wopr.eval import PairJob, play_pairs
 from struggler.engine import RULES_VERSION
@@ -96,6 +97,46 @@ def render(version: str, table: Mapping[str, Mapping[str, float]], ratings: Mapp
         )
     lines.append("Elo: " + ", ".join(f"{n} {r:+.0f}" for n, r in sorted(ratings.items(), key=lambda kv: -kv[1])))
     return "\n".join(lines) + "\n"
+
+
+# -- the ladder's versions and README --------------------------------------------------
+
+
+def latest_version() -> str | None:
+    versions = sorted(
+        (p.name for p in ladder_dir().glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
+        key=lambda name: int(name[1:]),
+    )
+    return versions[-1] if versions else None
+
+
+def next_version() -> str:
+    latest = latest_version()
+    return "v1" if latest is None else f"v{int(latest[1:]) + 1}"
+
+
+def readme_entry(version: str, summary: dict[str, Any], note: str) -> str:
+    elo = summary["elo"][version]
+    lines = [
+        f"## {version}",
+        "",
+        f"Commit `{summary['commit'][:7]}` — run `{summary['run']}`, {summary['games_trained']:,} games trained.",
+        "",
+        f"- {note}",
+        f"- Elo vs random: **{elo['mean']:+.0f} ± {elo['std']:.0f}** over seeds {summary['protocol']['seeds']}",
+    ]
+    for name, w in summary["win_rate"].items():
+        lines.append(f"- vs {name}: {w['win_rate']['mean']:.3f} (US {w['as_us']['mean']:.3f} / USSR {w['as_ussr']['mean']:.3f})")
+    return "\n".join(lines) + "\n"
+
+
+def append_readme(version: str, note: str) -> None:
+    summary = json.loads((ladder_dir() / version / "summary.json").read_text())
+    path = ladder_dir() / "README.md"
+    if not path.exists():
+        path.write_text(f"# Baselines — rules version {summary['rules_version']}\n\nOne entry per frozen version; the protocol and the layout are in [../README.md](../README.md).\n", encoding="utf-8")
+    text = path.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + readme_entry(version, summary, note)
+    path.write_text(text, encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> None:

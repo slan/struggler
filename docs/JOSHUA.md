@@ -116,16 +116,70 @@ first (the batch gated against v3 was started and cancelled; nothing
 from it is kept). Open: whether a plateau comes where r1's did, and
 what to do about a seat edge that is the game's own.
 
+### 2026-08-23 — r2 closed by the engine
+
+While v3 waited for its diagnosis, the Playdek work ([WOPR.md](WOPR.md),
+"Playdek's AI as an opponent") found and fixed thirty-two more engine
+differences against the official game — the rules version went to 3
+on 2026-08-22 and a dozen of the fixes landed after the bump, the last
+on 2026-08-23 (`0a2639f`). None is as large as the held-scoring-card
+rule, but together they touch what the policies learned (We Will Bury
+You's timing, a trapped seat's scoring card, the Military Ops penalty
+before the held card, Five-Year Plan's discard, the extra action round
+that may be passed, ...), and the count alone is past the "re-rate the
+yardsticks" test of the decision points. **The r2 ladder is archived at
+v3** (`baselines/r2/README.md`); its checkpoints load on the r3 engine
+(the layout is unchanged) but are not rated on it. The two open
+questions — the plateau, the seat edge — carry over as questions, not
+as numbers. The r1 findings about *training* (above) still stand; the
+r2 finding that the seat edge grows with strength through early-war
+scoring is the one game finding worth re-measuring first.
+
+## Rules version 3
+
+*(entries appended per experiment; each is question → setup → result →
+decision, with the ledger row it corresponds to)*
+
+### 2026-08-23 — the bootstrap (pre-registered)
+
+**Question.** What does the recipe reach against Greedy on the r3
+engine when the run is stopped by the yardstick rather than by a
+budget, and how many games does it take? Two things change from r2/v1:
+the engine (thirty-two fixes), and the stop rule (`wopr.bootstrap`, new
+for r3 — r2/v1 was 8,000 games by fiat, 0.748 against Greedy).
+
+**Setup.** `wopr.bootstrap --run r3 --workers 8 --torch-threads 16`:
+recipe v11 from scratch, an evaluation against Greedy every 500 games
+(200 games, argmax, 100 a seat, rotating decks) played on the
+collectors during the update. Stop rule, written before the run:
+rolling mean over the last two evaluations ≥ 0.75 on **both** seats →
+a 600-game confirmation (300 a seat) that must also clear 0.75 on both
+seats; else plateau (no new best of the weaker seat's rolling mean for
+four evaluations) or the cap (20,000 games). Whichever fires, the last
+evaluated checkpoint is frozen as `r3/v1` with the full protocol.
+Reading: *confirmed* → the yardstick is met, the loop starts from
+`v1`; *plateau* → diagnose before the loop; *cap* → continue the run.
+Reference points: r2/v1 reached 0.748 at 8,000 games, r2/v2 0.901 at
+12,000 (US 0.84 / USSR 0.96), so a confirmed stop is expected between
+8,000 and 12,000 games. Then `wopr.diagnose r3/v1 --vs greedy` for the
+seat edge and the endings of this game, a ledger row
+(`wopr.ab --existing`), and the first evaluation against Playdek's
+easy AI, 60 games a seat.
+
+**Result.** *(pending)*
+
+**Decision.** *(pending)*
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is
 short until it has one.
 
-1. **Ground truth for r2.** Freeze the first clean run as `r2/v1` if it
-   is sane (plays to the late war, beats the fixed Greedy); run
-   `wopr.diagnose` on it and record the USSR edge and the end-reason mix
-   of *this* game in the ledger. Then the loop, generation by generation,
-   until the gate misses twice in three — that is the r2 plateau, if
+1. **Ground truth for r3.** The bootstrap freezes `r3/v1`; `wopr.diagnose`
+   records the USSR edge and the end-reason mix of *this* game in the
+   ledger, and the Playdek easy AI gives the first number against an
+   opponent that is not ours. Then the loop, generation by generation,
+   until the gate misses twice in three — that is the r3 plateau, if
    there is one, and it is measured rather than assumed.
 2. **Diagnose before choosing.** At the plateau, the next experiment is
    chosen from the diagnostics, with its control, metric, budget and
@@ -139,6 +193,7 @@ short until it has one.
 
 ```sh
 uv sync --extra wopr
+uv run python -m wopr.bootstrap --run first --workers 8              # a ladder's v1: recipe v11 until the Greedy curve says stop, frozen
 uv run python -m wopr.ab --run first --note "..."                    # clean run: recipe v11, compared, one ledger row
 uv run python -m wopr.diagnose runs/first/joshua.pt                  # how its games end, its USSR edge, VP by card
 uv run python -m wopr.baseline v1 --run first                        # freeze it into the current ladder

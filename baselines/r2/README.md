@@ -1,8 +1,14 @@
-# Baselines — rules version 2
+# Baselines — rules version 2 (archived)
 
-One entry per frozen version of the current ladder; the protocol and the
-layout are in [../README.md](../README.md), the notebook is
-[docs/JOSHUA.md](../../docs/JOSHUA.md).
+> The ladder of the engine between the nine fixes of 2026-08-22 and the
+> thirty-two Playdek-parity fixes that followed (rules version 3, the
+> last of them landed 2026-08-23). Every version here was trained on an
+> engine a dozen of those fixes postdate; the checkpoints load (the
+> layout is unchanged) but they are r2 objects on an r3 game and are not
+> rated or evaluated on it. The numbers below are what they were on
+> that game. Read with the r2 entries of
+> [docs/JOSHUA.md](../../docs/JOSHUA.md); the protocol and the layout
+> are in [../README.md](../README.md).
 
 ## v1
 

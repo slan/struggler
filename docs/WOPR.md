@@ -28,10 +28,27 @@ python src/main.py --ussr joshua --joshua-checkpoint runs/first/joshua.pt
 
 ## The training process, end to end
 
-A version of Joshua is born, compared, and promoted in three stages.
-The pieces are specified in the sections below; this is the order they
-run in and what each one decides.
+A version of Joshua is born, compared, and promoted in three stages —
+and a ladder is opened by a fourth, stage 0. The pieces are specified in
+the sections below; this is the order they run in and what each one
+decides.
 
+0. **The bootstrap** (`wopr.bootstrap`, since r3): a ladder's `v1` is
+   the recipe trained from scratch until the yardstick says stop, not
+   until a budget runs out. The run evaluates its latest checkpoint
+   against Greedy every 500 games *as it trains* — 200 games, argmax,
+   100 a seat, a fresh deck seed each tick, played on the collectors
+   while the PPO update runs — and the stop rule reads the **per-seat
+   rolling mean over the last two ticks** (200 games a seat, ±0.07):
+   both seats ≥ 0.75 → a confirmatory 600-game evaluation on fresh
+   decks, and the run stops only if both seats clear 0.75 there too; no
+   new best of the weaker seat's rolling mean for four ticks (~2,000
+   games) → stop at the plateau; a cap of 20,000 games → stop. Whatever
+   stopped it, the last evaluated checkpoint is frozen as `v1` with the
+   full protocol and its README entry says which rule fired.
+   `runs/<run>/bootstrap.csv` has every tick's decision. The Greedy
+   curve in `metrics.csv` (`eval_*`) is the one that is free of the
+   opponent mix — the training win rates are against the run's own pool.
 1. **A fresh run** (`wopr.train --recipe v11`, or `wopr.ab` which wraps
    it): random weights, PPO, 64 games in flight. Every training game is
    against *itself* — half of them with both seats the learner
@@ -86,8 +103,17 @@ the next step is read off the numbers rather than argued from them.
   against itself and the champion against Greedy (`wopr.diagnose`,
   `wopr.eval`). Either moved beyond noise → the ladder is archived as
   it stands under `baselines/r<old>/`, the new one starts at `v1` from
-  a clean run, and r<old>'s findings about the *game* are unverified
-  until re-measured. Neither moved → same ladder, note the bump.
+  the bootstrap, and r<old>'s findings about the *game* are unverified
+  until re-measured. Neither moved → same ladder, note the bump. (r3
+  skipped the re-rating: thirty-two fixes landed between r2/v3 and the
+  r3 engine, a dozen of them after the bump, so the ladder was restarted
+  on the count alone.)
+- **The bootstrap's stop** (`wopr.bootstrap`). *Confirmed* → `v1` is at
+  the yardstick; into the loop. *Plateau* → `v1` is what the recipe
+  reaches on this game; `wopr.diagnose` it before the loop, since the
+  loop's gate against `v1` will say "better than v1", not "good". *Cap*
+  → still improving at 20,000 games: continue the run (`train.py` or
+  the loop resume it, ticks included) rather than restart.
 - **A clean run against its control** (`wopr.ab`, same recipe and
   budget). Worse (below 0.45 on the worst seed) → the change hurt
   learning; revert or explain before continuing. Level (every seed
@@ -245,6 +271,19 @@ mover** (+1/−1/0) on the row after which the game ended, returned as an
   same policies, its own RNG streams) and runs pool-net inference over
   its own slots, so that batching is kept inside the worker.
 
+Both backends answer one more question, between rollouts: **play this
+evaluation** (`start_eval(EvalJob)` / `finish_eval() → EvalCounts`). An
+`EvalJob` is a checkpoint against a scripted opponent on a deck seed,
+argmax, half the games on each seat — the same games `eval.py`'s pair
+would play, because `play_slice` seeds decks by global slot and the
+slices of `[0, half)` add up to the pair. The in-process backend plays
+it on the spot; the shared-memory one hands it to the collectors
+(`_EVAL`, the job as JSON in a shared buffer, one row of counts back per
+worker) and returns at once, so the collectors play their slices while
+the main process runs the PPO update — the time they would otherwise
+spend idle — and `finish_eval` waits for the sum. No `step`/`reset`
+while one is out; the training games in each collector wait untouched.
+
 `WoprVecEnv` adapts a backend to SB3's `VecEnv`: one env per slot,
 `infos[i]["episode"]` from the records, no `terminal_observation` (SB3
 reads it only to bootstrap truncated episodes; games here end for real).
@@ -384,6 +423,16 @@ Warning signs: KL well above `--target-kl` or clip fraction above ~0.3
 games (value head lost), entropy ratio falling while win rate does not
 rise (collapse).
 
+With `--eval-every N` the row whose game count crossed a multiple of N
+also carries the evaluation of the checkpoint it saved: `eval_seed`,
+`eval_games`, `eval_win_rate` and the per-seat `eval_win_rate_us` /
+`eval_win_rate_ussr` against `--eval-opponent` (Greedy), and `eval_s`,
+the seconds the main process waited for it beyond the PPO update. The
+tracker starts it on the backend at the end of the rollout and collects
+it at the start of the next; a resumed run reads its earlier ticks back
+from the file (`callback.read_evals`), which is what lets the
+bootstrap's rolling mean continue across a restart.
+
 ## Run layout
 
 ```
@@ -395,6 +444,8 @@ runs/<run>/
   joshua.pt        latest plain checkpoint: what `--us joshua` loads
   pool/            snapshots + stats.json
   metrics.csv
+  bootstrap.csv    wopr.bootstrap only: every evaluation tick, the rolling
+  bootstrap.json   means, the confirmation if asked, the decision; the outcome
 ```
 
 `runs/` is gitignored. Re-running `train.py --run X --games N` with a

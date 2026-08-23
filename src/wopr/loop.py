@@ -30,13 +30,13 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import re
 import statistics
 import time
 from pathlib import Path
 from typing import Any, Sequence
 
 from wopr import baseline, train
+from wopr.baseline import append_readme, latest_version, next_version, readme_entry  # noqa: F401 -- the loop's names
 from wopr.eval import PairJob, play_pairs
 from wopr.ladder import summarize
 
@@ -46,19 +46,6 @@ LOOP_COLUMNS = (
     "vs_greedy", "vs_greedy_us", "vs_greedy_ussr",
     "promoted", "version",
 )
-
-
-def latest_version() -> str | None:
-    versions = sorted(
-        (p.name for p in baseline.ladder_dir().glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
-        key=lambda name: int(name[1:]),
-    )
-    return versions[-1] if versions else None
-
-
-def next_version() -> str:
-    latest = latest_version()
-    return "v1" if latest is None else f"v{int(latest[1:]) + 1}"
 
 
 def games_done(run_dir: Path) -> int:
@@ -104,30 +91,6 @@ def gate_passes(report: dict[str, Any], gate: float) -> bool:
     if versus is None:
         return report["vs_greedy"]["win_rate"] >= gate
     return versus["min_seed"] >= gate
-
-
-def readme_entry(version: str, summary: dict[str, Any], note: str) -> str:
-    elo = summary["elo"][version]
-    lines = [
-        f"## {version}",
-        "",
-        f"Commit `{summary['commit'][:7]}` — run `{summary['run']}`, {summary['games_trained']:,} games trained.",
-        "",
-        f"- {note}",
-        f"- Elo vs random: **{elo['mean']:+.0f} ± {elo['std']:.0f}** over seeds {summary['protocol']['seeds']}",
-    ]
-    for name, w in summary["win_rate"].items():
-        lines.append(f"- vs {name}: {w['win_rate']['mean']:.3f} (US {w['as_us']['mean']:.3f} / USSR {w['as_ussr']['mean']:.3f})")
-    return "\n".join(lines) + "\n"
-
-
-def append_readme(version: str, note: str) -> None:
-    summary = json.loads((baseline.ladder_dir() / version / "summary.json").read_text())
-    path = baseline.ladder_dir() / "README.md"
-    if not path.exists():
-        path.write_text(f"# Baselines — rules version {summary['rules_version']}\n\nOne entry per frozen version; the protocol and the layout are in [../README.md](../README.md).\n", encoding="utf-8")
-    text = path.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + readme_entry(version, summary, note)
-    path.write_text(text, encoding="utf-8")
 
 
 def append_row(path: Path, row: dict[str, Any]) -> None:

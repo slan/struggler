@@ -22,10 +22,18 @@ and two implementations answer it:
 Game seeds are `(run seed, global slot, episode)` in both backends, so a
 deterministic configuration (`--self-play 1.0`) plays the same games
 through either; `tests/test_wopr.py` pins that.
+
+Both also answer a second question, between rollouts: "play this
+`EvalJob` and hand back the counts" (`start_eval` / `finish_eval`). The
+shared-memory backend plays it on the collectors -- each its slice of the
+decks (`eval.play_slice`) -- while the main process runs the PPO update,
+which is when the collectors would otherwise sit idle; the in-process one
+plays it on the spot.
 """
 
 from __future__ import annotations
 
+import json
 import multiprocessing as mp
 import random
 import time
@@ -39,6 +47,7 @@ import numpy as np
 from struggler.bots.joshua import features as F
 from struggler.engine import Side
 from wopr.arena import Arena, Opponent, PendingRow, SeatAssigner
+from wopr.eval import EvalCounts, EvalJob
 
 LEARNER = "learner"
 
@@ -95,6 +104,8 @@ class Backend(Protocol):
     def reset(self) -> None: ...
     def step(self, actions: np.ndarray) -> tuple[np.ndarray, np.ndarray, list[EpisodeRecord | None]]: ...
     def am_us(self) -> np.ndarray: ...
+    def start_eval(self, job: EvalJob) -> None: ...
+    def finish_eval(self) -> EvalCounts: ...
     def close(self) -> None: ...
 
 
@@ -123,6 +134,7 @@ class InProcessBackend:
                 raise ValueError(f"buffer {name!r} has {array.shape[0]} rows for {self.n_slots} slots")
         self._rows: list[PendingRow | None] = [None] * self.n_slots
         self._steps = np.zeros(self.n_slots, dtype=np.int64)
+        self._eval: EvalCounts | None = None
 
     def reset(self) -> None:
         self.arena.reset_all()
@@ -146,6 +158,18 @@ class InProcessBackend:
     def am_us(self) -> np.ndarray:
         """1.0 where the slot's current row is played as US."""
         return np.array([1.0 if row.side is Side.US else 0.0 for row in self._rows], dtype=np.float32)
+
+    def start_eval(self, job: EvalJob) -> None:
+        """Play the whole job now (the reference: one process, all the decks)."""
+        if self._eval is not None:
+            raise RuntimeError("an evaluation is already pending; finish_eval() first")
+        self._eval = job.play(range(job.half))
+
+    def finish_eval(self) -> EvalCounts:
+        if self._eval is None:
+            raise RuntimeError("no evaluation pending; start_eval() first")
+        counts, self._eval = self._eval, None
+        return counts
 
     def close(self) -> None:
         return None
@@ -233,7 +257,15 @@ CONTROL_FIELDS: tuple[tuple[str, tuple[int, ...], Any], ...] = (
     ("ep_seats", (2,), _ID),
 )
 
-_STEP, _RESET, _STOP = 1, 2, 3
+#: Shared with the workers besides the per-slot fields: the evaluation
+#: in flight (`EvalJob` as JSON bytes) and each worker's counts of it.
+EVAL_SPEC_BYTES = 4096
+EVAL_FIELDS: tuple[tuple[str, tuple[int, ...], Any], ...] = (
+    ("eval_spec", (EVAL_SPEC_BYTES,), np.uint8),
+    ("eval_counts", (len(EvalCounts._fields),), np.int64),  # one row per worker
+)
+
+_STEP, _RESET, _STOP, _EVAL = 1, 2, 3, 4
 _SIDE_CODE = {Side.US: 1, Side.USSR: 2}
 _CODE_SIDE = {1: Side.US, 2: Side.USSR}
 
@@ -275,6 +307,19 @@ def _decode(value: bytes | np.bytes_) -> str:
 def _slot_ranges(n_slots: int, workers: int) -> list[range]:
     bounds = np.linspace(0, n_slots, workers + 1).astype(int)
     return [range(int(a), int(b)) for a, b in zip(bounds[:-1], bounds[1:])]
+
+
+def _write_eval_spec(buffer: np.ndarray, job: EvalJob) -> None:
+    encoded = json.dumps(job.__dict__).encode()
+    if len(encoded) > buffer.shape[0]:
+        raise ValueError(f"eval spec of {len(encoded)} bytes exceeds the shared {buffer.shape[0]}")
+    buffer[:] = 0
+    buffer[: len(encoded)] = np.frombuffer(encoded, dtype=np.uint8)
+
+
+def _read_eval_spec(buffer: np.ndarray) -> EvalJob:
+    raw = bytes(buffer.tobytes()).rstrip(b"\0")
+    return EvalJob(**json.loads(raw.decode()))
 
 
 def worker_main(
@@ -326,6 +371,14 @@ def worker_main(
                 shared["ep_flag"][lo:hi] = 0
                 done.release()
                 continue
+            if cmd == _EVAL:
+                # This worker's slice of the evaluation's decks; the training
+                # games in `backend` wait untouched.
+                job = _read_eval_spec(shared["eval_spec"])
+                workers = shared["eval_counts"].shape[0]
+                shared["eval_counts"][index] = job.play(_slot_ranges(job.half, workers)[index])
+                done.release()
+                continue
             rewards, dones, records = backend.step(shared["actions"][lo:hi])
             shared["rewards"][lo:hi] = rewards
             shared["dones"][lo:hi] = dones
@@ -369,9 +422,11 @@ class SharedMemoryBackend:
         self._episodes = np.zeros(self.n_slots, dtype=np.int64)
         self._timeout = timeout
         self.wait_s = 0.0  # time spent waiting on workers, since the last `take_wait`
+        self._eval_pending = False
 
         fields = [(name, (self.n_slots, *shape), np.dtype(dtype)) for name, (shape, dtype) in F.LAYOUT.items()]
         fields += [(name, (self.n_slots, *shape), np.dtype(dtype)) for name, shape, dtype in CONTROL_FIELDS]
+        fields += [(name, (workers, *shape) if name == "eval_counts" else shape, np.dtype(dtype)) for name, shape, dtype in EVAL_FIELDS]
         self._segments: dict[str, SharedMemory] = {}
         self._slabs: list[Slab] = []
         for name, shape, dtype in fields:
@@ -404,6 +459,7 @@ class SharedMemoryBackend:
     # -- Backend ----------------------------------------------------------------------
 
     def reset(self) -> None:
+        self._check_no_eval()
         self._episodes += 1
         self._write_seats(range(self.n_slots))  # what `reset_all` will read
         self._run(_RESET)
@@ -411,6 +467,7 @@ class SharedMemoryBackend:
         self._write_seats(range(self.n_slots))  # one game ahead, for the first finishes
 
     def step(self, actions: np.ndarray) -> tuple[np.ndarray, np.ndarray, list[EpisodeRecord | None]]:
+        self._check_no_eval()
         self._shared["actions"][:] = actions
         self._run(_STEP)
         shared = self._shared
@@ -443,9 +500,43 @@ class SharedMemoryBackend:
         wait, self.wait_s = self.wait_s, 0.0
         return wait
 
+    def start_eval(self, job: EvalJob) -> None:
+        """Hand `job` to the collectors and return at once: each plays its
+        slice of the decks while this process goes on (the PPO update).
+        No `step`/`reset` until `finish_eval`."""
+        self._check_no_eval()
+        _write_eval_spec(self._shared["eval_spec"], job)
+        self._shared["eval_counts"][...] = 0
+        for j in range(len(self._workers)):
+            self._command[j] = _EVAL
+        for go in self._go:
+            go.release()
+        self._eval_pending = True
+
+    def finish_eval(self) -> EvalCounts:
+        """Wait for every collector's slice and add them up."""
+        if not self._eval_pending:
+            raise RuntimeError("no evaluation pending; start_eval() first")
+        self._wait_all()
+        self._eval_pending = False
+        total = EvalCounts()
+        for row in self._shared["eval_counts"]:
+            total = total + EvalCounts(*(int(v) for v in row))
+        return total
+
+    def _check_no_eval(self) -> None:
+        if self._eval_pending:
+            raise RuntimeError("an evaluation is in flight on the collectors; finish_eval() first")
+
     def close(self) -> None:
         if not self._workers:
             return
+        if self._eval_pending:  # let the collectors finish their slices before the stop
+            try:
+                self._wait_all()
+            except RuntimeError:
+                pass
+            self._eval_pending = False
         for j, process in enumerate(self._workers):
             if process.is_alive():
                 self._command[j] = _STOP

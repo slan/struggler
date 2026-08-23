@@ -13,6 +13,12 @@ Opponent mix per game (`--self-play`, `--vs-pool`, remainder vs `--anchor`):
 - vs pool: the learner takes a random seat against a PFSP-sampled past
   snapshot (falls back to self-play while the pool is empty).
 - vs anchor: against `random` or `greedy`, a fixed yardstick.
+
+`--eval-every N` plays the latest checkpoint against Greedy (`--eval-games`,
+argmax, half on each seat, a fresh deck seed per tick) every N training
+games, on the collectors while the PPO update runs, and records it in
+`metrics.csv` (`eval_*`): the run's curve against the yardstick, free of
+the opponent mix. `wopr.bootstrap` reads it to decide when to stop.
 """
 
 from __future__ import annotations
@@ -22,11 +28,12 @@ import csv
 import json
 import random
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping, Sequence
 
 import numpy as np
 import torch
 from stable_baselines3 import PPO
+from stable_baselines3.common.callbacks import BaseCallback
 
 from struggler.bots.joshua import features as F
 from struggler.bots.joshua.model import load_checkpoint
@@ -113,6 +120,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--torch-threads", type=int, default=None)
     p.add_argument("--workers", type=int, default=1, help="collector processes stepping the games (1: in this process)")
     p.add_argument("--worker-threads", type=int, default=2, help="torch threads per collector (pool-net inference)")
+    p.add_argument("--eval-every", type=int, default=0, help="evaluate the latest checkpoint against --eval-opponent every N training games, on the collectors (0: never)")
+    p.add_argument("--eval-games", type=int, default=200, help="games per evaluation (half on each seat)")
+    p.add_argument("--eval-seed", type=int, default=1000, help="deck seed of the first evaluation; each later one adds its tick number")
+    p.add_argument("--eval-opponent", choices=["random", "greedy", "first"], default="greedy")
     return p
 
 
@@ -247,7 +258,16 @@ def wire_buffer(model: PPO, env: WoprVecEnv) -> None:
 
 
 def main(argv: list[str] | None = None) -> None:
-    args = parse_args(argv)
+    run(parse_args(argv))
+
+
+def run(
+    args: argparse.Namespace, *, callbacks: Callable[[WoprCallback], Sequence[BaseCallback]] | None = None
+) -> WoprCallback | None:
+    """Train (or resume) `args.run` to `args.games` games. `callbacks(tracker)`
+    builds extra SB3 callbacks that run after the tracker each step
+    (`wopr.bootstrap` adds its stop rule); returns the tracker, with the
+    game count and the evaluations -- None when the run was already there."""
     if args.torch_threads:
         torch.set_num_threads(args.torch_threads)
     device = resolve_device(args.device)
@@ -263,10 +283,10 @@ def main(argv: list[str] | None = None) -> None:
         previous = json.loads(config_path.read_text())
         check_layout(previous, args.run)
         games_done = int(previous.get("games_done", 0))
+        updates_done = last_update(run_dir / "metrics.csv")
         if args.games <= games_done:
             print(f"[wopr] run {args.run!r} already at {games_done} games (target {args.games}); nothing to do")
-            return
-        updates_done = last_update(run_dir / "metrics.csv")
+            return None
         print(f"[wopr] resuming {args.run!r} from {games_done} games ({updates_done} updates) to {args.games}")
 
     anchor = make_anchor_schedule(args)
@@ -295,6 +315,10 @@ def main(argv: list[str] | None = None) -> None:
         games_done=games_done,
         updates_done=updates_done,
         anchor_schedule=anchor,
+        eval_every=args.eval_every,
+        eval_games=args.eval_games,
+        eval_seed=args.eval_seed,
+        eval_opponent=args.eval_opponent,
     )
     config: dict[str, Any] = {
         **vars(args), "device": device, "games_done": games_done,
@@ -303,13 +327,15 @@ def main(argv: list[str] | None = None) -> None:
     config_path.write_text(json.dumps(config, indent=2))
     print(f"[wopr] device={device} n_envs={args.n_envs} n_steps={args.n_steps} params={sum(p.numel() for p in model.policy.parameters())}")
     try:
-        model.learn(total_timesteps=2**62, callback=[tracker, StopAtGames(tracker)], reset_num_timesteps=not model_path.exists())
+        extra = [] if callbacks is None else list(callbacks(tracker))
+        model.learn(total_timesteps=2**62, callback=[tracker, StopAtGames(tracker), *extra], reset_num_timesteps=not model_path.exists())
     finally:
         env.close()  # collector processes, if any
         model.save(model_path)
         config["games_done"] = tracker.games
         config_path.write_text(json.dumps(config, indent=2))
         print(f"[wopr] saved {model_path} after {tracker.games} games")
+    return tracker
 
 
 if __name__ == "__main__":

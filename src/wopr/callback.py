@@ -13,6 +13,15 @@ What gets logged, and why each number is there:
 
 Snapshots go to the `CheckpointPool` every `snapshot_every` rollouts and
 to `<run>/joshua.pt` (the latest, what `JoshuaPlayer` loads) every rollout.
+
+With `eval_every` set, every time the game count crosses a multiple of it
+the just-saved `joshua.pt` plays `eval_games` against `eval_opponent`
+(argmax, half on each seat, the deck seed rotating tick by tick): started
+on the backend at the end of the rollout, so the collectors play it while
+the PPO update runs, and collected at the start of the next rollout into
+the same row (`eval_*` columns). `evals` keeps every tick, the earlier
+ones read back from `metrics.csv` when a run resumes -- the bootstrap's
+stop rule reads them.
 """
 
 from __future__ import annotations
@@ -21,13 +30,14 @@ import csv
 import time
 from collections import Counter
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping, NamedTuple
 
 import numpy as np
 import torch
 from stable_baselines3.common.callbacks import BaseCallback
 
 from struggler.bots.joshua.model import save_checkpoint
+from wopr.eval import EvalCounts, EvalJob
 from wopr.pool import POOL_PREFIX, AnchorSchedule, CheckpointPool
 from wopr.vec_env import LEARNER, WoprVecEnv
 
@@ -38,7 +48,35 @@ CSV_COLUMNS = (
     "entropy", "k_valid", "entropy_ratio", "k_eff",
     "approx_kl", "clip_fraction", "explained_variance", "policy_loss", "value_loss", "entropy_loss",
     "pool_size", "anchor",
+    "eval_seed", "eval_games", "eval_win_rate", "eval_win_rate_us", "eval_win_rate_ussr", "eval_s",
 )
+
+
+class EvalTick(NamedTuple):
+    """One evaluation of the run against its yardstick: after `games`
+    training games, `counts` over `EvalJob.games` games on deck seed `seed`."""
+
+    games: int
+    seed: int
+    counts: EvalCounts
+
+    @classmethod
+    def from_row(cls, row: Mapping[str, Any]) -> "EvalTick | None":
+        """The tick a `metrics.csv` row recorded, if it recorded one."""
+        if not row.get("eval_games"):
+            return None
+        games, us, ussr = int(row["games"]), float(row["eval_win_rate_us"]), float(row["eval_win_rate_ussr"])
+        half = int(row["eval_games"]) // 2
+        # Wins and draws are not kept apart in the CSV: two draws count as a win.
+        return cls(games, int(row["eval_seed"]), EvalCounts(round(us * half), 0, half, round(ussr * half), 0, half))
+
+
+def read_evals(path: Path) -> list[EvalTick]:
+    if not path.exists():
+        return []
+    with path.open(newline="") as f:
+        ticks = (EvalTick.from_row(row) for row in csv.DictReader(f))
+        return [tick for tick in ticks if tick is not None]
 
 
 def ensure_columns(path: Path) -> None:
@@ -73,6 +111,10 @@ class WoprCallback(BaseCallback):
         games_done: int = 0,
         updates_done: int = 0,
         anchor_schedule: AnchorSchedule | None = None,
+        eval_every: int = 0,
+        eval_games: int = 200,
+        eval_seed: int = 1000,
+        eval_opponent: str = "greedy",
         verbose: int = 1,
     ) -> None:
         super().__init__(verbose)
@@ -84,6 +126,13 @@ class WoprCallback(BaseCallback):
         self.snapshot_every = snapshot_every
         self.games = games_done
         self.update = updates_done
+        self.eval_every = eval_every
+        self.eval_games = eval_games
+        self.eval_seed = eval_seed
+        self.eval_opponent = eval_opponent
+        self.evals: list[EvalTick] = read_evals(run_dir / "metrics.csv") if eval_every else []
+        self._eval_tick = max((t.games // eval_every for t in self.evals), default=games_done // eval_every) if eval_every else 0
+        self._eval_in_flight: tuple[int, float] | None = None  # (deck seed, started at)
         self._rollout_games: list[dict[str, Any]] = []
         self._rollout_start = time.perf_counter()
         self._start = time.perf_counter()
@@ -138,6 +187,9 @@ class WoprCallback(BaseCallback):
         save_checkpoint(self.model.policy.net, self.run_dir / "joshua.pt", extra={"games": self.games, "update": self.update})
         if self.snapshot_every > 0 and self.update % self.snapshot_every == 0:
             self.pool.add(f"u{self.update:05d}", self.model.policy.net, extra={"games": self.games, "update": self.update})
+        if self.eval_every and self.games // self.eval_every > self._eval_tick:
+            self._eval_tick = self.games // self.eval_every
+            self._start_eval(self.eval_seed + self._eval_tick)
 
     def _on_training_end(self) -> None:
         self._flush(final=True)
@@ -147,6 +199,47 @@ class WoprCallback(BaseCallback):
     def on_rollout_start(self) -> None:
         self._flush(final=False)
         super().on_rollout_start()
+
+    # -- the evaluation on the collectors ------------------------------------------------
+
+    def _start_eval(self, seed: int) -> None:
+        """The checkpoint just saved against the yardstick, on the backend:
+        the collectors play it through the PPO update."""
+        job = EvalJob(str(self.run_dir / "joshua.pt"), self.eval_games, seed, opponent=self.eval_opponent)
+        self.env.backend.start_eval(job)
+        self._eval_in_flight = (seed, time.perf_counter())
+
+    def _collect_eval(self) -> dict[str, Any]:
+        """Wait for the evaluation in flight, if any, record its tick and
+        return its row columns."""
+        if self._eval_in_flight is None:
+            return {}
+        seed, started = self._eval_in_flight
+        self._eval_in_flight = None
+        waited = time.perf_counter()
+        counts = self.env.backend.finish_eval()
+        tick = EvalTick(self.games, seed, counts)
+        self.evals.append(tick)
+        if self.verbose:
+            print(
+                f"[wopr] eval @ {tick.games} games vs {self.eval_opponent}: {counts.win_rate:.3f} "
+                f"(US {counts.as_us:.3f} / USSR {counts.as_ussr:.3f}) over {counts.games}, seed {seed}, "
+                f"{time.perf_counter() - started:.0f}s ({time.perf_counter() - waited:.0f}s waited)",
+                flush=True,
+            )
+        return {
+            "eval_seed": seed, "eval_games": counts.games,
+            "eval_win_rate": _round(counts.win_rate), "eval_win_rate_us": _round(counts.as_us), "eval_win_rate_ussr": _round(counts.as_ussr),
+            "eval_s": round(time.perf_counter() - waited, 1),
+        }
+
+    def play_eval(self, games: int, seed: int) -> EvalCounts:
+        """An evaluation played to completion now (the bootstrap's confirmatory
+        one): only between rollouts, when the collectors are free."""
+        if self._eval_in_flight is not None:
+            raise RuntimeError("an evaluation is already in flight")
+        self.env.backend.start_eval(EvalJob(str(self.run_dir / "joshua.pt"), games, seed, opponent=self.eval_opponent))
+        return self.env.backend.finish_eval()
 
     # -- metrics -----------------------------------------------------------------------
 
@@ -247,8 +340,10 @@ class WoprCallback(BaseCallback):
         if row is None:
             return
         logged = self.model.logger.name_to_value
+        update_s = round(time.perf_counter() - self._rollout_end, 1)
+        row.update(self._collect_eval())
         row.update(
-            update_s=round(time.perf_counter() - self._rollout_end, 1),
+            update_s=update_s,
             approx_kl=_round(logged.get("train/approx_kl")),
             clip_fraction=_round(logged.get("train/clip_fraction")),
             explained_variance=_round(logged.get("train/explained_variance")),
