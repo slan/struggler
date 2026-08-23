@@ -18,7 +18,7 @@ import collections
 from dataclasses import dataclass, field
 
 from struggler.engine import Engine
-from struggler.engine.core import HIDDEN_CARD, RESHUFFLE_NOW
+from struggler.engine.core import HIDDEN_CARD, PASS_ROUND, RESHUFFLE_NOW
 from struggler.engine.types import Action, Decision, DecisionKind, Side
 from wopr.playdek import ffi, ids, translate as T
 from wopr.playdek.ffi import AIDifficulty, EventType, SelectionHint
@@ -459,6 +459,9 @@ class Bridge:
             self.diverge("rules", f"{side.value} is trapped with no 2+-Ops card: the DLL offers to keep the scoring card (Pass), "
                          "the engine plays it", fatal=True)
             return self._answer(d)
+        if m.meaning is T.Meaning.STOP and d.kind is DecisionKind.ACTION_ROUND_PLAY and any(a.payload["card"] == PASS_ROUND for a in d.options):
+            q.popleft()  # "Pass" in "Play Your Action Round": the extra action round declined
+            return self._pick(d, lambda a: a.payload["card"] == PASS_ROUND, "the extra action round passed")
         if m.meaning is T.Meaning.STOP and d.kind not in (DecisionKind.EVENT_CHOICE, DecisionKind.REALIGNMENT_TARGET):
             # A decline the DLL asked alone ("Do Not Discard" as the only
             # option: Blockade with no card to discard) where the engine
@@ -739,7 +742,7 @@ class Bridge:
         if d.actor is self.engine.physical_side or not mv.prompt.options:
             return  # the engine cannot see that hand; its options are the whole pool
         theirs = T.cards_offered(mv.prompt)
-        ours = {a.payload["card"] for a in d.options} - {HIDDEN_CARD}
+        ours = {a.payload["card"] for a in d.options} - {HIDDEN_CARD, PASS_ROUND}  # the extra round's pass is "Pass", not a card
         if theirs != ours:
             self.diverge("card options", f"{d.actor.value} {d.kind.value} {mv.prompt.text!r}: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")
 

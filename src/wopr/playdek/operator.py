@@ -32,6 +32,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Sequence
 
 from struggler.engine import Engine
+from struggler.engine.core import PASS_ROUND
 from struggler.engine.events import EVENTS
 from struggler.engine.player import Event, Player
 from struggler.engine.rules import RULES
@@ -72,6 +73,11 @@ class Desync(RuntimeError):
 class PlaydekEnded(Exception):
     """The DLL's game is over on a rule the engine cannot apply (a scoring
     card held in the hand it cannot see): the DLL's result stands."""
+
+
+def _pass_option(prompt: Prompt) -> Option | None:
+    """The "Pass" of an extra action round's "Play Your Action Round"."""
+    return next((o for o in prompt.visible if o.text == "Pass" or T.meaning(o).meaning is T.Meaning.STOP), None)
 
 
 def _record_move(side: Side, meaning: T.OptionMeaning, text: str) -> Move:
@@ -368,6 +374,13 @@ class PlaydekOperator(Bridge):
     def _answer(self, d: Decision) -> Action | None:
         if d.actor is self.other:
             self._resync()
+            if d.kind is DecisionKind.ACTION_ROUND_PLAY and not self.moves[self.other] and any(a.payload["card"] == PASS_ROUND for a in d.options):
+                # An extra action round (Space Station, North Sea Oil) the
+                # seat passed leaves no record: the DLL is past its play
+                # prompt with no play queued.
+                prompt = self.game.prompt
+                if prompt is None or self.prompt_side(prompt) is not self.other or prompt.text != ACTION_PROMPT:
+                    return self._pick(d, lambda a: a.payload["card"] == PASS_ROUND, "the extra action round passed (no play recorded)")
             if d.kind in COUNTRY_KINDS:
                 return self._answer_country(d)
             if d.kind is DecisionKind.EVENT_CHOICE:
@@ -817,7 +830,8 @@ class PlaydekOperator(Bridge):
             options = tuple(a for a in d.options if self._expressible(prompt, a.payload["choice"], meanings))
         else:
             theirs = T.cards_offered(prompt)
-            options = tuple(a for a in d.options if a.payload["card"] in theirs)
+            options = tuple(a for a in d.options if a.payload["card"] in theirs
+                            or (a.payload["card"] == PASS_ROUND and _pass_option(prompt) is not None))
         if not options or len(options) == len(d.options):
             return d
         dropped = [dict(a.payload) for a in d.options if a not in options]
@@ -939,6 +953,12 @@ class PlaydekOperator(Bridge):
         d, a = self.outgoing[0]
         p = a.payload
         kind = d.kind
+        if kind is DecisionKind.ACTION_ROUND_PLAY and p["card"] == PASS_ROUND:
+            option = _pass_option(prompt)
+            if option is None:
+                raise LookupError(f"the DLL asks {prompt.text!r} {[o.text for o in visible]} without a Pass; the bot passes its extra action round")
+            self.outgoing.popleft()
+            return option
         if kind is DecisionKind.ACTION_ROUND_PLAY and not self.engine.cards[p["card"]].scoring:
             if len(self.outgoing) < 2:
                 return None  # the mode says how the DLL is told (UN Intervention is its own card there)
