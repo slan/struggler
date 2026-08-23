@@ -292,7 +292,8 @@ Box 2 (a second Space Race attempt per turn), box 4 (see below), box 6 (may
 discard the Held Card at end of turn), and box 8 (an extra Action Round) are
 implemented. An extra round -- box 8's or North Sea Oil's -- is one the
 side "may" take: its `ACTION_ROUND_PLAY` offers `PASS_ROUND` (`"pass"`)
-beside the cards, and passing plays nothing. Each is granted only to the first side to reach the box and is
+beside the cards, and passing plays nothing. So does a hand holding
+nothing but the China Card (8.1.6: its holder may play it or pass). Each is granted only to the first side to reach the box and is
 cancelled outright — not transferred — the instant the second side also
 reaches it (rule 6.4.4), via `Engine._update_space_race_ability` and the
 `game_effects` keys `space_race_double_attempt_holder` /
