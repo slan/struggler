@@ -412,6 +412,67 @@ unchanged from the r3 decision. Order of work therefore: the bridge
 session (BID setup + Grain Sales), re-run this eval at bid 2, then the
 opponent-diversity arms on the bid ladder.
 
+### 2026-08-24 — the bridge speaks the bid; the eval unconfounded
+
+**Question.** With the DLL playing the tournament bid itself, what is
+r3-bid2/v3's real number against the easy AI?
+
+**Setup.** Probing found the DLL's `GameParameters.additionalInfluence`
+— the app's handicap — implements rule 11.1.4 exactly as the engine
+does (a US placement step after regular setup, own countries, control
++ 2 cap), so `wopr.playdek.eval --bid N` now sets both boards and no
+bidding flow is needed. Two operator fixes rode along: the Grain Sales
+take is read off the DLL's card moves before any reveal record (the
+stale-reveal mispick of seeds 319/328/333), and Wargames' end-game
+prompt maps to the engine's end_game/decline. Hidden-prompt harness
+59/59; hotseat emulation 32/32 and 120/120 at bid 2, 32/32 at bid 0.
+
+**Result.** r3-bid2/v3 against the easy AI at bid 2, 60 a seat:
+**USSR 5 of 54 (0.093), US 4 of 51 (0.078)**. Against the confounded
+bid-0 run: the US seat doubled (0.037 → 0.078) with its +2 restored,
+the USSR seat eased (0.125 → 0.093) now that the AI's US starts +2 —
+both in the direction the game change predicts, and the seats are
+within noise of each other, as in training. Strength against the AI
+is still an order below the yardstick numbers. Bridge attrition
+halved: 5 desyncs a seat (was 11), Grain Sales down to 2 a seat from
+6; the residue is listed in WOPR.md (Grain Sales' remainder, Junta,
+Tear Down This Wall, an event-placement mapping at seed 353, two slow
+drifts).
+
+**Decision.** The eval is now on the policy's own game and the bridge
+is no longer the bottleneck it was; the standing yardsticks for the
+bid ladder are Greedy-at-bid-2 and this eval. The gap that remains —
+~0.08 against the weakest official AI at 0.95 vs Greedy — is the
+policy's, and the loss mix (DEFCON gifts as USSR, 20-VP blowouts as
+US) is unchanged in kind: on to the opponent-diversity experiment,
+below.
+
+### 2026-08-24 — opponent diversity, arm 1: a Greedy share in the mix (pre-registered)
+
+**Question.** Does sparring against an opponent that is not a past
+self close what self-play cannot see — the DEFCON gift, the
+uncontested regions — measured against the easy AI? r1 closed
+"anchors as teachers" (a fixed opponent the learner always beats or
+never beats is a constant reward); this asks a different question,
+coverage, at a small share, and may reverse that finding's scope.
+
+**Setup.** `wopr.bootstrap --run r3-bid2-gshare --bid 2 --no-freeze --
+--self-play 0.45 --vs-pool 0.45 --anchor greedy` — recipe v11 with a
+10% Greedy share, the same stop rule as the r3-bid2 bootstrap, frozen
+nothing. Control: r3-bid2/v1 (recipe v11 pure, confirmed at 11,024
+games, 0.807). Metrics, decided before the run: (a) games to the
+confirmed stop vs 11,024 and the confirmation rate vs 0.807; (b) the
+easy-AI bid-2 eval, 60 a seat, of the arm's stop checkpoint against
+the same eval of r3-bid2/v1 (measured as the control's baseline); (c)
+the CIA Created / Grain Sales DEFCON-gift rate in those games.
+Decision rule: the share enters the recipe if (b) improves the
+two-seat mean by at least 0.05 without (a) blowing past the 20,000
+cap; a wash or a slower learner closes the arm.
+
+**Result.** *(pending)*
+
+**Decision.** *(pending)*
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is
