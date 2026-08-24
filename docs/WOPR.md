@@ -990,7 +990,15 @@ Findings from the first four random games, and what became of each:
   with no prompt to the operator (seed 323, the engine answered
   "none"); and a turn-1 placement the engine offers and the DLL does
   not (seed 357, Egypt for the US, reproducible). The AI's line does
-  not repeat on a rerun, so these want traces caught by volume. Two engine
+  not repeat on a rerun, so these want traces caught by volume. v8's
+  120 games (`runs/playdek/r3v8-easy-*`) added late-war families the
+  earlier policies never reached: a realignment roll matched to the
+  wrong target (seeds 341, 347: France "illegal in engine"), Ask Not's
+  discard bookkeeping (349), Wargames' "Would You Like To End The
+  Game?" (303: the engine's decline has no matching option — a
+  translate gap), Junta's choice (326), a trapped hand's discard
+  option lists (304, 315), a card the engine may play that the DLL
+  does not list (335, Yugoslavia), and two slow VP drifts (337, 350). Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear

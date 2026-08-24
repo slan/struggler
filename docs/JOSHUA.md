@@ -269,6 +269,56 @@ mean final turn of 5.2, 37 US wins by DEFCON) already hinted that
 its wins are short and by the track, not by the map. The Playdek
 easy eval, 60 a seat, is now a standing yardstick beside Greedy.
 
+### 2026-08-24 — the loop from v1 to the r3 plateau
+
+**Question.** How far does the recipe climb on the r3 engine before the
+gate misses twice in three — and does the Greedy curve (now free, in
+`metrics.csv`) saturate before the ladder does?
+
+**Setup.** `wopr.loop --run r3 --champion v1 --generations 20` (recipe
+v11, 4,000 games a generation, gate 0.55 on the worst seed, the new
+`--plateau-misses` stop), `--eval-every 500` for the Greedy curve.
+The user chose the loop over the opponent-diversity experiment first;
+the Playdek easy eval of the final champion follows it.
+
+**Result.** **Seven promotions in seven generations, then the plateau:
+v2 … v8, and generations 8 and 9 missed against v8** (0.497 [0.472],
+0.510 [0.492]) — the r3 line saturates at v8, 42,020 games. Every gate
+had the same shape, the challenger winning as USSR and losing as US
+(vs-champion US 0.34–0.49 / USSR 0.74–0.89); the US side of that split
+improved almost monotonically (0.39 → 0.35 → 0.34 → 0.34 → 0.40 →
+0.45 → 0.49) while the USSR side fell, the two converging toward the
+draw-line that stopped the loop. Greedy saturated first: 0.855 at v2,
+0.97–0.98 from v5 on (the curve's ticks flatten at 0.94–0.99 past
+28,000 games) — from v5 to v8 the ladder kept selecting real
+improvement (each gate cleared on the worst seed) that Greedy can no
+longer see. v8: Elo +1185 ± 35 vs random, 0.967 vs Greedy on the
+protocol. `wopr.diagnose` v8: USSR edge 0.642; **Asia is contested
+now** (264 : 489 for the US against itself — v1 never fought there),
+Central/South America and Africa are the USSR's; the track stays
+within ±3 to turn 8, games at turn 7.6; held-scoring-card endings are
+back up (19 of 120, turns 3–6); against Greedy 0.967 with 35 USSR wins
+by Europe control at a mean final turn of 4.2.
+
+**Decision.** The Playdek easy eval of v8 (60 a seat, seeds 300–359):
+**USSR 5 of 50 decided (0.100), US 5 of 52 (0.096)** — from v1's 0.018
+and 0.000. The transfer is real but an order of magnitude smaller than
+the internal gains: seven promotions and Greedy from 0.87 to 0.97
+bought 0.09 against the easy AI. What remains is concrete: as USSR,
+**30 of 45 losses are now DEFCON** — the CIA Created / Grain Sales
+Ops-at-DEFCON-2 gift dominates once the VP blowouts shrink (14, from
+36) — and as US the 20-VP blowouts stay the story (34 of 47). The
+wins are the blitz (Europe control, final scoring). Self-play alone
+moved the map skills (Asia is contested now) but cannot unlearn the
+event gift its pool never punishes: **opponent diversity is confirmed
+as the next experiment**, with the DEFCON-gift rate (14/55 → ?) and
+the easy-AI win rate as its metrics, per the road map. Also measured:
+v8 stresses the bridge harder than v1 — 13 desyncs in 120 games
+(late-war realignment targets, Ask Not, Wargames' end-game prompt,
+Junta, a quagmire option list), against 7 for v1 — so a bridge triage
+session precedes any heavier use of this eval. Ledger: the loop's
+`loop.csv`; `baselines/r3/README.md` v2–v8.
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is

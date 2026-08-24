@@ -1,0 +1,1457 @@
+{
+  "checkpoint": "baselines/r3/v8/joshua.pt",
+  "games": 120,
+  "seed": 7,
+  "self": {
+    "games": 120,
+    "endings": [
+      {
+        "winner": "USSR",
+        "reason": "vp",
+        "games": 39,
+        "mean_turn": 7.08
+      },
+      {
+        "winner": "US",
+        "reason": "vp",
+        "games": 20,
+        "mean_turn": 7.8
+      },
+      {
+        "winner": "USSR",
+        "reason": "held_scoring_card",
+        "games": 14,
+        "mean_turn": 6.29
+      },
+      {
+        "winner": "USSR",
+        "reason": "final_vp",
+        "games": 10,
+        "mean_turn": 10.0
+      },
+      {
+        "winner": "US",
+        "reason": "defcon_1",
+        "games": 9,
+        "mean_turn": 8.11
+      },
+      {
+        "winner": "USSR",
+        "reason": "defcon_1",
+        "games": 8,
+        "mean_turn": 8.25
+      },
+      {
+        "winner": "US",
+        "reason": "final_vp",
+        "games": 7,
+        "mean_turn": 10.0
+      },
+      {
+        "winner": "USSR",
+        "reason": "europe_control",
+        "games": 6,
+        "mean_turn": 8.33
+      },
+      {
+        "winner": "US",
+        "reason": "held_scoring_card",
+        "games": 5,
+        "mean_turn": 3.8
+      },
+      {
+        "winner": "-",
+        "reason": "draw",
+        "games": 1,
+        "mean_turn": 10.0
+      },
+      {
+        "winner": "US",
+        "reason": "europe_control",
+        "games": 1,
+        "mean_turn": 7.0
+      }
+    ],
+    "mean_final_turn": 7.62,
+    "track": {
+      "1": 0.0,
+      "2": -0.63,
+      "3": 0.22,
+      "4": 0.15,
+      "5": -0.93,
+      "6": -1.13,
+      "7": -1.72,
+      "8": -2.7,
+      "9": -1.02,
+      "10": -1.06
+    },
+    "vp_by_card": [
+      {
+        "card": "Asia_Scoring",
+        "to_ussr": 264,
+        "to_us": 489
+      },
+      {
+        "card": "Europe_Scoring",
+        "to_ussr": 256,
+        "to_us": 307
+      },
+      {
+        "card": "Middle_East_Scoring",
+        "to_ussr": 89,
+        "to_us": 414
+      },
+      {
+        "card": "Central_America_Scoring",
+        "to_ussr": 346,
+        "to_us": 105
+      },
+      {
+        "card": "Africa_Scoring",
+        "to_ussr": 320,
+        "to_us": 108
+      },
+      {
+        "card": "South_America_Scoring",
+        "to_ussr": 333,
+        "to_us": 75
+      },
+      {
+        "card": "Indo_Pakistani_War",
+        "to_ussr": 122,
+        "to_us": 85
+      },
+      {
+        "card": "Arab_Israeli_War",
+        "to_ussr": 146,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Duck_and_Cover",
+        "to_ussr": 2,
+        "to_us": 138
+      },
+      {
+        "card": "Captured_Nazi_Scientist",
+        "to_ussr": 90,
+        "to_us": 47
+      },
+      {
+        "card": "Southeast_Asia_Scoring",
+        "to_ussr": 104,
+        "to_us": 31
+      },
+      {
+        "card": "Alliance_for_Progress",
+        "to_ussr": 10,
+        "to_us": 110
+      },
+      {
+        "card": "Korean_War",
+        "to_ussr": 57,
+        "to_us": 45
+      },
+      {
+        "card": "Brush_War",
+        "to_ussr": 48,
+        "to_us": 48
+      },
+      {
+        "card": "Arms_Race",
+        "to_ussr": 62,
+        "to_us": 28
+      },
+      {
+        "card": "Willy_Brandt",
+        "to_ussr": 66,
+        "to_us": 19
+      },
+      {
+        "card": "OPEC",
+        "to_ussr": 69,
+        "to_us": 9
+      },
+      {
+        "card": "Nixon_Plays_The_China_Card",
+        "to_ussr": 10,
+        "to_us": 66
+      },
+      {
+        "card": "ABM_Treaty",
+        "to_ussr": 50,
+        "to_us": 19
+      },
+      {
+        "card": "Defectors",
+        "to_ussr": 6,
+        "to_us": 55
+      },
+      {
+        "card": "Blockade",
+        "to_ussr": 52,
+        "to_us": 6
+      },
+      {
+        "card": "The_China_Card",
+        "to_ussr": 48,
+        "to_us": 7
+      },
+      {
+        "card": "U2_Incident",
+        "to_ussr": 51,
+        "to_us": 3
+      },
+      {
+        "card": "Decolonization",
+        "to_ussr": 14,
+        "to_us": 39
+      },
+      {
+        "card": "Duck_and_Cover",
+        "to_ussr": 42,
+        "to_us": 11
+      },
+      {
+        "card": "Kitchen_Debates",
+        "to_ussr": 2,
+        "to_us": 51
+      },
+      {
+        "card": "Truman_Doctrine",
+        "to_ussr": 42,
+        "to_us": 10
+      },
+      {
+        "card": "pass",
+        "to_ussr": 45,
+        "to_us": 6
+      },
+      {
+        "card": "Camp_David_Accords",
+        "to_ussr": 11,
+        "to_us": 38
+      },
+      {
+        "card": "headline:Soviets_Shoot_Down_KAL_007",
+        "to_ussr": 0,
+        "to_us": 49
+      },
+      {
+        "card": "Muslim_Revolution",
+        "to_ussr": 4,
+        "to_us": 43
+      },
+      {
+        "card": "Special_Relationship",
+        "to_ussr": 17,
+        "to_us": 29
+      },
+      {
+        "card": "CIA_Created",
+        "to_ussr": 39,
+        "to_us": 6
+      },
+      {
+        "card": "Iran_Iraq_War",
+        "to_ussr": 30,
+        "to_us": 14
+      },
+      {
+        "card": "Terrorism",
+        "to_ussr": 3,
+        "to_us": 41
+      },
+      {
+        "card": "Fidel",
+        "to_ussr": 19,
+        "to_us": 24
+      },
+      {
+        "card": "Nasser",
+        "to_ussr": 36,
+        "to_us": 4
+      },
+      {
+        "card": "headline:Asia_Scoring",
+        "to_ussr": 21,
+        "to_us": 18
+      },
+      {
+        "card": "headline:Red_Scare_Purge",
+        "to_ussr": 33,
+        "to_us": 5
+      },
+      {
+        "card": "An_Evil_Empire",
+        "to_ussr": 3,
+        "to_us": 33
+      },
+      {
+        "card": "headline:Middle_East_Scoring",
+        "to_ussr": 5,
+        "to_us": 30
+      },
+      {
+        "card": "Socialist_Governments",
+        "to_ussr": 0,
+        "to_us": 34
+      },
+      {
+        "card": "How_I_Learned_to_Stop_Worrying",
+        "to_ussr": 9,
+        "to_us": 22
+      },
+      {
+        "card": "Quagmire",
+        "to_ussr": 15,
+        "to_us": 16
+      },
+      {
+        "card": "headline:Brush_War",
+        "to_ussr": 30,
+        "to_us": 0
+      },
+      {
+        "card": "The_Voice_Of_America",
+        "to_ussr": 12,
+        "to_us": 18
+      },
+      {
+        "card": "The_Iron_Lady",
+        "to_ussr": 0,
+        "to_us": 29
+      },
+      {
+        "card": "Romanian_Abdication",
+        "to_ussr": 21,
+        "to_us": 7
+      },
+      {
+        "card": "Grain_Sales_to_Soviets",
+        "to_ussr": 16,
+        "to_us": 12
+      },
+      {
+        "card": "Pershing_II_Deployed",
+        "to_ussr": 18,
+        "to_us": 10
+      },
+      {
+        "card": "East_European_Unrest",
+        "to_ussr": 25,
+        "to_us": 0
+      },
+      {
+        "card": "Glasnost",
+        "to_ussr": 24,
+        "to_us": 1
+      },
+      {
+        "card": "Allende",
+        "to_ussr": 24,
+        "to_us": 0
+      },
+      {
+        "card": "Vietnam_Revolts",
+        "to_ussr": 23,
+        "to_us": 0
+      },
+      {
+        "card": "Cultural_Revolution",
+        "to_ussr": 13,
+        "to_us": 10
+      },
+      {
+        "card": "One_Small_Step",
+        "to_ussr": 11,
+        "to_us": 11
+      },
+      {
+        "card": "Marine_Barracks_Bombing",
+        "to_ussr": 7,
+        "to_us": 15
+      },
+      {
+        "card": "South_African_Unrest",
+        "to_ussr": 6,
+        "to_us": 15
+      },
+      {
+        "card": "De_Gaulle_Leads_France",
+        "to_ussr": 6,
+        "to_us": 14
+      },
+      {
+        "card": "Panama_Canal_Returned",
+        "to_ussr": 20,
+        "to_us": 0
+      },
+      {
+        "card": "OAS_Founded",
+        "to_ussr": 2,
+        "to_us": 17
+      },
+      {
+        "card": "headline:Containment",
+        "to_ussr": 18,
+        "to_us": 0
+      },
+      {
+        "card": "Tear_Down_This_Wall",
+        "to_ussr": 11,
+        "to_us": 7
+      },
+      {
+        "card": "Ussuri_River_Skirmish",
+        "to_ussr": 15,
+        "to_us": 2
+      },
+      {
+        "card": "Containment",
+        "to_ussr": 14,
+        "to_us": 2
+      },
+      {
+        "card": "Our_Man_In_Tehran",
+        "to_ussr": 13,
+        "to_us": 3
+      },
+      {
+        "card": "headline:Bear_Trap",
+        "to_ussr": 10,
+        "to_us": 6
+      },
+      {
+        "card": "Missile_Envy",
+        "to_ussr": 16,
+        "to_us": 0
+      },
+      {
+        "card": "Star_Wars",
+        "to_ussr": 2,
+        "to_us": 14
+      },
+      {
+        "card": "Sadat_Expels_Soviets",
+        "to_ussr": 11,
+        "to_us": 4
+      },
+      {
+        "card": "Yuri_and_Samantha",
+        "to_ussr": 4,
+        "to_us": 11
+      },
+      {
+        "card": "Iranian_Hostage_Crisis",
+        "to_ussr": 3,
+        "to_us": 12
+      },
+      {
+        "card": "Colonial_Rear_Guards",
+        "to_ussr": 10,
+        "to_us": 4
+      },
+      {
+        "card": "Soviets_Shoot_Down_KAL_007",
+        "to_ussr": 10,
+        "to_us": 4
+      },
+      {
+        "card": "headline:Captured_Nazi_Scientist",
+        "to_ussr": 0,
+        "to_us": 12
+      },
+      {
+        "card": "De_Stalinization",
+        "to_ussr": 0,
+        "to_us": 12
+      },
+      {
+        "card": "Five_Year_Plan",
+        "to_ussr": 5,
+        "to_us": 7
+      },
+      {
+        "card": "headline:Alliance_for_Progress",
+        "to_ussr": 0,
+        "to_us": 12
+      },
+      {
+        "card": "Junta",
+        "to_ussr": 10,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Nuclear_Test_Ban",
+        "to_ussr": 0,
+        "to_us": 12
+      },
+      {
+        "card": "Olympic_Games",
+        "to_ussr": 11,
+        "to_us": 0
+      },
+      {
+        "card": "Marshall_Plan",
+        "to_ussr": 10,
+        "to_us": 0
+      },
+      {
+        "card": "Formosan_Resolution",
+        "to_ussr": 10,
+        "to_us": 0
+      },
+      {
+        "card": "John_Paul_II_Elected_Pope",
+        "to_ussr": 8,
+        "to_us": 2
+      },
+      {
+        "card": "Salt_Negotiations",
+        "to_ussr": 10,
+        "to_us": 0
+      },
+      {
+        "card": "Summit",
+        "to_ussr": 8,
+        "to_us": 2
+      },
+      {
+        "card": "Flower_Power",
+        "to_ussr": 9,
+        "to_us": 0
+      },
+      {
+        "card": "Portuguese_Empire_Crumbles",
+        "to_ussr": 7,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Indo_Pakistani_War",
+        "to_ussr": 5,
+        "to_us": 3
+      },
+      {
+        "card": "The_Cambridge_Five",
+        "to_ussr": 8,
+        "to_us": 0
+      },
+      {
+        "card": "headline:US_Japan_Mutual_Defense_Pact",
+        "to_ussr": 8,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Cuban_Missile_Crisis",
+        "to_ussr": 7,
+        "to_us": 1
+      },
+      {
+        "card": "headline:Missile_Envy",
+        "to_ussr": 6,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Camp_David_Accords",
+        "to_ussr": 0,
+        "to_us": 7
+      },
+      {
+        "card": "headline:Glasnost",
+        "to_ussr": 7,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Reagan_Bombs_Libya",
+        "to_ussr": 7,
+        "to_us": 0
+      },
+      {
+        "card": "Iran_Contra_Scandal",
+        "to_ussr": 2,
+        "to_us": 5
+      },
+      {
+        "card": "headline:Europe_Scoring",
+        "to_ussr": 1,
+        "to_us": 5
+      },
+      {
+        "card": "headline:Tear_Down_This_Wall",
+        "to_ussr": 6,
+        "to_us": 0
+      },
+      {
+        "card": "headline:East_European_Unrest",
+        "to_ussr": 5,
+        "to_us": 0
+      },
+      {
+        "card": "Bear_Trap",
+        "to_ussr": 5,
+        "to_us": 0
+      },
+      {
+        "card": "Puppet_Governments",
+        "to_ussr": 5,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Panama_Canal_Returned",
+        "to_ussr": 5,
+        "to_us": 0
+      },
+      {
+        "card": "NATO",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Flower_Power",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "headline:The_Iron_Lady",
+        "to_ussr": 1,
+        "to_us": 3
+      },
+      {
+        "card": "headline:Wargames",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "headline:North_Sea_Oil",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Pershing_II_Deployed",
+        "to_ussr": 3,
+        "to_us": 1
+      },
+      {
+        "card": "headline:Junta",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Quagmire",
+        "to_ussr": 0,
+        "to_us": 3
+      },
+      {
+        "card": "headline:Central_America_Scoring",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "US_Japan_Mutual_Defense_Pact",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "NORAD",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "Liberation_Theology",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "Warsaw_Pact_Formed",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Five_Year_Plan",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "COMECON",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Cultural_Revolution",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Suez_Crisis",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Independent_Reds",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Brezhnev_Doctrine",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Brezhnev_Doctrine",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Shuttle_Diplomacy",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:John_Paul_II_Elected_Pope",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Puppet_Governments",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Salt_Negotiations",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Ortega_Elected_in_Nicaragua",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Willy_Brandt",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "headline:AWACS_Sale_to_Saudis",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "North_Sea_Oil",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Terrorism",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Aldrich_Ames_Remix",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "The_Reformer",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Ortega_Elected_in_Nicaragua",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Chernobyl",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Cuban_Missile_Crisis",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Solidarity",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:The_Voice_Of_America",
+        "to_ussr": 1,
+        "to_us": 0
+      },
+      {
+        "card": "headline:NATO",
+        "to_ussr": 1,
+        "to_us": 0
+      },
+      {
+        "card": "Red_Scare_Purge",
+        "to_ussr": 1,
+        "to_us": 0
+      },
+      {
+        "card": "Latin_American_Debt_Crisis",
+        "to_ussr": 1,
+        "to_us": 0
+      }
+    ],
+    "ussr_edge": 0.642,
+    "draw_rate": 0.008
+  },
+  "versus": {
+    "opponent": "greedy",
+    "win_rate": 0.967,
+    "games": 120,
+    "endings": [
+      {
+        "winner": "USSR",
+        "reason": "europe_control",
+        "games": 35,
+        "mean_turn": 2.4
+      },
+      {
+        "winner": "US",
+        "reason": "defcon_1",
+        "games": 26,
+        "mean_turn": 3.58
+      },
+      {
+        "winner": "US",
+        "reason": "vp",
+        "games": 23,
+        "mean_turn": 5.52
+      },
+      {
+        "winner": "USSR",
+        "reason": "vp",
+        "games": 17,
+        "mean_turn": 6.59
+      },
+      {
+        "winner": "USSR",
+        "reason": "defcon_1",
+        "games": 9,
+        "mean_turn": 5.44
+      },
+      {
+        "winner": "US",
+        "reason": "europe_control",
+        "games": 9,
+        "mean_turn": 3.56
+      },
+      {
+        "winner": "USSR",
+        "reason": "held_scoring_card",
+        "games": 1,
+        "mean_turn": 4.0
+      }
+    ],
+    "mean_final_turn": 4.17,
+    "track": {
+      "1": 0.0,
+      "2": 0.26,
+      "3": 0.34,
+      "4": 0.41,
+      "5": -0.18,
+      "6": -1.41,
+      "7": 0.85,
+      "8": -2.45,
+      "9": -1.33,
+      "10": 5.5
+    },
+    "vp_by_card": [
+      {
+        "card": "Europe_Scoring",
+        "to_ussr": 173,
+        "to_us": 247
+      },
+      {
+        "card": "Asia_Scoring",
+        "to_ussr": 65,
+        "to_us": 312
+      },
+      {
+        "card": "Middle_East_Scoring",
+        "to_ussr": 203,
+        "to_us": 141
+      },
+      {
+        "card": "Africa_Scoring",
+        "to_ussr": 92,
+        "to_us": 37
+      },
+      {
+        "card": "South_America_Scoring",
+        "to_ussr": 64,
+        "to_us": 29
+      },
+      {
+        "card": "Indo_Pakistani_War",
+        "to_ussr": 63,
+        "to_us": 28
+      },
+      {
+        "card": "Arab_Israeli_War",
+        "to_ussr": 80,
+        "to_us": 9
+      },
+      {
+        "card": "Duck_and_Cover",
+        "to_ussr": 15,
+        "to_us": 71
+      },
+      {
+        "card": "headline:Duck_and_Cover",
+        "to_ussr": 1,
+        "to_us": 84
+      },
+      {
+        "card": "Central_America_Scoring",
+        "to_ussr": 44,
+        "to_us": 24
+      },
+      {
+        "card": "headline:Asia_Scoring",
+        "to_ussr": 5,
+        "to_us": 61
+      },
+      {
+        "card": "Captured_Nazi_Scientist",
+        "to_ussr": 44,
+        "to_us": 18
+      },
+      {
+        "card": "Socialist_Governments",
+        "to_ussr": 3,
+        "to_us": 54
+      },
+      {
+        "card": "headline:Captured_Nazi_Scientist",
+        "to_ussr": 12,
+        "to_us": 38
+      },
+      {
+        "card": "Korean_War",
+        "to_ussr": 34,
+        "to_us": 13
+      },
+      {
+        "card": "Defectors",
+        "to_ussr": 10,
+        "to_us": 37
+      },
+      {
+        "card": "Brush_War",
+        "to_ussr": 31,
+        "to_us": 15
+      },
+      {
+        "card": "Alliance_for_Progress",
+        "to_ussr": 2,
+        "to_us": 41
+      },
+      {
+        "card": "Decolonization",
+        "to_ussr": 11,
+        "to_us": 30
+      },
+      {
+        "card": "headline:Europe_Scoring",
+        "to_ussr": 10,
+        "to_us": 31
+      },
+      {
+        "card": "Blockade",
+        "to_ussr": 32,
+        "to_us": 8
+      },
+      {
+        "card": "Nixon_Plays_The_China_Card",
+        "to_ussr": 0,
+        "to_us": 38
+      },
+      {
+        "card": "headline:Middle_East_Scoring",
+        "to_ussr": 16,
+        "to_us": 20
+      },
+      {
+        "card": "Special_Relationship",
+        "to_ussr": 23,
+        "to_us": 12
+      },
+      {
+        "card": "Nasser",
+        "to_ussr": 19,
+        "to_us": 10
+      },
+      {
+        "card": "Arms_Race",
+        "to_ussr": 15,
+        "to_us": 14
+      },
+      {
+        "card": "Willy_Brandt",
+        "to_ussr": 20,
+        "to_us": 8
+      },
+      {
+        "card": "Kitchen_Debates",
+        "to_ussr": 2,
+        "to_us": 24
+      },
+      {
+        "card": "Fidel",
+        "to_ussr": 9,
+        "to_us": 16
+      },
+      {
+        "card": "headline:Red_Scare_Purge",
+        "to_ussr": 22,
+        "to_us": 0
+      },
+      {
+        "card": "U2_Incident",
+        "to_ussr": 22,
+        "to_us": 0
+      },
+      {
+        "card": "CIA_Created",
+        "to_ussr": 16,
+        "to_us": 4
+      },
+      {
+        "card": "headline:Africa_Scoring",
+        "to_ussr": 1,
+        "to_us": 19
+      },
+      {
+        "card": "Camp_David_Accords",
+        "to_ussr": 2,
+        "to_us": 18
+      },
+      {
+        "card": "headline:Romanian_Abdication",
+        "to_ussr": 16,
+        "to_us": 3
+      },
+      {
+        "card": "OPEC",
+        "to_ussr": 18,
+        "to_us": 0
+      },
+      {
+        "card": "Southeast_Asia_Scoring",
+        "to_ussr": 15,
+        "to_us": 3
+      },
+      {
+        "card": "Cultural_Revolution",
+        "to_ussr": 11,
+        "to_us": 6
+      },
+      {
+        "card": "The_China_Card",
+        "to_ussr": 11,
+        "to_us": 5
+      },
+      {
+        "card": "How_I_Learned_to_Stop_Worrying",
+        "to_ussr": 2,
+        "to_us": 14
+      },
+      {
+        "card": "headline:South_America_Scoring",
+        "to_ussr": 1,
+        "to_us": 14
+      },
+      {
+        "card": "ABM_Treaty",
+        "to_ussr": 9,
+        "to_us": 6
+      },
+      {
+        "card": "headline:Nasser",
+        "to_ussr": 14,
+        "to_us": 0
+      },
+      {
+        "card": "Olympic_Games",
+        "to_ussr": 12,
+        "to_us": 2
+      },
+      {
+        "card": "Independent_Reds",
+        "to_ussr": 11,
+        "to_us": 2
+      },
+      {
+        "card": "Truman_Doctrine",
+        "to_ussr": 8,
+        "to_us": 5
+      },
+      {
+        "card": "The_Cambridge_Five",
+        "to_ussr": 10,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Southeast_Asia_Scoring",
+        "to_ussr": 6,
+        "to_us": 6
+      },
+      {
+        "card": "Puppet_Governments",
+        "to_ussr": 6,
+        "to_us": 6
+      },
+      {
+        "card": "Five_Year_Plan",
+        "to_ussr": 4,
+        "to_us": 7
+      },
+      {
+        "card": "pass",
+        "to_ussr": 2,
+        "to_us": 9
+      },
+      {
+        "card": "Lone_Gunman",
+        "to_ussr": 1,
+        "to_us": 10
+      },
+      {
+        "card": "Formosan_Resolution",
+        "to_ussr": 4,
+        "to_us": 6
+      },
+      {
+        "card": "Muslim_Revolution",
+        "to_ussr": 2,
+        "to_us": 8
+      },
+      {
+        "card": "Romanian_Abdication",
+        "to_ussr": 7,
+        "to_us": 2
+      },
+      {
+        "card": "UN_Intervention",
+        "to_ussr": 5,
+        "to_us": 4
+      },
+      {
+        "card": "Junta",
+        "to_ussr": 2,
+        "to_us": 7
+      },
+      {
+        "card": "headline:Allende",
+        "to_ussr": 9,
+        "to_us": 0
+      },
+      {
+        "card": "Nuclear_Subs",
+        "to_ussr": 7,
+        "to_us": 2
+      },
+      {
+        "card": "Summit",
+        "to_ussr": 9,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Korean_War",
+        "to_ussr": 8,
+        "to_us": 0
+      },
+      {
+        "card": "Containment",
+        "to_ussr": 8,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Central_America_Scoring",
+        "to_ussr": 6,
+        "to_us": 1
+      },
+      {
+        "card": "Panama_Canal_Returned",
+        "to_ussr": 4,
+        "to_us": 3
+      },
+      {
+        "card": "headline:Nuclear_Subs",
+        "to_ussr": 7,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Containment",
+        "to_ussr": 6,
+        "to_us": 0
+      },
+      {
+        "card": "Vietnam_Revolts",
+        "to_ussr": 6,
+        "to_us": 0
+      },
+      {
+        "card": "Warsaw_Pact_Formed",
+        "to_ussr": 2,
+        "to_us": 4
+      },
+      {
+        "card": "headline:Summit",
+        "to_ussr": 6,
+        "to_us": 0
+      },
+      {
+        "card": "Grain_Sales_to_Soviets",
+        "to_ussr": 4,
+        "to_us": 2
+      },
+      {
+        "card": "South_African_Unrest",
+        "to_ussr": 2,
+        "to_us": 4
+      },
+      {
+        "card": "De_Stalinization",
+        "to_ussr": 0,
+        "to_us": 5
+      },
+      {
+        "card": "De_Gaulle_Leads_France",
+        "to_ussr": 0,
+        "to_us": 5
+      },
+      {
+        "card": "Missile_Envy",
+        "to_ussr": 0,
+        "to_us": 5
+      },
+      {
+        "card": "An_Evil_Empire",
+        "to_ussr": 2,
+        "to_us": 3
+      },
+      {
+        "card": "headline:Vietnam_Revolts",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "East_European_Unrest",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "Quagmire",
+        "to_ussr": 2,
+        "to_us": 2
+      },
+      {
+        "card": "Brezhnev_Doctrine",
+        "to_ussr": 2,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Brush_War",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "Pershing_II_Deployed",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Glasnost",
+        "to_ussr": 4,
+        "to_us": 0
+      },
+      {
+        "card": "headline:OAS_Founded",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Alliance_for_Progress",
+        "to_ussr": 2,
+        "to_us": 1
+      },
+      {
+        "card": "headline:Lone_Gunman",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "Ussuri_River_Skirmish",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "Ask_Not_What_Your_Country_Can_Do_For_You",
+        "to_ussr": 3,
+        "to_us": 0
+      },
+      {
+        "card": "The_Iron_Lady",
+        "to_ussr": 0,
+        "to_us": 3
+      },
+      {
+        "card": "headline:The_Cambridge_Five",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Red_Scare_Purge",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "NORAD",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Bear_Trap",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:US_Japan_Mutual_Defense_Pact",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "US_Japan_Mutual_Defense_Pact",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Liberation_Theology",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Suez_Crisis",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Allende",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Latin_American_Death_Squads",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:One_Small_Step",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Kitchen_Debates",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Colonial_Rear_Guards",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Missile_Envy",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "headline:Nuclear_Test_Ban",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "The_Voice_Of_America",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Che",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "The_Reformer",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Iran_Iraq_War",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Soviets_Shoot_Down_KAL_007",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Chernobyl",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Soviets_Shoot_Down_KAL_007",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Yuri_and_Samantha",
+        "to_ussr": 0,
+        "to_us": 2
+      },
+      {
+        "card": "Glasnost",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "Star_Wars",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "headline:Five_Year_Plan",
+        "to_ussr": 2,
+        "to_us": 0
+      },
+      {
+        "card": "OAS_Founded",
+        "to_ussr": 0,
+        "to_us": 1
+      },
+      {
+        "card": "John_Paul_II_Elected_Pope",
+        "to_ussr": 1,
+        "to_us": 0
+      },
+      {
+        "card": "Wargames",
+        "to_ussr": 1,
+        "to_us": 0
+      },
+      {
+        "card": "AWACS_Sale_to_Saudis",
+        "to_ussr": 1,
+        "to_us": 0
+      }
+    ]
+  }
+}
