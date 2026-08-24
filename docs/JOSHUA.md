@@ -342,9 +342,29 @@ the loop on the bid ladder to its plateau, then the Playdek easy eval
 (bid 0 on the DLL side until the bridge learns the DLL's own BID
 setup; noted as a caveat when comparing).
 
-**Result.** *(pending)*
+**Result.** **Confirmed at 11,024 games — 21% sooner than the printed
+game's 14,020 — and the seats climbed together**: the curve reached
+0.38 at 4,000 games (US 0.47 / USSR 0.29), 0.54 at 7,000, 0.78 at
+10,500, with the per-seat gap oscillating around zero all run where
+r3's held at 0.25–0.30 for 10,000 games; the stop's rolling means were
+US 0.825 / USSR 0.785 and the confirmation 0.807 over 600 (US 0.833 /
+USSR 0.780). Protocol: vs Greedy 0.820 (US 0.858 / USSR 0.782), Elo
++1132 ± 268. `wopr.diagnose --bid 2`: **the USSR edge is 0.500** —
+exactly even, from 0.667 at bid 0 — with the Middle East the USSR's
+region (492 : 138) and Asia the US's (282 : 196). Two things to watch:
+DEFCON-1 endings are 52% of self-play games (62 of 120, both
+directions; r3/v1 had 28%) at a mean final turn of 5.6 — the even game
+is being fought with coups — and the Elo spread across seeds tripled
+(± 268), both worth re-reading at the loop's first diagnosis.
 
-**Decision.** *(pending)*
+**Decision.** The tournament bid does on this engine what tournament
+players use it for: US +2 removes the seat edge between equals, and
+the recipe reaches the yardstick faster on the even game. The bid
+ladder is the live one — the loop runs on it from `r3-bid2/v1` to its
+plateau (same gate, `--bid 2` throughout), then the Playdek easy eval
+of the champion (bid 0 on the DLL side until the bridge speaks its BID
+setup; noted when comparing). The printed-game ladder r3 stands at v8
+for reference. Ledger: `r3-bid2` in `baselines/r3-bid2/README.md`.
 
 ## Road map
 
