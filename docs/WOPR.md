@@ -1010,7 +1010,16 @@ Findings from the first four random games, and what became of each:
   the eval's pool (the batch reports it and plays on), Grain Sales
   inference misses run to six games a seat, and SALT Negotiations'
   choice, Tear Down This Wall and a forced discard are new
-  (`r3bid2v3-easy-ussr` seeds 327, 332, 348). Two engine
+  (`r3bid2v3-easy-ussr` seeds 327, 332, 348). **The DLL plays the
+  tournament bid natively**: `GameParameters.additionalInfluence` (the
+  app's handicap) inserts a US "Place N Influence" step right after the
+  regular setup with exactly the engine's 11.1.4 semantics — candidates
+  are the US's countries, capped two past control (probed 2026-08-24) —
+  so `wopr.playdek.eval --bid N` now plays the bid on both boards
+  (`Bridge(us_bid=N)`: the DLL's additionalInfluence and the engine's
+  `us_bid`), and a bid-trained policy is evaluated on its own game.
+  Hotseat emulation is clean at bid 2 (32/32 and 120/120 wide) and
+  unchanged at bid 0 (32/32). Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear

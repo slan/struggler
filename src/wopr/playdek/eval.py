@@ -50,6 +50,7 @@ class Job:
     deterministic: bool = True
     max_divergences: int = 40
     trace: bool = False
+    us_bid: int = 0  # the tournament bid, on both boards
 
 
 def build_player(spec: str, *, seed: int, deterministic: bool) -> Player:
@@ -92,10 +93,10 @@ def run_job(job: Job) -> dict:
         log_path = str(games / f"{job.index:04d}_seed{job.seed}_{job.side}.json")
     if job.difficulty == "hotseat":
         result = play_match(pd, player, seed=job.seed, side=side, emulate=random_policy(random.Random(job.seed)),
-                            log_path=log_path, max_divergences=job.max_divergences, trace=job.trace)
+                            log_path=log_path, max_divergences=job.max_divergences, trace=job.trace, us_bid=job.us_bid)
     else:
         result = play_match(pd, player, seed=job.seed, side=side, difficulty=AIDifficulty[job.difficulty.upper()],
-                            log_path=log_path, max_divergences=job.max_divergences, trace=job.trace)
+                            log_path=log_path, max_divergences=job.max_divergences, trace=job.trace, us_bid=job.us_bid)
     return {"index": job.index, **dataclasses.asdict(result)}
 
 
@@ -138,10 +139,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--out", default=None, help="directory for the replay logs, results.jsonl and summary.json")
     p.add_argument("--max-divergences", type=int, default=40)
     p.add_argument("--trace", action="store_true", help="print every record, prompt, reply and inference (one game at a time: --workers 1)")
+    p.add_argument("--bid", type=int, default=0, help="the tournament bid: the US places this much extra influence after setup, on the DLL's board and the engine's")
     args = p.parse_args(argv)
 
     sides = {"ussr": ["USSR"], "us": ["US"], "both": ["USSR", "US"]}[args.side]
-    jobs = [Job(i, args.seed + i, sides[i % len(sides)], args.policy, args.difficulty, args.out, not args.sample, args.max_divergences, args.trace)
+    jobs = [Job(i, args.seed + i, sides[i % len(sides)], args.policy, args.difficulty, args.out, not args.sample, args.max_divergences, args.trace, us_bid=args.bid)
             for i in range(args.games)]
     workers = args.workers if args.workers is not None else max(1, (os.cpu_count() or 4) // 4)
     out = Path(args.out) if args.out else None

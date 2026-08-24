@@ -154,8 +154,15 @@ class Playdek:
         seed: int = 0,
         scenario: EScenario = EScenario.STANDARD,
         additional_card_flags: int = 0,
+        additional_influence: int = 0,
     ) -> PlaydekGame:
         """Start a game: our seat on `local_side`, the AI on the other.
+
+        `additional_influence` is the app's tournament handicap: the US
+        places that many extra Influence right after the regular setup
+        placements, only into countries it already holds, capped two past
+        what control needs -- the same semantics as the engine's
+        `Engine.new_game(us_bid=N)` (rule 11.1.4; probed 2026-08-24).
 
         `ai_difficulty=None` is the app's hotseat mode instead -- both seats
         are ours and every prompt comes through `pump`, `Prompt.player_id`
@@ -177,7 +184,8 @@ class Playdek:
             sides = {LOCAL_ID: local_side, AI_ID: local_side.opponent}
             method = ffi.EChooseSidesMethod.CREATORUSSR if local_side is Side.USSR else ffi.EChooseSidesMethod.CREATORUS
         params = ffi.GameParameters(
-            additionalCardFlags=additional_card_flags, scenario=int(scenario), chooseSidesMethod=int(method), additionalInfluence=0
+            additionalCardFlags=additional_card_flags, scenario=int(scenario), chooseSidesMethod=int(method),
+            additionalInfluence=additional_influence,
         )
         players = (ffi.AppPlayerData * 2)()
         for seat, (pid, ptype, diff, name) in enumerate(seats):

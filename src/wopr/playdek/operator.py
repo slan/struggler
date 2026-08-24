@@ -127,7 +127,8 @@ class _Seat:
 
 class PlaydekOperator(Bridge):
     def __init__(self, pd: Playdek, *, seed: int, side: Side, difficulty: AIDifficulty = AIDifficulty.HARD,
-                 emulate: Policy | None = None, game_no: int = 0, max_divergences: int = 40, trace: bool = False) -> None:
+                 emulate: Policy | None = None, game_no: int = 0, max_divergences: int = 40, trace: bool = False,
+                 us_bid: int = 0) -> None:
         self.side = side  # the bot's seat
         self.other = side.opponent  # the AI's (or, emulated, the policy's)
         self.emulate = emulate
@@ -135,7 +136,8 @@ class PlaydekOperator(Bridge):
                          # Hotseat seats USSR/US by id, whatever `local_side` says.
                          local_side=Side.USSR if emulate is not None else side,
                          ai_difficulty=None if emulate is not None else difficulty,
-                         physical_side=self.other, deal_after_setup=True, max_divergences=max_divergences, trace=trace)
+                         physical_side=self.other, deal_after_setup=True, max_divergences=max_divergences, trace=trace,
+                         us_bid=us_bid)
         self.outgoing: collections.deque[tuple[Decision, Action]] = collections.deque()  # the bot's actions not yet told to the DLL
         self._un_target: str | None = None  # the opponent's card to name once UN Intervention's "Play Event" is answered
         self._played: tuple[str, int] | None = None  # (card, turn) of the other seat's last queued play: its further use records add no card
@@ -1232,11 +1234,14 @@ class PlaydekOperator(Bridge):
 
 def play_match(pd: Playdek, player: Player, *, seed: int, side: Side, difficulty: AIDifficulty = AIDifficulty.HARD,
                emulate: Policy | None = None, log_path: str | None = None, trace: bool = False,
-               max_divergences: int = 40) -> MatchResult:
+               max_divergences: int = 40, us_bid: int = 0) -> MatchResult:
     """One game of `player` on `side` against Playdek's AI (or `emulate`),
-    refereed by the engine, optionally logged as a replay (`log_path`)."""
+    refereed by the engine, optionally logged as a replay (`log_path`).
+    `us_bid`: the tournament bid, on both boards (the DLL's
+    additionalInfluence and the engine's us_bid)."""
     start = time.monotonic()
-    op = PlaydekOperator(pd, seed=seed, side=side, difficulty=difficulty, emulate=emulate, trace=trace, max_divergences=max_divergences)
+    op = PlaydekOperator(pd, seed=seed, side=side, difficulty=difficulty, emulate=emulate, trace=trace,
+                         max_divergences=max_divergences, us_bid=us_bid)
     desync = False
     try:
         play_game(op.engine, op.players(player), log_path=log_path)

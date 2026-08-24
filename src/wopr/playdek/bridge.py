@@ -103,14 +103,16 @@ class Report:
 
 class Bridge:
     def __init__(self, pd: Playdek, *, game_no: int, seed: int, local_side: Side, ai_difficulty: AIDifficulty | None,
-                 physical_side: Side, deal_after_setup: bool = False, max_divergences: int = 40, trace: bool = False) -> None:
+                 physical_side: Side, deal_after_setup: bool = False, max_divergences: int = 40, trace: bool = False,
+                 us_bid: int = 0) -> None:
         self.pd = pd
         self.trace = trace
         self.report = Report(game_no)
         self.max_divergences = max_divergences
-        self.game: PlaydekGame = pd.new_game(local_side=local_side, ai_difficulty=ai_difficulty, seed=seed)
+        self.game: PlaydekGame = pd.new_game(local_side=local_side, ai_difficulty=ai_difficulty, seed=seed,
+                                             additional_influence=us_bid)
         self.engine = Engine.new_game(seed=seed, include_optional=False, physical_mode=True, physical_side=physical_side,
-                                      deal_after_setup=deal_after_setup)
+                                      deal_after_setup=deal_after_setup, us_bid=us_bid)
         self.moves: dict[Side, collections.deque[Move]] = {Side.USSR: collections.deque(), Side.US: collections.deque()}
         self.rolls: collections.deque[T.Roll] = collections.deque()
         self.influence: dict[str, tuple[int, int]] = {}  # country -> (ussr, us) per the DLL
