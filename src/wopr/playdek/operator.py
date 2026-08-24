@@ -285,6 +285,23 @@ class PlaydekOperator(Bridge):
         played = self._play_seq.get(card)
         return played is not None and played < record_seq
 
+    def _grain_take_from_moves(self, offered: set[str]) -> str | None:
+        """The card Grain Sales took, by the DLL's card moves: among
+        `offered` (the engine's USSR hand), the latest to leave the USSR's
+        hand for the US's or a pile, or the US's hand for a pile (taken and
+        played at once), inside the inference window. None: nothing moved
+        (returned), a reveal record must name it."""
+        best: tuple[int, str] | None = None
+        for c in offered:
+            move = self._last_moves.get(c)
+            if move is None or move[2] <= self._synced_move_seq:
+                continue
+            was, loc, seq = move
+            took = (was == HAND_LOCATION[Side.USSR] and (loc == HAND_LOCATION[Side.US] or loc in PILES))                 or (was == HAND_LOCATION[Side.US] and loc in PILES)
+            if took and (best is None or seq > best[0]):
+                best = (seq, c)
+        return best[1] if best else None
+
     def card_that_left_any(self, owner: Side) -> list[str]:
         """Cards that left `owner`'s hand for the discard or removed pile and
         have not been accounted for, latest first (not consumed)."""
@@ -439,10 +456,17 @@ class PlaydekOperator(Bridge):
             offered = {a.payload["card"] for a in d.options}
             purpose = d.context.get("purpose")
             if purpose == "grain_sales" and self._grain is None:
-                # The other seat's Grain Sales: the card shown out of the
-                # bot's hand (a reveal record, or the card pushed into the
-                # resolve slot as "fired" by the event), which stays in the
-                # hand when returned.
+                # The other seat's Grain Sales. The card it took is named
+                # best by the DLL's own card moves: a taken card left the
+                # USSR's hand for the US's (or straight for a pile, played
+                # at once) while the engine still holds it -- a stale
+                # reveal picked the wrong card three times in one batch
+                # (r3v1-easy-ussr seeds 319, 328, 333) before the moves
+                # were consulted. A reveal record only names a card the
+                # moves do not (returned: it never left the hand).
+                card = self._grain_take_from_moves(offered)
+                if card is not None:
+                    return self._pick(d, lambda a: a.payload["card"] == card, f"Grain Sales drew {card} (its move)")
                 for shown in (self._revealed, self._fired):
                     card = next((c for c in reversed(shown) if c in offered), None)
                     if card is not None:

@@ -1019,7 +1019,12 @@ Findings from the first four random games, and what became of each:
   (`Bridge(us_bid=N)`: the DLL's additionalInfluence and the engine's
   `us_bid`), and a bid-trained policy is evaluated on its own game.
   Hotseat emulation is clean at bid 2 (32/32 and 120/120 wide) and
-  unchanged at bid 0 (32/32). Two engine
+  unchanged at bid 0 (32/32). And the Grain Sales take is now read off
+  the DLL's card moves before any reveal record — the taken card left
+  the USSR's hand for the US's (or a pile, played at once) inside the
+  inference window, where a stale reveal had named the wrong card
+  three times in one batch; the hidden-prompt harness stays 59/59 and
+  the emulation clean. Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
