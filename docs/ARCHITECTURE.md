@@ -183,6 +183,13 @@ adjacency-derived.
 
 ## The Ops-only toggle
 
+`Engine.new_game(..., us_bid=N)` plays the tournament bid of the official
+rules (11.1.4): N extra US Influence, placed by the US once the regular
+setup placements are done, only into countries that hold US influence at
+that moment and never past two more than what control needs (11.1.4.1) —
+ordinary `PLACE_INFLUENCE` decisions with `"bid": True` in their context.
+0 (the default) is the printed game.
+
 `Engine.new_game(..., events=False)` runs the game with the card-event
 layer switched off entirely: all 110 cards exist as data and are playable
 for their Ops value, the headline phase, space race, China Card and DEFCON

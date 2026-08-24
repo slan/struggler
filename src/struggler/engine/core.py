@@ -63,6 +63,7 @@ class Engine:
         self.cards: dict[str, Card] = load_cards()
         self.phase = "idle"  # idle | headline | action_rounds | complete
         self.include_optional = False
+        self.us_bid = 0  # tournament bid (11.1.4): extra US influence placed after regular setup
         self.draw_pile: list[str] = []
         self.discard_pile: list[str] = []
         self.removed_cards: list[str] = []
@@ -207,6 +208,7 @@ class Engine:
             # -- full-game state --
             "phase": self.phase,
             "include_optional": self.include_optional,
+            **({"us_bid": self.us_bid} if self.us_bid else {}),  # absent at 0: the printed game's serialization is unchanged
             "draw_pile": list(self.draw_pile),
             "discard_pile": list(self.discard_pile),
             "removed_cards": list(self.removed_cards),
@@ -251,6 +253,7 @@ class Engine:
         # -- full-game state (absent in board-only logs: fall back to the sandbox) --
         engine.phase = data.get("phase", "idle")
         engine.include_optional = data.get("include_optional", False)
+        engine.us_bid = data.get("us_bid", 0)
         engine.draw_pile = list(data.get("draw_pile", []))
         engine.discard_pile = list(data.get("discard_pile", []))
         engine.removed_cards = list(data.get("removed_cards", []))
@@ -311,6 +314,7 @@ class Engine:
         events: bool = True,
         physical_mode: bool = False,
         physical_side: Side | None = None,
+        us_bid: int = 0,
     ) -> "Engine":
         """Start a complete game: build the Early War deck, deal opening
         hands, and push the first (USSR) headline decision.
@@ -320,6 +324,12 @@ class Engine:
         in Western Europe (as ordinary placement decisions), before the turn-1
         headline.
 
+        `us_bid`: the tournament bid (rule 11.1.4) — this many extra US
+        Influence, placed by the US after the regular setup placements,
+        only into countries that held US influence at the end of them,
+        and never past two more than what control of the country needs
+        (11.1.4.1). 0 is the printed game.
+
         `physical_mode`/`physical_side`: `physical_side` is a real human
         playing the physical board game (see the "Physical-mode state"
         fields on `__init__`) — its hand is unknown to the engine until
@@ -328,7 +338,10 @@ class Engine:
         """
         if physical_mode and physical_side not in (Side.US, Side.USSR):
             raise ValueError("physical_mode requires physical_side to be Side.US or Side.USSR")
+        if us_bid < 0:
+            raise ValueError("us_bid must be >= 0")
         engine = cls(seed=seed, board=board)
+        engine.us_bid = us_bid
         engine.include_optional = include_optional
         engine.events_enabled = events
         engine.physical_mode = physical_mode
@@ -628,6 +641,33 @@ class Engine:
             {"setup": True, "side": side.value, "subregion": subregion.value,
              "remaining": remaining},
         )
+
+    def _push_bid_influence(self, remaining: int, candidates: list[str]) -> None:
+        """The tournament bid's extra US influence (11.1.4): placed after
+        the regular setup, only into `candidates` — the countries that held
+        US influence when the regular setup ended — and never past two more
+        than what control of the country needs (11.1.4.1: US influence at
+        most stability + USSR influence + 2). No legal target left forfeits
+        the rest of the bid."""
+        options = tuple(
+            Action(DecisionKind.PLACE_INFLUENCE, {"country": cid})
+            for cid in candidates
+            if self.board.influence[cid]["US"]
+            < self.board.countries[cid].stability + self.board.influence[cid]["USSR"] + 2
+        )
+        if not options:
+            self._finish_setup()
+            return
+        self._push(
+            Side.US,
+            DecisionKind.PLACE_INFLUENCE,
+            options,
+            {"setup": True, "bid": True, "side": Side.US.value,
+             "remaining": remaining, "candidates": list(candidates)},
+        )
+
+    def _finish_setup(self) -> None:
+        self.phase = "headline"  # setup complete; _advance pushes headline
 
     # -- deck operations (shuffle via the injected RNG, mandate #3) ---------
 
@@ -2157,14 +2197,27 @@ class Engine:
         # Setup placement always costs one point flat (no opponent doubling).
         self.board.influence[action.payload["country"]][side.value] += 1
         remaining = decision.context["remaining"] - 1
+        if decision.context.get("bid"):
+            if remaining > 0:
+                self._push_bid_influence(remaining, decision.context["candidates"])
+            else:
+                self._finish_setup()
+            return
         subregion = Subregion(decision.context["subregion"])
         if remaining > 0:
             self._push_setup_influence_remaining(side, subregion, remaining)
         elif side is Side.USSR:
             # USSR's Eastern Europe done -> US places in Western Europe.
             self._push_setup_influence(Side.US, Subregion.WESTERN_EUROPE)
+        elif self.us_bid > 0:
+            # The regular setup is done: the tournament bid's extra US
+            # influence, into the countries holding US influence right now.
+            self._push_bid_influence(
+                self.us_bid,
+                [cid for cid, inf in self.board.influence.items() if inf["US"] > 0],
+            )
         else:
-            self.phase = "headline"  # setup complete; _advance pushes headline
+            self._finish_setup()
 
     # -- coup --------------------------------------------------------------
 
