@@ -469,9 +469,27 @@ Decision rule: the share enters the recipe if (b) improves the
 two-seat mean by at least 0.05 without (a) blowing past the 20,000
 cap; a wash or a slower learner closes the arm.
 
-**Result.** *(pending)*
+**Result.** (a) Confirmed at 11,518 games against the control's 11,024
+— a wash — with a stronger confirmation (0.858, US 0.815 / USSR 0.900,
+vs 0.807), after a visibly diluted start: half the control's rate to
+5,000 games (r1's anchor finding, at one tenth the dose), then caught
+and passed from 6,000. (b) Against the easy AI at bid 2, arm vs
+control at the same training stage: **USSR 0.019 vs 0.000, US 0.018 vs
+0.034** — a wash, nowhere near the +0.05 bar; both stop-checkpoints
+are far below v3's 0.093/0.078, so two more loop generations are worth
+more against the AI than the mix change. (c) The DEFCON-gift rate is
+**unchanged**: 21 of 52 USSR-seat losses (control 18 of 59).
 
-**Decision.** *(pending)*
+**Decision.** Arm closed. The reason it failed is instructive: Greedy
+never takes the gifted coup either, so a Greedy share cannot punish
+the habit — coverage comes from opponents that *exploit*, not
+opponents that differ. The next arms, in that light: an **exploiter**
+(a snapshot fine-tuned in-arena against the frozen champion, added to
+its pool — cheap, and it will find the gift), and **the easy AI
+itself** as a sparring share through the bridge (a direct
+distribution fix, ~5 min a game — overnight batches). r1's "anchors
+are not teachers" stands, now measured at a 10% dose on a game where
+the anchor is not beaten until late.
 
 ## Road map
 
