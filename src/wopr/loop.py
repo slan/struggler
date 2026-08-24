@@ -56,13 +56,13 @@ def games_done(run_dir: Path) -> int:
 
 
 def evaluate_challenger(
-    challenger: Path, champion: Path | None, *, games: int, seeds: Sequence[int], workers: int | None
+    challenger: Path, champion: Path | None, *, games: int, seeds: Sequence[int], workers: int | None, us_bid: int = 0
 ) -> dict[str, Any]:
     """Argmax play of the challenger against the champion (every seed) and
     against Greedy (first seed): per-seed and per-seat win rates."""
-    jobs = [PairJob(f"challenger={challenger}", "greedy", games, seeds[0])]
+    jobs = [PairJob(f"challenger={challenger}", "greedy", games, seeds[0], us_bid=us_bid)]
     if champion is not None:
-        jobs += [PairJob(f"challenger={challenger}", f"champion={champion}", games, seed) for seed in seeds]
+        jobs += [PairJob(f"challenger={challenger}", f"champion={champion}", games, seed, us_bid=us_bid) for seed in seeds]
     results = play_pairs(jobs, workers=workers)
 
     def rates(pair, opponent: str) -> dict[str, float]:
@@ -123,13 +123,16 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--eval-seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--workers", type=int, default=8, help="collector processes for training and pair processes for evaluation")
     p.add_argument("--no-promote", action="store_true", help="evaluate and log the gate, freeze nothing: an experiment, not a generation")
+    p.add_argument("--bid", type=int, default=0, help="the ladder's tournament bid: training, the gate and the freezes all play with it")
     p.add_argument("train_args", nargs="*", help="arguments passed to train.py after `--`")
     args = p.parse_args(argv)
 
     run_dir = train.RUNS_DIR / args.run
-    champion = args.champion or latest_version()
-    if champion is not None and not (baseline.ladder_dir() / champion / "joshua.pt").exists():
-        raise SystemExit(f"champion {champion!r}: no {baseline.ladder_dir() / champion}/joshua.pt (the ladder of rules version {baseline.RULES_VERSION})")
+    champion = args.champion or latest_version(args.bid)
+    if champion is not None and not (baseline.ladder_dir(args.bid) / champion / "joshua.pt").exists():
+        raise SystemExit(f"champion {champion!r}: no {baseline.ladder_dir(args.bid) / champion}/joshua.pt (the ladder of rules version {baseline.RULES_VERSION})")
+    if args.bid:
+        args.train_args = [*args.train_args, "--bid", str(args.bid)]
     losing = 0
     misses: list[bool] = []
     for generation in range(1, args.generations + 1):
@@ -140,9 +143,10 @@ def main(argv: list[str] | None = None) -> None:
         train_s = time.perf_counter() - started
 
         started = time.perf_counter()
-        champion_path = None if champion is None else baseline.ladder_dir() / champion / "joshua.pt"
+        champion_path = None if champion is None else baseline.ladder_dir(args.bid) / champion / "joshua.pt"
         report = evaluate_challenger(
-            run_dir / "joshua.pt", champion_path, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers
+            run_dir / "joshua.pt", champion_path, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers,
+            us_bid=args.bid,
         )
         eval_s = time.perf_counter() - started
         versus = report.get("vs_champion")
@@ -158,14 +162,14 @@ def main(argv: list[str] | None = None) -> None:
         if promoted and args.no_promote:
             print(f"[loop] gate cleared; not promoting (--no-promote)", flush=True)
         elif promoted:
-            version = next_version()
+            version = next_version(args.bid)
             note = (f"Loop generation {generation}: {champion or 'Greedy'} continued for {args.generation_games:,} games; "
                     f"gate {args.gate:.2f} cleared at "
                     + (f"{versus['min_seed']:.3f} (worst seed) against {champion}" if versus else f"{greedy['win_rate']:.3f} against Greedy")
                     + ".")
             print(f"[loop] promoting to {version}", flush=True)
-            baseline.main([version, "--run", args.run, "--workers", str(args.workers)])
-            append_readme(version, note)
+            baseline.main([version, "--run", args.run, "--workers", str(args.workers), "--bid", str(args.bid)])
+            append_readme(version, note, args.bid)
             champion = version
             losing = 0
         elif versus is not None and versus["win_rate"] < 0.5:

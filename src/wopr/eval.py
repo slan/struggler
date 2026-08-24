@@ -56,16 +56,19 @@ def parse_policy(spec: str, *, seed: int, device: str, deterministic: bool) -> t
 
 
 def play_pair(
-    a: str, b: str, policies: dict[str, Opponent], *, games: int, seed: int, events: bool, starting_vp: int = 0
+    a: str, b: str, policies: dict[str, Opponent], *, games: int, seed: int, events: bool, starting_vp: int = 0,
+    us_bid: int = 0,
 ) -> list[Match]:
     """`games` games between `a` and `b`, half with each seat assignment on
     shared decks: the whole of `play_slice` in one process."""
     half = max(1, games // 2)
-    return play_slice(a, b, policies, part=range(half), half=half, seed=seed, events=events, starting_vp=starting_vp)
+    return play_slice(a, b, policies, part=range(half), half=half, seed=seed, events=events, starting_vp=starting_vp,
+                      us_bid=us_bid)
 
 
 def play_slice(
-    a: str, b: str, policies: dict[str, Opponent], *, part: range, half: int, seed: int, events: bool, starting_vp: int = 0
+    a: str, b: str, policies: dict[str, Opponent], *, part: range, half: int, seed: int, events: bool, starting_vp: int = 0,
+    us_bid: int = 0,
 ) -> list[Match]:
     """The games of `part` -- a sub-range of the `half` decks of a pair --
     played with `a` as US and again with `a` as USSR. The decks are the
@@ -84,7 +87,7 @@ def play_slice(
     matches: list[Match] = []
     for assigner in (assign_a_us, assign_a_ussr):
         arena = Arena(
-            len(part), seed=seed, seat_assigner=assigner, events=events, starting_vp=starting_vp,
+            len(part), seed=seed, seat_assigner=assigner, events=events, starting_vp=starting_vp, us_bid=us_bid,
             slot_offset=part.start, total_slots=half,
         )
         for result in play_out(arena, policies):
@@ -106,6 +109,7 @@ class EvalJob:
     seed: int
     opponent: str = "greedy"  # random | greedy | first
     events: bool = True
+    us_bid: int = 0  # the game's tournament bid, as trained
 
     @property
     def half(self) -> int:
@@ -119,7 +123,8 @@ class EvalJob:
             "learner": NetOpponent.from_checkpoint(self.checkpoint, seed=self.seed, deterministic=True),
             self.opponent: parse_policy(self.opponent, seed=self.seed, device="cpu", deterministic=True)[1],
         }
-        matches = play_slice("learner", self.opponent, policies, part=part, half=self.half, seed=self.seed, events=self.events)
+        matches = play_slice("learner", self.opponent, policies, part=part, half=self.half, seed=self.seed,
+                             events=self.events, us_bid=self.us_bid)
         return EvalCounts.from_matches(matches, "learner", self.opponent)
 
 
@@ -177,6 +182,7 @@ class PairJob:
     deterministic: bool = True
     device: str = "cpu"
     starting_vp: int = 0
+    us_bid: int = 0
 
     @property
     def a(self) -> str:
@@ -204,7 +210,8 @@ def run_pair(job: PairJob) -> list[Match]:
         for spec in (job.spec_a, job.spec_b)
     }
     return play_pair(
-        job.a, job.b, policies, games=job.games, seed=job.seed, events=job.events, starting_vp=job.starting_vp
+        job.a, job.b, policies, games=job.games, seed=job.seed, events=job.events, starting_vp=job.starting_vp,
+        us_bid=job.us_bid,
     )
 
 
@@ -231,6 +238,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--sample", action="store_true", help="sample network policies instead of taking their argmax")
     p.add_argument("--no-events", action="store_true")
     p.add_argument("--handicap", type=int, default=0, help="open every game with the US this many VP ahead (measures the USSR edge under a bid)")
+    p.add_argument("--bid", type=int, default=0, help="the tournament bid: this much extra US influence placed after setup (11.1.4)")
     p.add_argument("--workers", type=int, default=None, help="pair-playing processes (default: CPUs / 4)")
     args = p.parse_args(argv)
 
@@ -245,7 +253,7 @@ def main(argv: list[str] | None = None) -> None:
 
     jobs = [
         PairJob(spec_a, spec_b, args.games, args.seed, events=not args.no_events,
-                deterministic=not args.sample, device=args.device, starting_vp=args.handicap)
+                deterministic=not args.sample, device=args.device, starting_vp=args.handicap, us_bid=args.bid)
         for spec_a, spec_b in itertools.combinations(args.policies, 2)
     ]
     matches: list[Match] = []

@@ -38,20 +38,22 @@ from wopr.ladder import Match, elo_ratings, summarize
 BASELINES_DIR = Path("baselines")
 
 
-def ladder_dir() -> Path:
-    """The ladder of the rules version this code is at: `baselines/r<N>/`.
-    Ratings do not cross rules versions, so neither do champions, controls
-    or README entries."""
-    return BASELINES_DIR / f"r{RULES_VERSION}"
+def ladder_dir(bid: int = 0) -> Path:
+    """The ladder of the rules version this code is at: `baselines/r<N>/`,
+    or `baselines/r<N>-bid<B>/` under a tournament bid. Ratings do not
+    cross rules versions -- nor the bid, which changes the game the same
+    way -- so neither do champions, controls or README entries."""
+    name = f"r{RULES_VERSION}" + (f"-bid{bid}" if bid else "")
+    return BASELINES_DIR / name
 RUNS_DIR = Path("runs")
 RUN_FILES = ("config.json", "metrics.csv", "joshua.pt")
 
 
 
 
-def earlier_baselines(version: str) -> list[tuple[str, Path]]:
+def earlier_baselines(version: str, bid: int = 0) -> list[tuple[str, Path]]:
     found = []
-    for checkpoint in sorted(ladder_dir().glob("v*/joshua.pt")):
+    for checkpoint in sorted(ladder_dir(bid).glob("v*/joshua.pt")):
         name = checkpoint.parent.name
         if name != version:
             found.append((name, checkpoint))
@@ -59,11 +61,13 @@ def earlier_baselines(version: str) -> list[tuple[str, Path]]:
 
 
 def star_jobs(
-    version: str, opponents: Mapping[str, str], *, games: int, seed: int, deterministic: bool, device: str, events: bool
+    version: str, opponents: Mapping[str, str], *, games: int, seed: int, deterministic: bool, device: str, events: bool,
+    us_bid: int = 0,
 ) -> list[PairJob]:
     """Star protocol: `version` against each other opponent, one job per pair."""
     return [
-        PairJob(opponents[version], spec, games, seed, events=events, deterministic=deterministic, device=device)
+        PairJob(opponents[version], spec, games, seed, events=events, deterministic=deterministic, device=device,
+                us_bid=us_bid)
         for name, spec in opponents.items()
         if name != version
     ]
@@ -102,16 +106,16 @@ def render(version: str, table: Mapping[str, Mapping[str, float]], ratings: Mapp
 # -- the ladder's versions and README --------------------------------------------------
 
 
-def latest_version() -> str | None:
+def latest_version(bid: int = 0) -> str | None:
     versions = sorted(
-        (p.name for p in ladder_dir().glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
+        (p.name for p in ladder_dir(bid).glob("v*") if re.fullmatch(r"v\d+", p.name) and (p / "joshua.pt").exists()),
         key=lambda name: int(name[1:]),
     )
     return versions[-1] if versions else None
 
 
-def next_version() -> str:
-    latest = latest_version()
+def next_version(bid: int = 0) -> str:
+    latest = latest_version(bid)
     return "v1" if latest is None else f"v{int(latest[1:]) + 1}"
 
 
@@ -130,11 +134,12 @@ def readme_entry(version: str, summary: dict[str, Any], note: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-def append_readme(version: str, note: str) -> None:
-    summary = json.loads((ladder_dir() / version / "summary.json").read_text())
-    path = ladder_dir() / "README.md"
+def append_readme(version: str, note: str, bid: int = 0) -> None:
+    summary = json.loads((ladder_dir(bid) / version / "summary.json").read_text())
+    path = ladder_dir(bid) / "README.md"
     if not path.exists():
-        path.write_text(f"# Baselines — rules version {summary['rules_version']}\n\nOne entry per frozen version; the protocol and the layout are in [../README.md](../README.md).\n", encoding="utf-8")
+        title = f"rules version {summary['rules_version']}" + (f", tournament bid US +{bid}" if bid else "")
+        path.write_text(f"# Baselines — {title}\n\nOne entry per frozen version; the protocol and the layout are in [../README.md](../README.md).\n", encoding="utf-8")
     text = path.read_text(encoding="utf-8").rstrip("\n") + "\n\n" + readme_entry(version, summary, note)
     path.write_text(text, encoding="utf-8")
 
@@ -151,10 +156,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--no-events", action="store_true")
     p.add_argument("--force", action="store_true", help="overwrite an existing baseline folder")
     p.add_argument("--workers", type=int, default=None, help="pair-playing processes (default: CPUs / 4)")
+    p.add_argument("--bid", type=int, default=0, help="the ladder's tournament bid: games are played with it, and the version goes to baselines/r<N>-bid<B>/")
     args = p.parse_args(argv)
 
     src = RUNS_DIR / args.run
-    dst = ladder_dir() / args.version
+    dst = ladder_dir(args.bid) / args.version
     if dst.exists() and not args.force:
         raise SystemExit(f"{dst} exists; pass --force to overwrite")
     for name in RUN_FILES:
@@ -166,7 +172,7 @@ def main(argv: list[str] | None = None) -> None:
 
     opponents = {args.version: f"{args.version}={dst / 'joshua.pt'}"}
     opponents.update({name: name for name in args.anchors})
-    opponents.update({name: f"{name}={path}" for name, path in earlier_baselines(args.version)})
+    opponents.update({name: f"{name}={path}" for name, path in earlier_baselines(args.version, args.bid)})
 
     # Every (seed, argmax/sampled) pass is a star of independent pairs; all
     # of them go to one process pool at once.
@@ -175,7 +181,7 @@ def main(argv: list[str] | None = None) -> None:
         passes.append((args.seeds[0], False))
     jobs_per_pass = [
         star_jobs(args.version, opponents, games=args.games, seed=seed, deterministic=deterministic,
-                  device=args.device, events=not args.no_events)
+                  device=args.device, events=not args.no_events, us_bid=args.bid)
         for seed, deterministic in passes
     ]
     started = time.perf_counter()
@@ -215,7 +221,7 @@ def main(argv: list[str] | None = None) -> None:
         "run": args.run,
         "games_trained": config.get("games_done"),
         "protocol": {"games_per_opponent": args.games, "seeds": args.seeds, "anchors": args.anchors,
-                     "events": not args.no_events},
+                     "events": not args.no_events, "us_bid": args.bid},
         "elo": {n: mean_std([s["elo"][n] for s in per_seed]) for n in [args.version, *opponents_seen]},
         "win_rate": {n: {k: mean_std([s["table"][n][k] for s in per_seed]) for k in ("win_rate", "as_us", "as_ussr")}
                      for n in opponents_seen},

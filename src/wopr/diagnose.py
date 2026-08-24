@@ -91,14 +91,14 @@ def play_traced(arena: Arena, policies: dict[str, Opponent]) -> dict[str, Any]:
     }
 
 
-def diagnose(checkpoint: str, *, games: int, seed: int, versus: str | None, device: str) -> dict[str, Any]:
+def diagnose(checkpoint: str, *, games: int, seed: int, versus: str | None, device: str, us_bid: int = 0) -> dict[str, Any]:
     def seats(slot: int, episode: int, rng) -> dict[Side, str]:
         return {Side.US: "a", Side.USSR: "b"} if slot % 2 == 0 else {Side.US: "b", Side.USSR: "a"}
 
     a = parse_policy(f"a={checkpoint}", seed=seed, device=device, deterministic=True)[1]
     b = parse_policy(f"b={checkpoint}", seed=seed + 1, device=device, deterministic=True)[1]
     report: dict[str, Any] = {"checkpoint": checkpoint, "games": games, "seed": seed}
-    traced = play_traced(Arena(games, seed=seed, seat_assigner=seats), {"a": a, "b": b})
+    traced = play_traced(Arena(games, seed=seed, seat_assigner=seats, us_bid=us_bid), {"a": a, "b": b})
     ussr_wins = sum(1 for r in traced["results"] if r.winner is Side.USSR)
     draws = sum(1 for r in traced["results"] if r.winner is None)
     report["self"] = {k: v for k, v in traced.items() if k != "results"}
@@ -106,7 +106,7 @@ def diagnose(checkpoint: str, *, games: int, seed: int, versus: str | None, devi
     report["self"]["draw_rate"] = round(draws / games, 3)
     if versus:
         name, opponent = parse_policy(versus if versus in ("random", "greedy", "first") else f"vs={versus}", seed=seed + 2, device=device, deterministic=True)
-        traced = play_traced(Arena(games, seed=seed, seat_assigner=seats), {"a": a, "b": opponent})
+        traced = play_traced(Arena(games, seed=seed, seat_assigner=seats, us_bid=us_bid), {"a": a, "b": opponent})
         wins = sum(1 for r in traced["results"] if r.winner is not None and r.seats[r.winner] == "a")
         report["versus"] = {"opponent": name, "win_rate": round(wins / games, 3), **{k: v for k, v in traced.items() if k != "results"}}
     return report
@@ -134,10 +134,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--games", type=int, default=120, help="games against itself (and against --vs)")
     p.add_argument("--seed", type=int, default=7)
     p.add_argument("--vs", default=None, help="also play this opponent: random | greedy | first | a checkpoint")
+    p.add_argument("--bid", type=int, default=0, help="play every game with the tournament bid (11.1.4)")
     p.add_argument("--device", default="cpu")
     p.add_argument("--json", default=None, help="write the report here as JSON")
     args = p.parse_args(argv)
-    report = diagnose(args.checkpoint, games=args.games, seed=args.seed, versus=args.vs, device=args.device)
+    report = diagnose(args.checkpoint, games=args.games, seed=args.seed, versus=args.vs, device=args.device, us_bid=args.bid)
     print(render(report), end="")
     if args.json:
         Path(args.json).write_text(json.dumps(report, indent=2), encoding="utf-8")

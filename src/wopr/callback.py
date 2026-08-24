@@ -118,6 +118,7 @@ class WoprCallback(BaseCallback):
         eval_games: int = 200,
         eval_seed: int = 1000,
         eval_opponent: str = "greedy",
+        eval_bid: int = 0,
         on_snapshot: Callable[[int], None] | None = None,
         verbose: int = 1,
     ) -> None:
@@ -134,6 +135,7 @@ class WoprCallback(BaseCallback):
         self.eval_games = eval_games
         self.eval_seed = eval_seed
         self.eval_opponent = eval_opponent
+        self.eval_bid = eval_bid
         self.on_snapshot = on_snapshot
         self.evals: list[EvalTick] = read_evals(run_dir / "metrics.csv") if eval_every else []
         self._eval_tick = max((t.games // eval_every for t in self.evals), default=games_done // eval_every) if eval_every else 0
@@ -212,7 +214,7 @@ class WoprCallback(BaseCallback):
     def _start_eval(self, seed: int) -> None:
         """The checkpoint just saved against the yardstick, on the backend:
         the collectors play it through the PPO update."""
-        job = EvalJob(str(self.run_dir / "joshua.pt"), self.eval_games, seed, opponent=self.eval_opponent)
+        job = EvalJob(str(self.run_dir / "joshua.pt"), self.eval_games, seed, opponent=self.eval_opponent, us_bid=self.eval_bid)
         self.env.backend.start_eval(job)
         self._eval_in_flight = (seed, time.perf_counter())
 
@@ -245,7 +247,8 @@ class WoprCallback(BaseCallback):
         one): only between rollouts, when the collectors are free."""
         if self._eval_in_flight is not None:
             raise RuntimeError("an evaluation is already in flight")
-        self.env.backend.start_eval(EvalJob(str(self.run_dir / "joshua.pt"), games, seed, opponent=self.eval_opponent))
+        self.env.backend.start_eval(EvalJob(str(self.run_dir / "joshua.pt"), games, seed, opponent=self.eval_opponent,
+                                            us_bid=self.eval_bid))
         return self.env.backend.finish_eval()
 
     # -- metrics -----------------------------------------------------------------------

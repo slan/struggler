@@ -279,6 +279,7 @@ class ArenaSpec:
     events: bool = True
     include_optional: bool = True
     starting_vp: int = 0
+    us_bid: int = 0  # the tournament bid (Arena us_bid)
     margin: float = 0.0  # the terminal reward's final-VP weight (`EpisodeRecord.reward`)
 
 
@@ -353,7 +354,7 @@ def worker_main(
     arena = Arena(
         len(slots), seed=spec.seed, seat_assigner=assign, events=spec.events,
         include_optional=spec.include_optional, slot_offset=lo, total_slots=spec.n_games,
-        starting_vp=spec.starting_vp,
+        starting_vp=spec.starting_vp, us_bid=spec.us_bid,
     )
     backend = InProcessBackend(
         arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin

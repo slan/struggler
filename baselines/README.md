@@ -9,7 +9,8 @@ baselines/
   EXPERIMENTS.md   the ledger: one row per compared run, frozen or not, all rules versions
   r1/              rules version 1 (archived): v1–v16 and their README
   r2/              rules version 2 (archived): v1–v3 and their README
-  r3/              rules version 3, the current ladder: v1, v2, ...
+  r3/              rules version 3 at the printed game: v1-v8 (plateaued)
+  r3-bid2/         rules version 3 under the tournament bid (US +2), the current ladder
     README.md      one entry per version: commit, what changed, headline numbers
     vN/            config.json, metrics.csv, joshua.pt, eval_seed_*.txt, summary.json
 ```

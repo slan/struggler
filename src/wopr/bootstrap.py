@@ -197,6 +197,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--workers", type=int, default=8, help="collector processes (training and evaluations) and pair processes for the freeze")
     p.add_argument("--torch-threads", type=int, default=None)
     p.add_argument("--version", default=None, help="freeze as this version (default: the ladder's next)")
+    p.add_argument("--bid", type=int, default=0, help="the tournament bid: every game -- training, the evaluations, the freeze -- plays with it, and the version goes to the bid ladder")
     p.add_argument("--no-freeze", action="store_true", help="stop and report; freeze nothing")
     p.add_argument("train_args", nargs="*", help="arguments passed to train.py after `--`")
     args = p.parse_args(argv)
@@ -206,12 +207,12 @@ def main(argv: list[str] | None = None) -> None:
     train_argv = [
         "--run", args.run, "--games", str(args.games), "--recipe", args.recipe, "--workers", str(args.workers),
         "--eval-every", str(args.eval_every), "--eval-games", str(args.eval_games), "--eval-seed", str(args.eval_seed),
-        "--eval-opponent", "greedy", *args.train_args,
+        "--eval-opponent", "greedy", "--bid", str(args.bid), *args.train_args,
     ]
     if args.torch_threads:
         train_argv += ["--torch-threads", str(args.torch_threads)]
-    version = args.version or baseline.next_version()
-    if not args.no_freeze and (baseline.ladder_dir() / version).exists():
+    version = args.version or baseline.next_version(args.bid)
+    if not args.no_freeze and (baseline.ladder_dir(args.bid) / version).exists():
         raise SystemExit(f"{baseline.ladder_dir() / version} exists; pass --version or --no-freeze")
     print(f"[bootstrap] {args.run!r}: recipe {args.recipe}, target {rule.target} on both seats over {rule.window} evaluations "
           f"of {args.eval_games} every {args.eval_every} games, confirm {args.confirm_games}, plateau {rule.plateau}, cap {args.games:,}; "
@@ -232,7 +233,7 @@ def main(argv: list[str] | None = None) -> None:
     stopped_by = gate.stopped_by or "cap"
     assessment = rule.assess(tracker.evals)
     outcome: dict[str, Any] = {
-        "run": args.run, "commit": git_commit(), "rules_version": RULES_VERSION, "recipe": args.recipe,
+        "run": args.run, "commit": git_commit(), "rules_version": RULES_VERSION, "recipe": args.recipe, "us_bid": args.bid,
         "games": tracker.games, "train_s": round(train_s, 1), "stopped_by": stopped_by,
         "rule": {"target": rule.target, "window": rule.window, "plateau": rule.plateau, "cap": args.games,
                  "eval_every": args.eval_every, "eval_games": args.eval_games, "confirm_games": args.confirm_games},
@@ -248,8 +249,8 @@ def main(argv: list[str] | None = None) -> None:
     if args.no_freeze:
         return
     print(f"[bootstrap] freezing {args.run!r} as {version}", flush=True)
-    baseline.main([version, "--run", args.run, "--workers", str(args.workers)])
-    baseline.append_readme(version, bootstrap_note(outcome))
+    baseline.main([version, "--run", args.run, "--workers", str(args.workers), "--bid", str(args.bid)])
+    baseline.append_readme(version, bootstrap_note(outcome), args.bid)
     print(f"[bootstrap] {version} frozen; README entry appended", flush=True)
 
 
@@ -260,7 +261,8 @@ def _fmt(value: float | None) -> str:
 def bootstrap_note(outcome: dict[str, Any]) -> str:
     rule = outcome["rule"]
     rolling = outcome["rolling"]
-    note = (f"Bootstrap of the r{outcome['rules_version']} ladder: recipe {outcome['recipe']} from scratch, stopped by "
+    ladder = f"r{outcome['rules_version']}" + (f"-bid{outcome['us_bid']}" if outcome.get("us_bid") else "")
+    note = (f"Bootstrap of the {ladder} ladder: recipe {outcome['recipe']} from scratch, stopped by "
             f"**{outcome['stopped_by']}** at {outcome['games']:,} games (rule: rolling mean over {rule['window']} evaluations of "
             f"{rule['eval_games']} every {rule['eval_every']} games ≥ {rule['target']} on both seats, confirmed over "
             f"{rule['confirm_games']}; plateau {rule['plateau']}; cap {rule['cap']:,}). Last rolling mean vs Greedy: "

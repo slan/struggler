@@ -269,7 +269,12 @@ mover** (+1/−1/0) on the row after which the game ended, returned as an
   there — and handed over one game ahead in a shared table a worker
   reads when a slot resets. Game seeds are `(run seed, global slot,
   episode)` in both backends, so a deterministic configuration plays the
-  same games through either, step for step; the suite pins it. Each
+  same games through either, step for step; the suite pins it. The game
+  spec both play — events, `starting_vp`, and since r3 the tournament
+  bid `us_bid` (rule 11.1.4, `--bid` on every wopr CLI) — is the
+  arena's; a run's `config.json` records it, and a ladder under a bid
+  lives at `baselines/r<N>-bid<B>/`, apart from the printed game's, for
+  the same reason ratings do not cross rules versions. Each
   collector resolves its own opponents (`StandardOpponents.for_worker`:
   same policies, its own RNG streams) and runs pool-net inference over
   its own slots, so that batching is kept inside the worker.

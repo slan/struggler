@@ -319,6 +319,33 @@ Junta, a quagmire option list), against 7 for v1 — so a bridge triage
 session precedes any heavier use of this eval. Ledger: the loop's
 `loop.csv`; `baselines/r3/README.md` v2–v8.
 
+### 2026-08-24 — the tournament bid: bootstrap at US +2 (pre-registered)
+
+**Question.** Tournament play balances the seats with the influence bid
+(rule 11.1.4, ~+2 US at tournament level). Does training on the bid
+game remove the USSR edge (0.64–0.67 between r3 equals), and what does
+an even game do to the bootstrap — faster to the yardstick, a stronger
+US seat, fewer of the USSR's early-war blitz wins?
+
+**Setup.** `Engine.new_game(us_bid=N)` implements the rule as written
+(placed after regular setup, only where the US already is, capped at
+control + 2); `--bid 2` runs through every wopr tool, and the ladder is
+**`baselines/r3-bid2/`** — the bid changes the game, so ratings do not
+cross it. `wopr.bootstrap --run r3-bid2 --bid 2 --workers 8
+--torch-threads 16`: same recipe and stop rule as r3's bootstrap
+(rolling mean ≥ 0.75 both seats vs Greedy over 2 ticks, confirmed over
+600; plateau on the overall rolling mean; cap 20,000). Note Greedy
+itself now plays under the bid, so the yardstick is the bid game's
+Greedy. Reading: the per-seat curves and `wopr.diagnose --bid 2`'s
+USSR edge against r3/v1's (0.667); games-to-stop against 14,020. Then
+the loop on the bid ladder to its plateau, then the Playdek easy eval
+(bid 0 on the DLL side until the bridge learns the DLL's own BID
+setup; noted as a caveat when comparing).
+
+**Result.** *(pending)*
+
+**Decision.** *(pending)*
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is

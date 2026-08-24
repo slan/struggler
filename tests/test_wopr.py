@@ -632,3 +632,40 @@ def test_loop_plateau_is_two_misses_in_the_last_three():
     assert plateaued([True, False, True], 2)  # the decision point's rule
     assert plateaued([False, True, True], 2) and not plateaued([True, False, False, False], 2)  # an old miss ages out
     assert not plateaued([True, True, True], 0)  # disabled
+
+
+def test_the_tournament_bid_reaches_every_game_and_both_backends(tmp_path):
+    """`us_bid` flows Arena -> engines (the bid decision is an ordinary
+    placement the policies answer) and through both backends identically."""
+    arena = Arena(1, seed=3, seat_assigner=_seats("p", "p"), us_bid=2)
+    assert arena.engine(0).us_bid == 2
+    player = PlayerOpponent(FirstLegalPlayer())
+    saw_bid = False
+    while not saw_bid:
+        row = arena.pending()["p"][0]
+        decision = row.observation.pending_decision
+        if decision.context.get("bid"):
+            saw_bid = True
+            assert row.side is Side.US and decision.context["remaining"] == 2
+            us_countries = {cid for cid, inf in arena.engine(0).board.influence.items() if inf["US"] > 0}
+            assert {a.payload["country"] for a in decision.options} <= us_countries
+        arena.apply(0, player.choose(1 * [row])[0])
+
+    opponents = StandardOpponents(str(tmp_path), seed=1)
+    spec = ArenaSpec(4, 9, us_bid=2)
+    local = InProcessBackend(Arena(4, seed=9, seat_assigner=self_play, us_bid=2), opponents)
+    shared = SharedMemoryBackend(spec, self_play, opponents, workers=2)
+    try:
+        local.reset()
+        shared.reset()
+        for _ in range(60):
+            actions = np.zeros(4, dtype=np.int64)
+            r1, d1, rec1 = local.step(actions)
+            r2, d2, rec2 = shared.step(actions)
+            assert np.array_equal(r1, r2) and np.array_equal(d1, d2) and rec1 == rec2
+    finally:
+        shared.close()
+
+    jobs = [PairJob("random", "first", 4, seed=7, us_bid=2)]
+    matches = play_pairs(jobs, workers=1)[0]
+    assert len(matches) == 4  # the pair plays to results under the bid

@@ -41,15 +41,16 @@ LEDGER_HEADER = (
 
 
 def compare(
-    checkpoint: Path, opponents: Mapping[str, str], *, games: int, seeds: Sequence[int], workers: int | None
+    checkpoint: Path, opponents: Mapping[str, str], *, games: int, seeds: Sequence[int], workers: int | None,
+    us_bid: int = 0,
 ) -> dict[str, Any]:
     """`checkpoint` (as `run`) against each opponent spec on every seed, plus
     itself on the first seed: per opponent the mean and worst-seed win rate
     and the per-seat split; `ussr_edge` for the self pair."""
     me = f"run={checkpoint}"
     pairs = [(name, seed) for seed in seeds for name in opponents]
-    jobs = [PairJob(me, opponents[name], games, seed) for name, seed in pairs]
-    jobs.append(PairJob(me, f"self={checkpoint}", games, seeds[0]))
+    jobs = [PairJob(me, opponents[name], games, seed, us_bid=us_bid) for name, seed in pairs]
+    jobs.append(PairJob(me, f"self={checkpoint}", games, seeds[0], us_bid=us_bid))
     results = play_pairs(jobs, workers=workers)
     return tabulate(pairs, results[:-1], results[-1])
 
@@ -95,7 +96,7 @@ def append_ledger(row: str, path: Path = LEDGER) -> None:
         f.write(row)
 
 
-def opponent_specs(control: str | None, champion: str | None) -> dict[str, str]:
+def opponent_specs(control: str | None, champion: str | None, bid: int = 0) -> dict[str, str]:
     """The comparison field as `parse_policy` specs, keyed by role: Greedy
     always; the control and the champion (if any, and if distinct) from
     this rules version's ladder, checked to exist."""
@@ -103,15 +104,15 @@ def opponent_specs(control: str | None, champion: str | None) -> dict[str, str]:
     for role, version in (("control", control), ("champion", champion)):
         if not version or (role == "champion" and version == control):
             continue
-        path = baseline.ladder_dir() / version / "joshua.pt"
+        path = baseline.ladder_dir(bid) / version / "joshua.pt"
         if not path.exists():
             raise SystemExit(f"{role} {version!r}: no {path} (the ladder of rules version {baseline.RULES_VERSION})")
         specs[role] = f"{role}={path}"
     return specs
 
 
-def latest_version() -> str | None:
-    versions = sorted((d.name for d in baseline.ladder_dir().glob("v*") if d.is_dir()), key=lambda v: int(v[1:]))
+def latest_version(bid: int = 0) -> str | None:
+    versions = sorted((d.name for d in baseline.ladder_dir(bid).glob("v*") if d.is_dir()), key=lambda v: int(v[1:]))
     return versions[-1] if versions else None
 
 
@@ -128,6 +129,7 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--note", default="", help="one line for the ledger: what this run is testing")
     p.add_argument("--no-ledger", action="store_true", help="write ab.json only")
     p.add_argument("--existing", action="store_true", help="compare runs/<run> as it is instead of training it")
+    p.add_argument("--bid", type=int, default=0, help="the tournament bid: training and every comparison game play with it; versions come from the bid ladder")
     p.add_argument("train_args", nargs="*", help="arguments passed to train.py after `--`")
     args = p.parse_args(argv)
 
@@ -137,13 +139,15 @@ def main(argv: list[str] | None = None) -> None:
             raise SystemExit(f"--existing: no runs/{args.run}/joshua.pt")
     elif run_dir.exists():
         raise SystemExit(f"runs/{args.run} exists: an A/B run is trained from scratch, pick a new name (or --existing)")
-    champion = args.champion or latest_version()
-    opponents = opponent_specs(args.control, champion)
+    champion = args.champion or latest_version(args.bid)
+    opponents = opponent_specs(args.control, champion, args.bid)
 
     if not args.existing:
-        train.main(["--run", args.run, "--games", str(args.games), "--recipe", args.recipe, "--workers", str(args.workers), *args.train_args])
+        train.main(["--run", args.run, "--games", str(args.games), "--recipe", args.recipe, "--workers", str(args.workers),
+                    "--bid", str(args.bid), *args.train_args])
     config = json.loads((run_dir / "config.json").read_text())
-    report = compare(run_dir / "joshua.pt", opponents, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers)
+    report = compare(run_dir / "joshua.pt", opponents, games=args.eval_games, seeds=args.eval_seeds, workers=args.workers,
+                     us_bid=args.bid)
     summary = {
         "date": dt.date.today().isoformat(),
         "run": args.run,

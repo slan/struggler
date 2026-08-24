@@ -76,9 +76,12 @@ class Arena:
         slot_offset: int = 0,
         total_slots: int | None = None,
         starting_vp: int = 0,
+        us_bid: int = 0,
     ) -> None:
         """`starting_vp` opens every game at that VP (US-positive): a handicap
         for the USSR seat, as a tournament bid. 0 is the printed game.
+        `us_bid` opens every game with the official tournament bid instead
+        (rule 11.1.4): that much extra US influence placed after setup.
 
         `slot_offset`/`total_slots` make this arena a slice of a larger
         one: its slots are numbered from `slot_offset` for seeding and for
@@ -93,6 +96,7 @@ class Arena:
         self._events = events
         self._include_optional = include_optional
         self._starting_vp = starting_vp
+        self._us_bid = us_bid
         self._slot_offset = slot_offset
         self._total_slots = n_games if total_slots is None else total_slots
         if slot_offset < 0 or slot_offset + n_games > self._total_slots:
@@ -107,7 +111,8 @@ class Arena:
         global_slot = self._slot_offset + slot
         game_seed = self._seed * 1_000_003 + episode * self._total_slots + global_slot
         engine = Engine.new_game(
-            seed=game_seed, events=self._events, include_optional=self._include_optional, starting_vp=self._starting_vp
+            seed=game_seed, events=self._events, include_optional=self._include_optional,
+            starting_vp=self._starting_vp, us_bid=self._us_bid,
         )
         self._resolve_chance(engine)
         seats = dict(self._seat_assigner(global_slot, episode, self._rng))
