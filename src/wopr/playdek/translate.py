@@ -81,6 +81,8 @@ CHOICE_LABELS: dict[tuple[str, str], str] = {
     ("Participate in Olympic Games?", "Boycott"): "boycott",
     ("Choose for South Africa:", "Gain 2 Influence in South Africa"): "south_africa_only",  # South African Unrest
     ("Choose for South Africa:", "Add Influence Adjacent to South Africa"): "and_adjacent",
+    ("Would You Like To End The Game?", "Yes"): "end_game",  # Wargames
+    ("Would You Like To End The Game?", "No"): "decline",
 }
 # `OUTPUT_ANIMATION_CARD.animation_event_hint` when a card leaves a hand for
 # the resolve slot: `0x8000 | (use << 8) | 1` for the use the player chose
