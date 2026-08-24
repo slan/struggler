@@ -168,8 +168,15 @@ def main(argv: list[str] | None = None) -> None:
             report(run_job(job))
     else:
         with ProcessPoolExecutor(max_workers=min(workers, len(jobs))) as pool:
-            for future in as_completed([pool.submit(run_job, job) for job in jobs]):
-                report(future.result())
+            by_future = {pool.submit(run_job, job): job for job in jobs}
+            for future in as_completed(by_future):
+                try:
+                    result = future.result()
+                except Exception as e:  # one crashed game must not kill the batch
+                    job = by_future[future]
+                    print(f"[!] seed {job.seed} as {job.side}: CRASHED ({e!r})", flush=True)
+                    continue
+                report(result)
     results.sort(key=lambda r: r["index"])
     summary = summarize(results)
     summary["wall_seconds"] = time.monotonic() - start

@@ -1104,7 +1104,8 @@ class PlaydekOperator(Bridge):
             if grain is not None:
                 self._grain = None
                 if choice == "take":
-                    return next(o for o in visible if o.hint == SelectionHint.SWITCH_CARD)
+                    # The drawn card: a scoring card is listed under its own hint.
+                    return next(o for o in visible if o.hint in (SelectionHint.SWITCH_CARD, SelectionHint.PLAY_SCORING_CARD))
                 self._taken.pop(grain, None)  # returned: its owner's own card again
                 return T.find_stop(prompt)
             if choice in DECLINES and T.Meaning.STOP in meanings:

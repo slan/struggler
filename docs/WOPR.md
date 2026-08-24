@@ -1003,7 +1003,14 @@ Findings from the first four random games, and what became of each:
   Game?" (303: the engine's decline has no matching option — a
   translate gap), Junta's choice (326), a trapped hand's discard
   option lists (304, 315), a card the engine may play that the DLL
-  does not list (335, Yugoslavia), and two slow VP drifts (337, 350). Two engine
+  does not list (335, Yugoslavia), and two slow VP drifts (337, 350). From
+  r3-bid2/v3's games: the bot's own Grain Sales take of a drawn scoring
+  card crashed the mapping (`PLAY_SCORING_CARD` hint — it had only been
+  handled for the other seat; fixed), one crashed game no longer kills
+  the eval's pool (the batch reports it and plays on), Grain Sales
+  inference misses run to six games a seat, and SALT Negotiations'
+  choice, Tear Down This Wall and a forced discard are new
+  (`r3bid2v3-easy-ussr` seeds 327, 332, 348). Two engine
   fixes: Marine Barracks Bombing removed the whole of two Middle East
   countries where the card removes two points (the differ's seed 157,
   `fix/marine-barracks-two-points`); Willy Brandt still fired after Tear
