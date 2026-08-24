@@ -2,7 +2,7 @@
 
 A replay log is {seed, actions, checkpoints} plus a start descriptor:
 
-- Full games set ``"new_game": true`` (optionally ``"include_optional"``);
+- Full games set ``"new_game": true`` (optionally ``"include_optional"``, ``"us_bid"``);
   the whole game — headline picks, card plays, and dice — lives in
   ``actions``, since chance is a logged CHANCE decision (mandate #3).
   Adding ``"events": true`` turns on the card-event layer (see events.py).
@@ -74,6 +74,7 @@ def make_engine(log: dict[str, Any]) -> Engine:
             physical_side=Side(physical_side) if physical_side else None,
             variants=log.get("variants", ()),
             deal_after_setup=log.get("deal_after_setup", False),
+            us_bid=log.get("us_bid", 0),
         )
     engine = Engine(seed=log["seed"])
     apply_setup(engine, log["setup"])
@@ -274,6 +275,7 @@ class GameLogWriter:
         self._deal_after_setup = engine.deal_after_setup
         self._physical_mode = engine.physical_mode
         self._physical_side = engine.physical_side.value if engine.physical_side is not None else None
+        self._us_bid = engine.us_bid
         self._actions: list[dict[str, Any]] = list(initial_actions) if initial_actions is not None else []
         self._winner: str | None = None
 
@@ -296,6 +298,7 @@ class GameLogWriter:
             "starting_vp": self._starting_vp,
             "physical_mode": self._physical_mode,
             "physical_side": self._physical_side,
+            **({"us_bid": self._us_bid} if self._us_bid else {}),
             "actions": self._actions,
             "winner": self._winner,
         }
