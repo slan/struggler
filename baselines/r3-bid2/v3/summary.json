@@ -1,0 +1,163 @@
+{
+  "version": "v3",
+  "commit": "e68c22d2f8ff0582581b4bb891492a3a3d33440d",
+  "rules_version": 3,
+  "run": "r3-bid2",
+  "games_trained": 19024,
+  "protocol": {
+    "games_per_opponent": 200,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "anchors": [
+      "random",
+      "first",
+      "greedy"
+    ],
+    "events": true,
+    "us_bid": 2
+  },
+  "elo": {
+    "v3": {
+      "mean": 1137.5861,
+      "std": 95.8143
+    },
+    "random": {
+      "mean": 0.0,
+      "std": 0.0
+    },
+    "first": {
+      "mean": 143.3735,
+      "std": 62.4278
+    },
+    "greedy": {
+      "mean": 605.9755,
+      "std": 84.8062
+    },
+    "v1": {
+      "mean": 905.3494,
+      "std": 122.6984
+    },
+    "v2": {
+      "mean": 952.4831,
+      "std": 110.9569
+    }
+  },
+  "win_rate": {
+    "random": {
+      "win_rate": {
+        "mean": 0.9833,
+        "std": 0.0062
+      },
+      "as_us": {
+        "mean": 0.9967,
+        "std": 0.0047
+      },
+      "as_ussr": {
+        "mean": 0.97,
+        "std": 0.0141
+      }
+    },
+    "first": {
+      "win_rate": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_us": {
+        "mean": 1.0,
+        "std": 0.0
+      },
+      "as_ussr": {
+        "mean": 1.0,
+        "std": 0.0
+      }
+    },
+    "greedy": {
+      "win_rate": {
+        "mean": 0.9558,
+        "std": 0.0059
+      },
+      "as_us": {
+        "mean": 0.955,
+        "std": 0.0147
+      },
+      "as_ussr": {
+        "mean": 0.9567,
+        "std": 0.0047
+      }
+    },
+    "v1": {
+      "win_rate": {
+        "mean": 0.7592,
+        "std": 0.0444
+      },
+      "as_us": {
+        "mean": 0.7017,
+        "std": 0.098
+      },
+      "as_ussr": {
+        "mean": 0.8167,
+        "std": 0.034
+      }
+    },
+    "v2": {
+      "win_rate": {
+        "mean": 0.6608,
+        "std": 0.0185
+      },
+      "as_us": {
+        "mean": 0.5567,
+        "std": 0.0357
+      },
+      "as_ussr": {
+        "mean": 0.765,
+        "std": 0.0324
+      }
+    }
+  },
+  "sampled": {
+    "seed": 0,
+    "table": {
+      "random": {
+        "win_rate": 0.97,
+        "as_us": 0.98,
+        "as_ussr": 0.96,
+        "games": 200
+      },
+      "first": {
+        "win_rate": 0.99,
+        "as_us": 1.0,
+        "as_ussr": 0.98,
+        "games": 200
+      },
+      "greedy": {
+        "win_rate": 0.88,
+        "as_us": 0.88,
+        "as_ussr": 0.88,
+        "games": 200
+      },
+      "v1": {
+        "win_rate": 0.82,
+        "as_us": 0.78,
+        "as_ussr": 0.86,
+        "games": 200
+      },
+      "v2": {
+        "win_rate": 0.635,
+        "as_us": 0.58,
+        "as_ussr": 0.69,
+        "games": 200
+      }
+    },
+    "elo": {
+      "v3": 875.9231821153626,
+      "random": 0.0,
+      "first": 119.68781956442953,
+      "greedy": 521.9308099748005,
+      "v1": 567.5054567850768,
+      "v2": 742.5509704913834
+    }
+  }
+}

@@ -11,3 +11,26 @@ Commit `8a03b2f` — run `r3-bid2`, 11,024 games trained.
 - vs random: 0.988 (US 0.990 / USSR 0.987)
 - vs first: 0.998 (US 1.000 / USSR 0.997)
 - vs greedy: 0.820 (US 0.858 / USSR 0.782)
+
+## v2
+
+Commit `e68c22d` — run `r3-bid2`, 15,024 games trained.
+
+- Loop generation 1: v1 continued for 4,000 games; gate 0.55 cleared at 0.670 (worst seed) against v1.
+- Elo vs random: **+911 ± 71** over seeds [0, 1, 2]
+- vs random: 0.978 (US 0.990 / USSR 0.967)
+- vs first: 0.981 (US 0.988 / USSR 0.973)
+- vs greedy: 0.892 (US 0.917 / USSR 0.867)
+- vs v1: 0.693 (US 0.670 / USSR 0.717)
+
+## v3
+
+Commit `e68c22d` — run `r3-bid2`, 19,024 games trained.
+
+- Loop generation 2: v2 continued for 4,000 games; gate 0.55 cleared at 0.635 (worst seed) against v2.
+- Elo vs random: **+1138 ± 96** over seeds [0, 1, 2]
+- vs random: 0.983 (US 0.997 / USSR 0.970)
+- vs first: 1.000 (US 1.000 / USSR 1.000)
+- vs greedy: 0.956 (US 0.955 / USSR 0.957)
+- vs v1: 0.759 (US 0.702 / USSR 0.817)
+- vs v2: 0.661 (US 0.557 / USSR 0.765)
