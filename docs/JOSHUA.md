@@ -366,6 +366,52 @@ of the champion (bid 0 on the DLL side until the bridge speaks its BID
 setup; noted when comparing). The printed-game ladder r3 stands at v8
 for reference. Ledger: `r3-bid2` in `baselines/r3-bid2/README.md`.
 
+### 2026-08-24 — the bid ladder's loop, and its champion against the easy AI
+
+**Question.** How far does the bid ladder climb, and what does its
+champion do against Playdek's easy AI — which plays the printed game,
+not the bid's?
+
+**Setup.** `wopr.loop --run r3-bid2 --champion v1 --bid 2` to the
+plateau; then the easy-AI eval of the champion, 60 a seat, seeds
+300–359 — with the pre-registered caveat that the DLL plays bid 0, a
+different game from the one the champion trained on.
+
+**Result.** The loop promoted twice — v2 at 15,024 games (0.693 vs v1,
+worst seed 0.670, US 0.67 / USSR 0.72: the first near-balanced gate of
+any ladder), v3 at 19,024 (0.661, worst 0.635) — and plateaued at
+generations 3–4 (0.487, 0.537 vs v3): **the bid ladder saturates at
+v3, 23,024 games**, vs the printed game's v8 at 42,020, at a champion
+of comparable Greedy strength (0.95, Elo +1132's line). `diagnose
+--bid 2` on v3: **the USSR edge stays 0.517 at champion strength**
+(r3's re-grew to 0.64+); DEFCON endings 41% of self-play games.
+Against the easy AI: **USSR 6 of 48 decided (0.125), US 2 of 54
+(0.037)** — the USSR seat a shade above v8's 0.10, the US seat below
+its 0.096. The asymmetry is the caveat made visible: on the DLL's
+bid-0 game the bid-trained USSR faces an easier US than it trained
+against, and the bid-trained US is missing the +2 it has always had.
+Bridge attrition is now material: 11 of 60 USSR-seat games and 6 of 60
+US-seat desynced (Grain Sales' take inference alone six games a seat;
+SALT Negotiations, Tear Down This Wall, a forced discard, and two
+turn-1 placement mismatches are new), and one outright crash — the
+bot's own Grain Sales taking a drawn *scoring* card was unmapped —
+killed a batch before being fixed (a crashed game no longer kills the
+eval).
+
+**Decision.** Three conclusions, one per layer. *Training*: the bid
+game is the better self-play game — even seats at every strength
+measured, balanced gates, a faster bootstrap — and `r3-bid2` stays the
+live ladder. *Evaluation*: the easy-AI number for a bid-trained policy
+is not comparable until the bridge speaks the DLL's own BID setup
+(`EChooseSidesMethod.BID`); wiring it is now the top bridge task,
+tied with the Grain Sales inference family, ahead of any further
+easy-AI evals — at 10–18% attrition the eval is eating its own sample.
+*Play*: the DEFCON gift persists under the bid (21 of 42 USSR-seat
+losses), so opponent diversity stays the open training question,
+unchanged from the r3 decision. Order of work therefore: the bridge
+session (BID setup + Grain Sales), re-run this eval at bid 2, then the
+opponent-diversity arms on the bid ladder.
+
 ## Road map
 
 What the ladder needs first is its own ground truth; the road map is
