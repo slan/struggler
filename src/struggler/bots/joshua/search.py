@@ -71,10 +71,13 @@ class SearchPlayer:
         # each a full policy rollout) is sampled instead -- the exact
         # expectation there costs more wall clock than its variance is worth.
         chance_cap: int = 6,
-        # ~0.9 ms per probed node (an engine copy): 300 bounds a fully
-        # unprovable decision at ~0.3 s while the DEFCON-gift proof itself
-        # needs only tens of nodes.
-        probe_budget: int = 300,
+        # ~0.9 ms per probed node (an engine copy): 800 bounds a fully
+        # unprovable pick at ~0.7 s. The budget is *split among the
+        # children of every branching node* -- a flat pool let the first
+        # branch of the opponent's ops choice (influence, tens of options
+        # deep) starve the coup branch that actually mates, and whether a
+        # gift proved came down to option ordering.
+        probe_budget: int = 800,
         seed: int = 0,
         device: torch.device | str = "cpu",
     ) -> None:
@@ -345,18 +348,23 @@ class SearchPlayer:
             if frame.actor is root_side:
                 self._policy_step(sim, root_side, options)
                 continue
-            if frame.actor is Side.CHANCE:
-                # The dice must be *forced*: every outcome loses.
-                for option in options:
-                    child = Engine.deserialize(sim.serialize())
-                    self._step(child, option)
-                    if not self._probe(child, root_side, boundary, budget):
-                        return False
-                return True
-            # The opponent picks the reply: ANY option may lose us.
+            # Branching: the dice must be *forced* (ALL outcomes lose), the
+            # opponent picks the reply (ANY option may lose us). Each child
+            # gets its own budget share, so a wide quiet branch cannot
+            # starve the short mate that proves the loss.
+            forced = frame.actor is Side.CHANCE
+            share = max(40, budget[0] // len(options))
             for option in options:
+                if budget[0] <= 0:
+                    return False  # out of budget: unproven, never a guess
+                child_budget = [min(share, budget[0])]
+                granted = child_budget[0]
                 child = Engine.deserialize(sim.serialize())
                 self._step(child, option)
-                if self._probe(child, root_side, boundary, budget):
+                lost = self._probe(child, root_side, boundary, child_budget)
+                budget[0] -= (granted - child_budget[0]) + 1
+                if lost and not forced:
                     return True
-            return False
+                if not lost and forced:
+                    return False
+            return forced

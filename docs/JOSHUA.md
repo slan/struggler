@@ -602,6 +602,26 @@ gift positions replayed from the lost games' own logs, the probe
 proves the loss and the player picks another card. Remaining arms:
 `runs/playdek/search3-*`.*
 
+*Fourth and last amendment, same day. Two findings from instrumented
+live games (`logs/gifthunt/`). One more probe defect: a flat node
+budget let the first branch of the opponent's granted-op choice
+(influence, tens of options deep) starve the coup branch that mates —
+whether a gift proved came down to option ordering; the budget is now
+split among the children of every branching node (and raised to 800).
+Then the deeper finding: with the guard verifiably firing, the
+remaining hard-mode gift losses are **forced endgames** — in every
+instrumented DEFCON loss the fatal CIA Created was the hand's only
+card, at DEFCON 2, in the turn's last rounds; the probes on all the
+earlier safe picks correctly returned False, and the loss was sealed
+by *scheduling* (the gift card must be spent or spaced while it is
+still safe) rounds before any lookahead horizon. The hard AI's
+relentless coups make DEFCON 2 the standing weather, so this shape
+dominates there. Inference-time search cannot reach it — it is the
+pre-registered "remaining losses are strategic" reading, and
+scenario-seeded self-play (a training-time fix) is its named
+successor. The batch runs to completion on this final code
+(`runs/playdek/search4-*`) to put numbers on what search does buy.*
+
 **Metrics and decision rule** (written before the runs): (a) the
 easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
 standing reported player if it improves the mean by ≥ 0.05; (b) the
