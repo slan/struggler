@@ -588,6 +588,20 @@ stand (first hard numbers ever: **USSR 0.111 [0.04, 0.28], US 0.036
 [0.01, 0.18]**, `search1-hard-joshua-*`); the search and veto arms
 run on the guarded code under `runs/playdek/search2-*`.*
 
+*And a third time, one arm later: the guard still did not fire in the
+wild (`search2-hard-search-ussr`: 0.040, 10 of 12 DEFCON losses the
+gift). The probe's ALL-quantifier over the prober's own options cannot
+get through a real ops chain — proving "ops first" loses means
+proving it through tens of placements several deep, past any budget
+or depth cap, so the gift's "ops" branch stayed unprovable. The probe
+now follows the prober's own decisions along the policy's argmax — a
+loss on the line the bot would actually play is a loss that will be
+realized — keeping ANY over opponent choices and ALL over dice.
+Verified against the wild before spending more DLL time: at the four
+gift positions replayed from the lost games' own logs, the probe
+proves the loss and the player picks another card. Remaining arms:
+`runs/playdek/search3-*`.*
+
 **Metrics and decision rule** (written before the runs): (a) the
 easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
 standing reported player if it improves the mean by ≥ 0.05; (b) the

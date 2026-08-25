@@ -91,6 +91,7 @@ class SearchPlayer:
         self._probe_budget = probe_budget
         self._seed = seed
         self._engine: Engine | None = None
+        self.last_scores: list[float] | None = None  # value mode's per-option scores, for analysis
         # Sampling of unenumerated chance is the player's own stream, never
         # the engine's (mandate #3) -- and irrelevant to the live dice anyway,
         # since it only ever runs on determinized copies.
@@ -318,14 +319,18 @@ class SearchPlayer:
         # their turn, not a forced reply -- is beyond it.
         return (sim.turn, sim._ars_played, sim.phase)
 
-    def _probe(self, sim: Engine, root_side: Side, boundary: tuple, budget: list[int], my_depth: int = 0) -> bool:
-        """True iff this position provably loses for `root_side` within the
-        current play: terminal against them, or -- through any opponent
-        choice, every own choice, and every exposed chance outcome -- forced
-        to one. Anything unprovable within `budget` nodes, beyond the play
-        boundary, or past three of the prober's own choice points (an own
-        ops chain fans out by tens per point and cannot itself end the
-        game) is False: the veto never fires on a guess."""
+    def _probe(self, sim: Engine, root_side: Side, boundary: tuple, budget: list[int]) -> bool:
+        """True iff this position loses for `root_side` within the current
+        play *on the line they would actually play*: terminal against them,
+        or forced to one through any opponent choice and every exposed
+        chance outcome, with the prober's own subsequent decisions followed
+        along the policy's argmax. A minimax ALL over own options was tried
+        and cannot get through a real ops chain (tens of placements wide,
+        several deep) inside any budget -- the gift survived it; the policy
+        line is what the bot will do if the option stands, so a loss found
+        on it is a loss that will be realized. Anything unprovable within
+        `budget` nodes or beyond the play boundary is False: the probe
+        never fires on a guess."""
         while True:
             if sim.is_terminal:
                 return sim.winner is root_side.opponent
@@ -337,19 +342,21 @@ class SearchPlayer:
             if len(options) == 1:
                 self._step(sim, options[0])
                 continue
-            # Opponent picks the reply (ANY option may lose us); we and the
-            # dice must be *forced* (ALL options / outcomes lose).
-            forced = frame.actor is not root_side.opponent
             if frame.actor is root_side:
-                if my_depth >= 3:
-                    return False
-                my_depth += 1
+                self._policy_step(sim, root_side, options)
+                continue
+            if frame.actor is Side.CHANCE:
+                # The dice must be *forced*: every outcome loses.
+                for option in options:
+                    child = Engine.deserialize(sim.serialize())
+                    self._step(child, option)
+                    if not self._probe(child, root_side, boundary, budget):
+                        return False
+                return True
+            # The opponent picks the reply: ANY option may lose us.
             for option in options:
                 child = Engine.deserialize(sim.serialize())
                 self._step(child, option)
-                lost = self._probe(child, root_side, boundary, budget, my_depth)
-                if lost and not forced:
+                if self._probe(child, root_side, boundary, budget):
                     return True
-                if not lost and forced:
-                    return False
-            return forced
+            return False
