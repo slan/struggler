@@ -560,6 +560,13 @@ differs by ~1.0. Informally after the fixes: 4 of 6 debug games
 against raw v3, no self-inflicted terminal. WOPR.md carries the
 mechanics.*
 
+*Sanity results, 2026-08-25 (post-amendment code, 200 games each at
+bid 2, `wopr.search_eval`): v3+search beats **raw v3 0.625** [0.56,
+0.69] (USSR 0.670 / US 0.580) and holds **Greedy at 0.950** (USSR
+0.96 / US 0.94), raw's own level. The bar is cleared — the lift over
+raw is promotion-sized (the loop's gate freezes at 0.55) from
+inference alone. On to the veto's sanity and the Playdek batch.*
+
 **Metrics and decision rule** (written before the runs): (a) the
 easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
 standing reported player if it improves the mean by ≥ 0.05; (b) the
