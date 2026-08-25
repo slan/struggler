@@ -151,6 +151,25 @@ def test_probe_proves_the_granted_coup_mate(net):
         assert player._probe(sim, Side.USSR, player._boundary(sim), [500]) is expected
 
 
+def test_value_search_prices_the_whole_action_not_its_first_step(net):
+    # The regression behind the one-ply-to-mover-flip rule: at OPS_TYPE,
+    # "coup" is one atomic step from any target -- stopping at the mover's
+    # own COUP_TARGET decision asks the raw value head, whose blindness to
+    # the DEFCON suicide is the very thing the search exists to fix. The
+    # branch must roll through the target pick to the roll's terminal loss.
+    engine = bare_engine()
+    engine.defcon = 2
+    engine.board.influence["Angola"]["US"] = 2  # the only coup target: a battleground
+    engine.board.influence["Poland"]["USSR"] = 1
+    engine._push_ops_type(Side.USSR, 2)
+    options = engine.pending_decision.options
+    assert any(o.payload["type"] == "coup" for o in options) and len(options) > 1
+    player = SearchPlayer(net, evaluator="value", seed=0)
+    player.bind(engine)
+    action = player.choose_action(engine.observe(Side.USSR), [])
+    assert action.payload["type"] != "coup"
+
+
 def test_value_search_runs_one_exact_simulation_on_deterministic_branches(net, monkeypatch):
     engine = bare_engine()
     engine.board.influence["Poland"]["USSR"] = 1

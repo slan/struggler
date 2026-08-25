@@ -59,8 +59,18 @@ class SearchPlayer:
         net: JoshuaNet,
         *,
         evaluator: str = "value",
-        k: int = 6,
-        chance_cap: int = 36,
+        k: int = 4,
+        # The policy's own pick stands unless another option's searched
+        # value beats it by this much. Ordinary per-option value noise is
+        # ~0.1; a real blunder (a found loss against an ordinary position)
+        # differs by ~1.0 -- the search overrides only where the value head
+        # is loudly sure, instead of replacing trained play with argmax
+        # over its noise.
+        margin: float = 0.3,
+        # One die is enumerated exactly; a second nested die (36 outcomes,
+        # each a full policy rollout) is sampled instead -- the exact
+        # expectation there costs more wall clock than its variance is worth.
+        chance_cap: int = 6,
         # ~0.9 ms per probed node (an engine copy): 300 bounds a fully
         # unprovable decision at ~0.3 s while the DEFCON-gift proof itself
         # needs only tens of nodes.
@@ -76,6 +86,7 @@ class SearchPlayer:
         self._device = torch.device(device)
         self._evaluator = evaluator
         self._k = k
+        self._margin = margin
         self._chance_cap = chance_cap
         self._probe_budget = probe_budget
         self._seed = seed
@@ -175,35 +186,95 @@ class SearchPlayer:
             # unknown this degrades to the raw policy argmax via the
             # tie-break.
             scores.append(sum(samples) / len(samples) if samples else 0.0)
-        # Value first, the policy's own logit as the tie-break.
-        return max(range(len(scores)), key=lambda i: (scores[i], logits[i]))
+        self.last_scores = scores  # per-option, root-side-signed; for analysis
+        # The policy's pick is the default; the search overrides it only
+        # when another option's value clears it by the margin.
+        policy_pick = max(range(len(logits)), key=logits.__getitem__)
+        best = max(range(len(scores)), key=lambda i: (scores[i], logits[i]))
+        return best if scores[best] - scores[policy_pick] > self._margin else policy_pick
 
-    def _continue(self, sim: Engine, root_side: Side, budget: int) -> tuple[float, bool]:
-        """Run `sim` to the next non-CHANCE decision (or the end) and score
-        it for `root_side`. Multi-outcome chance frames are enumerated to an
-        exact expectation while `budget` covers the branch's outcomes, and
-        sampled beyond it; returns (value, whether randomness was consumed)."""
+    def _continue(
+        self,
+        sim: Engine,
+        root_side: Side,
+        budget: int,
+        # The caps must outlast one whole action or an end-of-turn terminal
+        # (a held scoring card) is never reached and the blind flip estimate
+        # stands. A plain ops spend is ~8 multi-option frames (card, mode,
+        # order, type, the placements); an event can hand the opponent a
+        # long chain *before* their own action -- Marshall Plan's seven
+        # placements plus their play is 13+ -- hence the deeper reply cap.
+        my_steps: int = 12,
+        opp_steps: int = 18,
+        flip_value: float | None = None,
+    ) -> tuple[float, bool]:
+        """Score the branch for `root_side`. The branch is rolled forward --
+        through chance, through the mover's *own* subsequent decisions
+        (along the policy's argmax, up to `my_steps`: stopping at the
+        mover's own next decision would price an action by its first
+        atomic step, e.g. an `OPS_TYPE` "coup" before any target is
+        picked), and then through the *opponent's* reply the same way (up
+        to `opp_steps`) -- and evaluated twice: `flip_value`, the value
+        head at the opponent's first real decision (their view: prices the
+        threat they now hold, but is blind to the mover's remaining hand),
+        and again at the mover's own next decision (their view of their
+        hand -- a held scoring card -- with any end-of-turn terminal
+        played out for real in between). The branch scores the **minimum**
+        of the two: each estimate covers the other's blind spot, and a
+        playout terminal is likewise floored against `flip_value` so a
+        weak simulated reply cannot make a branch look won. Multi-outcome
+        chance frames are enumerated to an exact expectation while
+        `budget` covers the branch's outcomes, and sampled beyond it.
+        Returns (value, whether randomness was consumed)."""
         consumed = False
         while True:
             if sim.is_terminal:
-                return self._terminal_value(sim, root_side), consumed
+                value = self._terminal_value(sim, root_side)
+                return (min(flip_value, value) if flip_value is not None else value), consumed
             frame = sim.pending_decision
-            if frame.actor is not Side.CHANCE:
-                return self._leaf_value(sim, frame.actor, root_side), consumed
+            if frame.actor is Side.CHANCE:
+                options = frame.options
+                consumed = True  # every CHANCE frame is realized randomness
+                if len(options) == 1:
+                    self._step(sim, options[0])
+                    continue
+                if budget >= len(options):
+                    total = 0.0
+                    for option in options:
+                        child = Engine.deserialize(sim.serialize())
+                        self._step(child, option)
+                        value, _ = self._continue(
+                            child, root_side, budget // len(options), my_steps, opp_steps, flip_value
+                        )
+                        total += value
+                    return total / len(options), True
+                self._step(sim, self._sample(options))
+                continue
             options = frame.options
-            consumed = True  # every CHANCE frame is realized randomness
             if len(options) == 1:
                 self._step(sim, options[0])
                 continue
-            if budget >= len(options):
-                total = 0.0
-                for option in options:
-                    child = Engine.deserialize(sim.serialize())
-                    self._step(child, option)
-                    value, _ = self._continue(child, root_side, budget // len(options))
-                    total += value
-                return total / len(options), True
-            self._step(sim, self._sample(options))
+            if frame.actor is root_side:
+                if flip_value is not None:  # back at the mover: the second, hand-aware estimate
+                    return min(flip_value, self._leaf_value(sim, root_side, root_side)), consumed
+                if my_steps > 0:
+                    if self._policy_step(sim, frame.actor, options):
+                        consumed = True
+                    my_steps -= 1
+                    continue
+                return self._leaf_value(sim, root_side, root_side), consumed
+            if flip_value is None:
+                flip_value = self._leaf_value(sim, frame.actor, root_side)
+            if opp_steps > 0:
+                if self._policy_step(sim, frame.actor, options):
+                    consumed = True
+                opp_steps -= 1
+                continue
+            return flip_value, consumed
+
+    def _policy_step(self, sim: Engine, actor: Side, options: tuple[Action, ...]) -> bool:
+        logits = self._policy_logits(sim.observe(actor))
+        return self._step(sim, options[max(range(len(logits)), key=logits.__getitem__)])
 
     # -- terminal evaluator: the veto --------------------------------------
 

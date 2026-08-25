@@ -262,19 +262,32 @@ is seated at through `bind(engine)` — called by `src/main.py` and
 
 Two evaluators, one harness:
 
-- **`evaluator="value"` (one-ply search).** Each legal option is played
-  out to the next non-CHANCE decision; the value head scores that
-  position for its mover, sign-flipped to the root mover; argmax over
-  scores, the policy's own logit as tie-break. A branch that consumed
-  no randomness (no chance frame, no draw-pile change) is exact from
-  one simulation; one that did averages `k` determinizations (default
-  6), with chance frames enumerated to an exact expectation while the
-  branch's outcome count stays within `chance_cap` (36 — two dice) and
-  sampled beyond it. Terminal leaves score ±1 (draws 0); the head's
-  estimate is clamped to ±0.99 so a certain result always outranks an
-  estimate, and an unscoreable branch (a frame the determinized copy
-  cannot replay) counts as 0 — below every win, above a known loss.
-  ~30 s a game against Greedy on one core.
+- **`evaluator="value"` (one-ply search).** Each legal option's branch
+  is rolled forward — through chance, through the mover's *own*
+  subsequent decisions along the policy's argmax (`my_steps`, 12:
+  stopping at the mover's own next atomic decision would price an
+  `OPS_TYPE` "coup" before any target is picked, the head's blind
+  spot), and through the opponent's reply the same way (`opp_steps`,
+  18: an event can hand them a long chain — Marshall Plan's seven
+  placements plus their own play — and the caps must outlast a whole
+  action or an end-of-turn terminal is never reached). It is scored
+  twice: the value head at the opponent's first real decision (their
+  view — prices the threat they hold, blind to the mover's remaining
+  hand) and again at the mover's next own decision (hand-aware, any
+  end-of-turn terminal played out for real in between); the branch
+  takes the **minimum**, each estimate covering the other's blind
+  spot, playout terminals floored the same way. A branch that
+  consumed no randomness is exact from one simulation; one that did
+  averages `k` determinizations (4), one die enumerated exactly
+  (`chance_cap` 6), deeper dice sampled. Terminals score ±1 (draws
+  0), the head's estimate clamped to ±0.99 so a certain result always
+  outranks an estimate; an unscoreable branch counts 0. **The
+  policy's own pick then stands unless another option's searched
+  value clears it by `margin` (0.3)**: per-option value noise (~0.1)
+  otherwise out-shouts trained play — pure value-argmax measured
+  0.02 against the raw checkpoint — while a real blunder (a found
+  loss against an ordinary position) differs by ~1.0 and is overridden
+  loudly. ~2–5 min a game against the raw checkpoint on one core.
 - **`evaluator="terminal"` (the veto — the ablation search subsumes).**
   Options are probed in the policy's own preference order and the first
   that is not a *provable* loss is played. Provable means: within the

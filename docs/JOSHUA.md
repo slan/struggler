@@ -538,6 +538,28 @@ eval seeds; search losing to raw is a bug, not a result. Gates and
 `wopr.baseline` stay raw-argmax throughout — a search player is rated
 as its own named policy (`v3+search`), never silently substituted.
 
+*Amended 2026-08-25, during the in-repo sanity runs and before any
+Playdek time — three changes to the value evaluator's mechanics (the
+veto, the metrics and the decision rules are untouched). The sanity
+bar did its job: the first implementation lost to raw v3 0.020 with
+games ending by turn 2. (1) One-ply as registered stopped at the
+mover's own next atomic decision, which prices an action by its first
+step — at `OPS_TYPE` the "coup" branch was scored before any target
+was picked, and the search itself played the DEFCON suicide; branches
+now roll through the mover's own chain along the policy's argmax.
+(2) The leaf at the opponent's decision is evaluated from *their*
+observation, which cannot see the mover's hand — the search held
+scoring cards to the end of turn; branches now roll on through the
+opponent's reply and score the minimum of the flip-point estimate and
+a hand-aware estimate at the mover's next own decision, end-of-turn
+terminals played out for real. (3) Pure argmax over searched values
+replaced trained play with the value head's per-option noise (~0.1)
+and still lost most games; the policy's own pick now stands unless
+another option's value clears it by a 0.3 margin — a real blunder
+differs by ~1.0. Informally after the fixes: 4 of 6 debug games
+against raw v3, no self-inflicted terminal. WOPR.md carries the
+mechanics.*
+
 **Metrics and decision rule** (written before the runs): (a) the
 easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
 standing reported player if it improves the mean by ≥ 0.05; (b) the
