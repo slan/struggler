@@ -573,6 +573,21 @@ not concluded — the head-to-head is exactly the matchup that flatters
 the veto (raw's losses are the blunder class); the Playdek arms are
 the attribution that counts.*
 
+*Amended a second time, 2026-08-25, three arms into the Playdek batch.
+The batch's first search arm (hard, USSR, `runs/playdek/search1-hard-search-ussr`)
+played the gift itself: 5 of its 6 DEFCON losses are CIA Created /
+Grain Sales at DEFCON 2. Cause: amendment fix (2) made the rollout's
+simulated opponent the policy — which never takes the gifted coup (the
+original finding) — so a gift branch reads clean to the value estimate
+and the margin rule keeps the policy's pick; the registered
+"search subsumes the veto" property had silently broken. Restored:
+the value evaluator now runs the veto's rules-probe — what the
+opponent CAN do, not what the policy would — on whatever it picks,
+and a provable loss is refused and re-picked. The raw-v3 hard arms
+stand (first hard numbers ever: **USSR 0.111 [0.04, 0.28], US 0.036
+[0.01, 0.18]**, `search1-hard-joshua-*`); the search and veto arms
+run on the guarded code under `runs/playdek/search2-*`.*
+
 **Metrics and decision rule** (written before the runs): (a) the
 easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
 standing reported player if it improves the mean by ≥ 0.05; (b) the

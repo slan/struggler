@@ -151,6 +151,28 @@ def test_probe_proves_the_granted_coup_mate(net):
         assert player._probe(sim, Side.USSR, player._boundary(sim), [500]) is expected
 
 
+def test_value_mode_probes_its_pick(net):
+    # The gift's shape from the value evaluator's side: during the USSR's
+    # round the US holds a granted coup with a battleground at DEFCON 2.
+    # The rollout's simulated opponent is the policy, which never takes
+    # the gifted coup -- only the rules-probe sees the mate, so the value
+    # evaluator must run it on whatever it picks (search subsumes veto).
+    for defcon, expected in ((2, True), (4, False)):
+        engine = bare_engine()
+        engine.defcon = defcon
+        engine.phase = "action_rounds"
+        engine._ars_played = 1  # play index 0 was the USSR's: the USSR is phasing
+        engine.board.influence["Angola"]["USSR"] = 2
+        engine.board.influence["Poland"]["USSR"] = 1
+        engine.begin_coup(Side.US, ops=2)
+        engine.begin_influence_operations(Side.USSR, ops=1)
+        player = SearchPlayer(net, evaluator="value", seed=0)
+        player.bind(engine)
+        decision = engine.pending_decision
+        assert decision.actor is Side.USSR
+        assert player._provably_loses(Side.USSR, decision, 0) is expected
+
+
 def test_value_search_prices_the_whole_action_not_its_first_step(net):
     # The regression behind the one-ply-to-mover-flip rule: at OPS_TYPE,
     # "coup" is one atomic step from any target -- stopping at the mover's
@@ -189,5 +211,6 @@ def test_value_search_runs_one_exact_simulation_on_deterministic_branches(net, m
     action = player.choose_action(engine.observe(Side.USSR), [])
     assert action in engine.pending_decision.options
     # Placing one influence point rolls no die and draws no card: every
-    # branch is exact from a single determinization, k notwithstanding.
-    assert len(calls) == n_options
+    # branch is exact from a single determinization, k notwithstanding --
+    # plus one more for the probe of the final pick.
+    assert len(calls) == n_options + 1

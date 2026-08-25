@@ -188,10 +188,22 @@ class SearchPlayer:
             scores.append(sum(samples) / len(samples) if samples else 0.0)
         self.last_scores = scores  # per-option, root-side-signed; for analysis
         # The policy's pick is the default; the search overrides it only
-        # when another option's value clears it by the margin.
+        # when another option's value clears it by the margin. The pick is
+        # then probed, and a *provable* loss is refused and re-picked: the
+        # rollout's simulated opponent is the policy, which never takes the
+        # gifted coup (the original finding), so the value estimate alone
+        # reads a gift branch as clean -- the veto's rules-probe, which asks
+        # what the opponent CAN do rather than what the policy would, is
+        # the floor under the search (search subsumes veto, restored).
+        candidates = set(range(len(scores)))
         policy_pick = max(range(len(logits)), key=logits.__getitem__)
-        best = max(range(len(scores)), key=lambda i: (scores[i], logits[i]))
-        return best if scores[best] - scores[policy_pick] > self._margin else policy_pick
+        while True:
+            default = policy_pick if policy_pick in candidates else max(candidates, key=logits.__getitem__)
+            best = max(candidates, key=lambda i: (scores[i], logits[i]))
+            pick = best if scores[best] - scores[default] > self._margin else default
+            if len(candidates) == 1 or not self._provably_loses(observation.side, decision, pick):
+                return pick
+            candidates.remove(pick)
 
     def _continue(
         self,
@@ -286,16 +298,18 @@ class SearchPlayer:
         side = observation.side
         ranked = sorted(range(len(logits)), key=logits.__getitem__, reverse=True)
         for i in ranked:
-            sim = self._engine.determinize(side, self._det_seed(decision, i, 0))
-            boundary = self._boundary(sim)
-            try:
-                self._step(sim, decision.options[i])
-                lost = self._probe(sim, side, boundary, [self._probe_budget])
-            except Exception:
-                lost = False  # unprovable is never a veto
-            if not lost:
+            if not self._provably_loses(side, decision, i):
                 return i
         return ranked[0]  # genuinely forced: every option provably loses
+
+    def _provably_loses(self, side: Side, decision: Decision, i: int) -> bool:
+        sim = self._engine.determinize(side, self._det_seed(decision, i, 7919))
+        boundary = self._boundary(sim)
+        try:
+            self._step(sim, decision.options[i])
+            return self._probe(sim, side, boundary, [self._probe_budget])
+        except Exception:
+            return False  # unprovable is never a veto
 
     @staticmethod
     def _boundary(sim: Engine) -> tuple:
