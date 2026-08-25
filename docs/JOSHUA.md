@@ -483,39 +483,116 @@ more against the AI than the mix change. (c) The DEFCON-gift rate is
 **Decision.** Arm closed. The reason it failed is instructive: Greedy
 never takes the gifted coup either, so a Greedy share cannot punish
 the habit — coverage comes from opponents that *exploit*, not
-opponents that differ. The next arms, in that light: an **exploiter**
-(a snapshot fine-tuned in-arena against the frozen champion, added to
-its pool — cheap, and it will find the gift), and **the easy AI
-itself** as a sparring share through the bridge (a direct
-distribution fix, ~5 min a game — overnight batches). r1's "anchors
-are not teachers" stands, now measured at a 10% dose on a game where
-the anchor is not beaten until late.
+opponents that differ. r1's "anchors are not teachers" stands, now
+measured at a 10% dose on a game where the anchor is not beaten until
+late. On review of the arc ([baselines/RECAP-r3.md](../baselines/RECAP-r3.md))
+a constraint was adopted that reshapes the follow-ups this entry first
+proposed: the bot stays **self-play only** — no external opponent in
+the training mix, so the easy AI as a sparring share is off the menu,
+and the exploiter (still the line's own weights, but a step away from
+*naive* self-play) is held in reserve rather than tried next. The next
+experiment is inference-time search over the learned value head,
+pre-registered below.
+
+### 2026-08-25 — search over the learned value head: veto and one-ply (pre-registered)
+
+**Question.** The DEFCON gift is ~40% of USSR-seat losses at every
+strength measured, and self-play cannot unlearn it (arm 1: the pool
+never punishes it). Does lookahead at *inference*, over the frozen
+champion's own value head, remove it — and how much of the remaining
+gap against the official AI is that one blunder class versus general
+tactical weakness? Training changes nothing: no new bootstrap, no
+layout bump, r3-bid2/v3's checkpoint as it stands.
+
+**Setup.** Two inference modes wrapping r3-bid2/v3, one simulation
+harness with an evaluator switch (mechanics go to WOPR.md with the
+code). Both build the search state **from the `Observation`**, never
+from the live engine — unseen cards (draw pile ∪ opponent hand)
+shuffled into a guessed arrangement (a determinization) — so nothing
+hidden leaks through the simulated transitions (mandate #4 in spirit).
+
+- *Veto* (`evaluator=terminal`, no torch): simulate each legal option
+  to its resolution; an option that provably loses — terminally, or
+  through an opponent mate-in-one reply computable from public
+  information (the granted-Op battleground coup at DEFCON 2 is exactly
+  this) — is masked, and the policy's argmax picks among the
+  survivors. All options vetoed → the mask is dropped.
+- *One-ply search* (`evaluator=value`): the same simulation; each
+  option scored by the value head at the next decision reached,
+  whoever its mover is, sign-flipped to the root mover (the GAE
+  buffer's alternation rule). A branch that consumed no unseen card
+  and no roll is exact from one sample; one that did is averaged over
+  k≈4–8 determinizations, with a lone die enumerated (6 outcomes at
+  1/6) instead of sampled. Terminal leaves score ±1, draws 0 — the
+  head's own training scale. Argmax over scores.
+
+The veto is the ablation: search subsumes it (a provable loss
+evaluates to −1), so the search−veto gap attributes the general
+tactical lift apart from the gift alone.
+
+**Eval, one batch** (this also executes the road map's "measure hard
+mode now"): Playdek at bid 2, three players — raw v3, v3+veto,
+v3+search — easy 60 a seat each, hard 30 a seat each. In-repo sanity
+first, before any DLL time: v3+search vs Greedy and vs raw v3 on the
+eval seeds; search losing to raw is a bug, not a result. Gates and
+`wopr.baseline` stay raw-argmax throughout — a search player is rated
+as its own named policy (`v3+search`), never silently substituted.
+
+**Metrics and decision rule** (written before the runs): (a) the
+easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
+standing reported player if it improves the mean by ≥ 0.05; (b) the
+DEFCON-gift share of USSR-seat losses (raw: ~21 of 42–52) — expected
+≈0 for both veto and search; (c) the first hard-mode numbers for all
+three, whatever they are — the mountain sized. Readings: search
+clears (a) → deepen (beam over own consecutive decisions) and/or move
+to scenario-seeded self-play for what search cannot reach; a wash on
+(a) with (b) at zero → the remaining losses are strategic, not
+tactical — scenario-seeded self-play next, not deeper search; veto ≈
+search on every metric → the value head adds nothing over the rules
+check, which questions the head before any layout bump spends a
+bootstrap on it. Ledger: no row — nothing is trained; this entry is
+the pre-registration.
 
 ## Road map
 
-What the ladder needs first is its own ground truth; the road map is
-short until it has one.
+Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
+([baselines/RECAP-r3.md](../baselines/RECAP-r3.md) is the snapshot).
+The standing constraint, adopted on review: **the training is
+self-play only** — no external opponent in the mix, Playdek's AI is
+an evaluation and never a teacher, and the league exploiter (the
+line's own weights, but not *naive* self-play) is a reserve, not a
+next step. Superseded along the way: opponent diversity as the lead
+question (arm 1 closed it — a Greedy share is a wash and cannot
+punish the gift; the easy-AI-as-sparring candidate is banned by the
+constraint).
 
-1. **Ground truth for r3** — done 2026-08-23: `r3/v1` (0.865 vs
-   Greedy, USSR edge 0.67) and **0.01 against Playdek's easy AI**, with
-   the two reasons named (Asia never contested; CIA Created / Grain
-   Sales for Ops at DEFCON 2).
-2. **Opponent diversity** — the question the easy AI asked. Candidates,
-   each an `wopr.ab` arm from scratch or an `--init` from v1, measured
-   on the Playdek easy eval (60 a seat) as well as Greedy: Greedy back
-   in the mix at a small share; an exploiter (a run trained only
-   against the frozen champion, then added to the champion's pool);
-   the easy AI's games as the pool's opponent through the bridge. The
-   ledger row is written before the run.
-3. **The loop** from whichever version closes a gap, generation by
-   generation, until the gate misses twice in three.
-4. **Diagnose before choosing.** At a plateau, the next experiment is
-   chosen from the diagnostics, with its control, metric, budget and
-   decision rule written into the ledger row before training starts
-   (WOPR.md, "Decision points").
-5. **Candidates carried from r1, unranked until then:** order and recency
-   features (a layout bump); one-ply search over the learned value; a
-   third graph layer.
+1. **Search over the learned value head** — the pre-registered
+   veto/one-ply experiment above. Inference only; no bootstrap, no
+   layout change.
+2. **Scenario-seeded self-play** — shape the initial-state
+   distribution, not the opponent: a fraction of training games starts
+   from positions where the failure is on the table (DEFCON 2, a
+   gift card in hand; later, prefixes of lost eval games if that
+   purity line is acceptable). Both seats are the learner;
+   `Engine.serialize`/`deserialize` makes seeding cheap.
+3. **Hard mode as a standing eval** — first numbers land in the search
+   batch above; thereafter hard sits beside easy for every claim.
+   Evaluation only.
+4. **In reserve: the league exploiter** — only if search plus seeding
+   leave the gift rate standing.
+5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
+   traces caught by volume; matters more as evals move to hard mode's
+   longer games.
+6. **Protocol hygiene as the numbers tighten** — more eval seeds per
+   claim, Wilson bounds on every reported Playdek rate.
+7. **Candidates carried, unranked:** order and recency features (a
+   layout bump — mandates a fresh bootstrap, since checkpoints refuse
+   to load across `LAYOUT_VERSION`; take it with the next retrain,
+   informed by 1–2); a third graph layer.
+
+At a plateau, diagnose before choosing: the next experiment's control,
+metric, budget and decision rule are written into its entry before
+training starts (WOPR.md, "Decision points").
 
 ## Reproducing
 

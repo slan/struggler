@@ -7,6 +7,7 @@ one folder per version inside it:
 ```
 baselines/
   EXPERIMENTS.md   the ledger: one row per compared run, frozen or not, all rules versions
+  RECAP-r3.md      dated snapshot closing an arc: where the project stood, what was decided next (one per arc, never updated)
   r1/              rules version 1 (archived): v1–v16 and their README
   r2/              rules version 2 (archived): v1–v3 and their README
   r3/              rules version 3 at the printed game: v1-v8 (plateaued)

@@ -1,9 +1,12 @@
 # WOPR recap — rules version 3, the bid, and the road to hard mode
 
 *Written 2026-08-25, at the end of the bootstrap/bid/bridge arc. A
-snapshot, not a contract: the binding docs are [WOPR.md](WOPR.md) and
-the notebook [JOSHUA.md](JOSHUA.md); this file says where the project
-stands against its goal and what to do next, in order of impact.*
+snapshot, not a contract: the binding docs are
+[docs/WOPR.md](../docs/WOPR.md) and the notebook
+[docs/JOSHUA.md](../docs/JOSHUA.md); this file says where the project
+stood against its goal at the end of the arc and what was decided
+next, in order of impact. It is not updated afterwards — the next arc
+closes with its own recap here.*
 
 **The goal: a fully bootstrapped, PPO-driven bot that beats Playdek's
 AI in HARD mode, on both seats, at the tournament standard of +2 US
@@ -99,7 +102,8 @@ Grain Sales' take off the card moves (was 6 games a seat, now ≤2), the
 bot's own scoring-card take (a batch-killing crash), Wargames' end-game
 prompt, eval-pool resilience.
 
-Open families (seeds in [WOPR.md](WOPR.md), logs under `runs/playdek/`):
+Open families (seeds in [docs/WOPR.md](../docs/WOPR.md), logs under
+`runs/playdek/`):
 Grain Sales' remainder (~2 a seat; the AI's line does not reproduce on
 rerun — needs traces caught by volume), the trapped AI's scoring card
 played with no prompt (seed 323), Junta's choice (326, 343), an
