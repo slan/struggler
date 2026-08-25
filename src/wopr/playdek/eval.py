@@ -68,9 +68,19 @@ def build_player(spec: str, *, seed: int, deterministic: bool) -> Player:
         return FirstLegalPlayer()
     if "=" not in spec:
         raise ValueError(f"policy {spec!r}: expected random|greedy|first or name=checkpoint.pt")
+    name, checkpoint = spec.split("=", 1)
+    if name in ("search", "veto"):
+        # Inference-time lookahead over the checkpoint's value head
+        # (docs/WOPR.md, "Search over the learned value head"); `veto` is
+        # its terminal-only ablation. `play_match` binds the engine.
+        from struggler.bots.joshua.search import SearchPlayer
+
+        return SearchPlayer.from_checkpoint(
+            checkpoint, evaluator="value" if name == "search" else "terminal", seed=seed
+        )
     from struggler.bots.joshua.player import JoshuaPlayer
 
-    return JoshuaPlayer.from_checkpoint(spec.split("=", 1)[1], deterministic=deterministic, seed=seed)
+    return JoshuaPlayer.from_checkpoint(checkpoint, deterministic=deterministic, seed=seed)
 
 
 def run_job(job: Job) -> dict:
@@ -129,7 +139,8 @@ def summarize(results: list[dict]) -> dict:
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="A policy against Playdek's AI.")
-    p.add_argument("--policy", default="greedy", help="random | greedy | first | name=checkpoint.pt")
+    p.add_argument("--policy", default="greedy",
+                   help="random | greedy | first | name=checkpoint.pt (search=/veto= for the lookahead player)")
     p.add_argument("--games", type=int, default=4)
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--side", choices=["ussr", "us", "both"], default="both", help="the policy's seat (both: alternating by game)")

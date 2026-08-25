@@ -54,7 +54,14 @@ directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 `STRUGGLER_LLM_PROVIDER`/`STRUGGLER_LLM_MODEL`, and passes through
 `plan_turns` from `--no-turn-plan` — and `JoshuaPlayer` from
 `bots/joshua/player.py`, loading the checkpoint named by
-`--joshua-checkpoint`; see [WOPR.md](WOPR.md)). Adding a new bot means
+`--joshua-checkpoint`; see [WOPR.md](WOPR.md)). `"joshua-search"` /
+`"joshua-veto"` build `SearchPlayer` from `bots/joshua/search.py` over
+the same checkpoint — the one `Player` that needs more than
+`Observation`: the runner that owns the engine calls its
+`bind(engine)` before play (`main.py`'s `_bind_search_players`, or
+`wopr.playdek.operator.play_match`), used solely for
+`Engine.determinize` (WOPR.md, "Search over the learned value head").
+Adding a new bot means
 implementing `Player` and adding one branch to `build_player` — no
 self-registration, no import-order dependency, no indirection between a
 name and the class it builds.

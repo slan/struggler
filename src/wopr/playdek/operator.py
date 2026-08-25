@@ -1266,6 +1266,8 @@ def play_match(pd: Playdek, player: Player, *, seed: int, side: Side, difficulty
     start = time.monotonic()
     op = PlaydekOperator(pd, seed=seed, side=side, difficulty=difficulty, emulate=emulate, trace=trace,
                          max_divergences=max_divergences, us_bid=us_bid)
+    if hasattr(player, "bind"):
+        player.bind(op.engine)  # SearchPlayer: the engine it may determinize() for lookahead
     desync = False
     try:
         play_game(op.engine, op.players(player), log_path=log_path)

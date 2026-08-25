@@ -142,6 +142,15 @@ class Engine:
         # surfaced by observe() — same treatment as `_our_man_queue`.
         self.hidden_pool: list[str] = []
 
+        # -- Simulation state ---------------------------------------------
+        # Set (only) on the copies `determinize()` returns: every d6 CHANCE
+        # frame exposes all six outcomes as options — the physical-mode
+        # presentation of chance (mandate #3: still an explicit CHANCE
+        # decision, just not pre-rolled) — so a simulator driving the copy
+        # owns the dice: it can enumerate outcomes for an exact expectation
+        # or sample them from its own RNG. Never set on a live game.
+        self.expose_chance_outcomes = False
+
     # -- public API -------------------------------------------------------
 
     @property
@@ -249,6 +258,9 @@ class Engine:
             "physical_mode": self.physical_mode,
             "physical_side": self.physical_side.value if self.physical_side is not None else None,
             "hidden_pool": list(self.hidden_pool),
+            # Absent when False: a live game's serialization (and every
+            # golden replay checkpoint) is unchanged by the flag's existence.
+            **({"expose_chance_outcomes": True} if self.expose_chance_outcomes else {}),
             "ops_round_snapshot": (
                 copy.deepcopy(self._ops_round_snapshot)
                 if self._ops_round_snapshot is not None
@@ -300,9 +312,76 @@ class Engine:
         physical_side = data.get("physical_side")
         engine.physical_side = Side(physical_side) if physical_side is not None else None
         engine.hidden_pool = list(data.get("hidden_pool", []))
+        engine.expose_chance_outcomes = data.get("expose_chance_outcomes", False)
         snapshot = data.get("ops_round_snapshot")
         engine._ops_round_snapshot = copy.deepcopy(snapshot) if snapshot is not None else None
         return engine
+
+    def determinize(self, side: Side, seed: int) -> "Engine":
+        """A simulation copy for `side`'s lookahead. Everything
+        `observe(side)` shows is preserved exactly; everything hidden from
+        that seat is resampled from `seed`: the draw pile's order, the
+        opponent's hand, a committed-but-unrevealed opponent headline, Our
+        Man in Tehran's queue and kept cards (unless `side` is the US,
+        which saw them), and the RNG behind every future roll. The copy is
+        therefore information-equivalent to `observe(side)` (mandate #4): a
+        player may search it without learning anything a player at the
+        table could not. It deliberately forgets in-game reveals the engine
+        does not track as knowledge (a hand shown by an event, the Space
+        Race box-4 headline peek) — conservative, never leaky.
+
+        The copy also plays out on its own terms: `expose_chance_outcomes`
+        is set, so d6 CHANCE frames offer all six outcomes for the
+        simulator to enumerate or sample. A physical-mode game becomes an
+        ordinary one — every `HIDDEN_CARD` placeholder (the physical hand's
+        and the draw pile's) is dealt a real identity from `hidden_pool`,
+        which is exactly the set of cards hidden from the bot seat there.
+        Frames already on the stack keep their frozen options, so a
+        physical-only frame (a pending `DEAL_CARD`) cannot be replayed on
+        the copy; simulators must treat a raising branch as unscoreable
+        rather than assume every stack survives conversion."""
+        if side not in (Side.US, Side.USSR):
+            raise ValueError("determinize() is only valid for Side.US or Side.USSR")
+        data = self.serialize()
+        rng = random.Random(seed)
+        if self.physical_mode:
+            pool = list(self.hidden_pool)
+            rng.shuffle(pool)
+            for cards in (data["hands"]["US"], data["hands"]["USSR"], data["draw_pile"]):
+                for i, cid in enumerate(cards):
+                    if cid == HIDDEN_CARD:
+                        cards[i] = pool.pop()
+            data["hidden_pool"] = []
+            data["physical_mode"] = False
+            data["physical_side"] = None
+        else:
+            opponent = side.opponent.value
+            pool = list(data["draw_pile"]) + list(data["hands"][opponent])
+            # A committed headline is out of its hand and still secret until
+            # the resolution order is frozen (`_headline_resolving`); the
+            # opponent's goes back into the unseen pool and is redrawn.
+            hidden_headline = (
+                data["headline"][opponent] if not self._headline_resolving else None
+            )
+            if hidden_headline is not None:
+                pool.append(hidden_headline)
+            # Our Man in Tehran's queue/kept cards were revealed to the US
+            # alone; for the USSR they are unseen cards off the top of the
+            # draw pile, redrawn like the rest.
+            resample_our_man = side is not Side.US and (self._our_man_queue or self._our_man_kept)
+            if resample_our_man:
+                pool += list(data["our_man_queue"]) + list(data["our_man_kept"])
+            rng.shuffle(pool)
+            data["hands"][opponent] = [pool.pop() for _ in data["hands"][opponent]]
+            if hidden_headline is not None:
+                data["headline"][opponent] = pool.pop()
+            if resample_our_man:
+                data["our_man_queue"] = [pool.pop() for _ in data["our_man_queue"]]
+                data["our_man_kept"] = [pool.pop() for _ in data["our_man_kept"]]
+            data["draw_pile"] = pool
+        data["rng_state"] = _encode_rng_state(random.Random(rng.getrandbits(64)).getstate())
+        data["expose_chance_outcomes"] = True
+        return Engine.deserialize(data)
 
     # -- test-harness entry points (no cards yet) --------------------------
 
@@ -2239,8 +2318,10 @@ class Engine:
         die to draw from `self._rng` — every possible outcome (1-6) is
         exposed instead, and the operator picks the one that matches the
         real physical roll (mandate #3: chance is still fully exposed as a
-        decision, just resolved by a human instead of the seeded RNG)."""
-        if self.physical_mode:
+        decision, just resolved by a human instead of the seeded RNG).
+        A `determinize()` copy exposes them the same way, so the simulator
+        driving it owns the dice (`expose_chance_outcomes`)."""
+        if self.physical_mode or self.expose_chance_outcomes:
             return tuple(Action(kind, {payload_key: v}) for v in range(1, 7))
         return (Action(kind, {payload_key: self._roll_d6()}),)
 

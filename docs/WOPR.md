@@ -236,6 +236,67 @@ new state out of Python objects and inside the layout.
 The final option layer is initialised near zero so the untrained policy
 is near-uniform over legal options and early rollouts explore.
 
+## Search over the learned value head (`bots/joshua/search.py`)
+
+`SearchPlayer` is inference-time lookahead over a trained checkpoint —
+no training change, no layout change; pre-registered in JOSHUA.md
+(2026-08-25). It is its own named policy everywhere it is measured:
+gates and `wopr.baseline` stay raw-argmax.
+
+**The simulation state is `Engine.determinize(side, seed)`** — a copy
+whose `observe(side)` is preserved exactly while everything hidden from
+that seat is resampled: the draw pile's order, the opponent's hand, a
+committed-but-unrevealed opponent headline, Our Man in Tehran's queue
+(for the USSR), and the RNG behind every future roll. The copy is
+information-equivalent to the mover's own observation (mandate #4), so
+searching it can leak nothing; it deliberately forgets reveals the
+engine does not track as knowledge (a shown hand, the box-4 headline
+peek) — conservative, never leaky. On the copy
+`Engine.expose_chance_outcomes` is set: every d6 CHANCE frame offers
+all six outcomes, physical-mode style (mandate #3 — chance is still an
+explicit decision), so the simulator owns the dice. A physical-mode
+game (the Playdek bridge) converts to an ordinary one, `HIDDEN_CARD`
+placeholders dealt from `hidden_pool`. The player reaches the engine it
+is seated at through `bind(engine)` — called by `src/main.py` and
+`operator.play_match` — and uses it solely to call `determinize()`.
+
+Two evaluators, one harness:
+
+- **`evaluator="value"` (one-ply search).** Each legal option is played
+  out to the next non-CHANCE decision; the value head scores that
+  position for its mover, sign-flipped to the root mover; argmax over
+  scores, the policy's own logit as tie-break. A branch that consumed
+  no randomness (no chance frame, no draw-pile change) is exact from
+  one simulation; one that did averages `k` determinizations (default
+  6), with chance frames enumerated to an exact expectation while the
+  branch's outcome count stays within `chance_cap` (36 — two dice) and
+  sampled beyond it. Terminal leaves score ±1 (draws 0); the head's
+  estimate is clamped to ±0.99 so a certain result always outranks an
+  estimate, and an unscoreable branch (a frame the determinized copy
+  cannot replay) counts as 0 — below every win, above a known loss.
+  ~30 s a game against Greedy on one core.
+- **`evaluator="terminal"` (the veto — the ablation search subsumes).**
+  Options are probed in the policy's own preference order and the first
+  that is not a *provable* loss is played. Provable means: within the
+  current play (the `_ars_played` fence), through **any** opponent
+  choice, **every** own choice and **every** exposed die outcome, the
+  game ends against the mover — the shape of both the DEFCON self-kill
+  and the granted-coup gift. The proof search is budgeted
+  (`probe_budget`, 300 engine copies at ~0.9 ms each) and stops after
+  three of the prober's own choice points (an own ops chain fans out by
+  tens per point and cannot itself end the game); anything unprovable
+  is not a veto. Every option provably lost → the policy argmax stands.
+  ~2 min a game against Greedy on one core.
+
+Wiring: `wopr.playdek.eval --policy search=ckpt.pt | veto=ckpt.pt`
+(easy/hard evals; the AI's 15 s per decision dwarfs the search),
+`python -m wopr.search_eval --policy search=ckpt.pt --opponent
+greedy|joshua=ckpt.pt [--bid N]` (the in-repo sanity eval: full engine
+games through `runner.play_game`, since the search needs the live
+engine — hundreds of games, not the arena's tens of thousands), and
+`src/main.py --us joshua-search|joshua-veto`. Tests:
+`tests/test_search.py`.
+
 ## The arena (`wopr/arena.py`, `wopr/backend.py`, `wopr/vec_env.py`)
 
 `Arena(n_games, seed, seat_assigner)` owns N engines. Each game's two

@@ -78,6 +78,17 @@ def build_player(
         from struggler.bots.joshua.player import JoshuaPlayer
 
         return JoshuaPlayer.from_checkpoint(joshua_checkpoint, seed=seed)
+    if kind in ("joshua-search", "joshua-veto"):
+        # Inference-time lookahead over the checkpoint's value head; "veto"
+        # is its terminal-only ablation (docs/WOPR.md). Needs the engine:
+        # main() binds it after construction (SearchPlayer.bind).
+        from struggler.bots.joshua.search import SearchPlayer
+
+        return SearchPlayer.from_checkpoint(
+            joshua_checkpoint,
+            evaluator="value" if kind == "joshua-search" else "terminal",
+            seed=seed,
+        )
     if kind == "llm":
         client = build_llm_client()
         plan_provider = os.environ.get("STRUGGLER_LLM_PROVIDER", DEFAULT_LLM_PROVIDER)
@@ -100,7 +111,19 @@ def build_player(
             log_path=log_path,
             resume=resume,
         )
-    raise ValueError(f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm/joshua)")
+    raise ValueError(
+        f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm/joshua/joshua-search/joshua-veto)"
+    )
+
+
+def _bind_search_players(engine, players) -> None:
+    """Hand a SearchPlayer the engine it is seated at (used solely for
+    `Engine.determinize`; see docs/WOPR.md), through the headline
+    announcer's wrapping if any."""
+    for player in players.values():
+        inner = getattr(player, "_inner", player)
+        if hasattr(inner, "bind"):
+            inner.bind(engine)
 
 
 def main() -> None:
@@ -211,6 +234,7 @@ def main() -> None:
                     side_label="ussr", plan_turns=not args.no_turn_plan, joshua_checkpoint=args.joshua_checkpoint
                 ),
             }
+        _bind_search_players(engine, players)
         winner = play_game(
             engine,
             players,
@@ -258,6 +282,7 @@ def main() -> None:
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
         game_log_path = f"./logs/{timestamp}_game.json"
 
+    _bind_search_players(engine, players)
     winner = play_game(engine, players, log_path=game_log_path)
     print(f"\nWinner: {winner}")
 

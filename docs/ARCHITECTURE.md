@@ -115,6 +115,11 @@ class Engine:
     def deserialize(cls, data: dict) -> "Engine":
         """Inverse of serialize(); must round-trip exactly."""
 
+    def determinize(self, side: Side, seed: int) -> "Engine":
+        """A simulation copy for `side`'s lookahead: observe(side) preserved
+        exactly, everything hidden from that seat resampled from `seed`.
+        See below."""
+
     @property
     def is_terminal(self) -> bool: ...
 
@@ -158,6 +163,27 @@ class Decision:
 
 `Decision.options` and `Engine.legal_actions()` return the same data;
 `legal_actions()` exists as the ergonomic accessor.
+
+## Determinization (search without leaking)
+
+`Engine.determinize(side, seed)` is the sanctioned way for an agent to
+*simulate*: it returns a full playable copy whose `observe(side)` equals
+the original's exactly, with everything hidden from that seat resampled
+from `seed` — the draw pile's order, the opponent's hand, a
+committed-but-unrevealed opponent headline, and the RNG behind every
+future roll. Searching the copy therefore reveals nothing `observe()`
+would not (mandate #4 holds in spirit as well as letter); a physical-mode
+game converts to an ordinary one, `HIDDEN_CARD` placeholders dealt real
+identities from `hidden_pool`.
+
+The copy carries `expose_chance_outcomes`: every d6 chance frame offers
+all six outcomes as options — exactly physical mode's presentation of
+chance (mandate #3: still an explicit `Side.CHANCE` decision, just not
+pre-rolled) — so the simulator can enumerate an exact expectation or
+sample from its own RNG. The flag serializes only when set; a live
+game's serialization (and every golden replay) is unchanged. The one
+consumer is the search player, docs/WOPR.md ("Search over the learned
+value head").
 
 ## Reachability within one Operations spend (rule 6.1.1)
 
