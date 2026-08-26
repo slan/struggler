@@ -439,6 +439,15 @@ class PlaydekOperator(Bridge):
             if d.kind is DecisionKind.PLAY_MODE and len(d.options) == 1:
                 return d.options[0]  # a scoring card: the DLL reports no use for it
             if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._handed
+                    and self.moves[self.other] and self.moves[self.other][0].meaning.meaning is T.Meaning.CARD
+                    and self.moves[self.other][0].meaning.card == d.context["card"]):
+                # The DLL's own "play <the taken card>" selection for the very
+                # play the engine is asking the mode of: consumed, not an
+                # answer -- a headlined Grain Sales queues it where the
+                # action-round path leaves the queue empty (the take/return
+                # simulation of gs-trace-304 stalled on it at `play_mode`).
+                self.moves[self.other].popleft()
+            if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._handed
                     and not self.moves[self.other]):
                 # The card Grain Sales handed over is played at once, and the
                 # DLL reports no use for it (only the coup or the influence

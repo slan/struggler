@@ -1084,7 +1084,19 @@ Findings from the first four random games, and what became of each:
   the eval's pool (the batch reports it and plays on), Grain Sales
   inference misses run to six games a seat, and SALT Negotiations'
   choice, Tear Down This Wall and a forced discard are new
-  (`r3bid2v3-easy-ussr` seeds 327, 332, 348). **The DLL plays the
+  (`r3bid2v3-easy-ussr` seeds 327, 332, 348). The search batch's traces
+  (2026-08-26, `runs/playdek/gs-trace-304.log`) caught the Grain Sales
+  remainder in the act — a *headlined* Grain Sales queues the DLL's
+  "play <the taken card>" selection where the action-round path leaves
+  the queue empty, and the take/return simulation stalled on it at the
+  taken card's `play_mode`; the operator now consumes that move (it is
+  the very play the engine is asking the mode of). The same trace
+  exposed an open **rules** question: the AI's granted coup reached
+  DEFCON 1 during the headline phase and the DLL awarded the win to
+  the coup's own actor, blaming the player who *played the causing
+  event* (the printed 4.5 note's reading), where the engine blames the
+  marker's mover (`_defcon_one_loser`'s `caused_by`); pending a ruling
+  before any engine change, since it resolves rules (`RULES_VERSION`). **The DLL plays the
   tournament bid natively**: `GameParameters.additionalInfluence` (the
   app's handicap) inserts a US "Place N Influence" step right after the
   regular setup with exactly the engine's 11.1.4 semantics — candidates
