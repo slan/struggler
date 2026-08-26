@@ -691,6 +691,21 @@ check, which questions the head before any layout bump spends a
 bootstrap on it. Ledger: no row — nothing is trained; this entry is
 the pre-registration.
 
+### 2026-08-26 — rules version 4: the ladder stands
+
+The search batch's Grain Sales trace exposed a DEFCON-1-at-headline
+ruling where the DLL and rule 4.5's note agree against the engine
+(WOPR.md has the case); fixed as
+`fix/defcon-one-headline-event-owner`, `RULES_VERSION` 4. The
+decision points' re-rating on the new engine: **r3-bid2/v3 vs Greedy
+0.941** over 400 (US 0.943 / USSR 0.940; standing 0.95 — unmoved),
+**Greedy against itself at bid 2 0.48/0.60 by seat** over 200 — even
+within noise, and the changed corner is unreachable between these
+bots. Neither yardstick moved: the `r3-bid2` ladder stands, the bump
+noted. Every number in this file measured before this date is rules
+version ≤3's; the differences live only where a headline event chain
+reaches DEFCON 1.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
