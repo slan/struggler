@@ -81,6 +81,11 @@ class Engine:
         # ([side, cid] pairs, higher Ops first) is being worked through.
         self._headline_resolving = False
         self._headline_pending: list[list[str]] = []
+        # The [side, cid] pair whose resolution (interrupts included) is under
+        # way -- the "player who played that Event" the DEFCON-1 headline rule
+        # blames (rule 4.5's note; see _defcon_one_loser). Set as a card is
+        # taken up, cleared when the phase ends.
+        self._headline_current: list[str] | None = None
 
         # -- Card-event state --------------------------------------------
         # `events_enabled` gates the whole event layer: with it False every
@@ -220,6 +225,9 @@ class Engine:
             "headline": dict(self._headline),
             "headline_resolving": self._headline_resolving,
             "headline_pending": [list(pair) for pair in self._headline_pending],
+            # Absent when None: serialization outside a headline resolution
+            # (every golden checkpoint) is unchanged.
+            **({"headline_current": list(self._headline_current)} if self._headline_current else {}),
             "events_enabled": self.events_enabled,
             "turn_effects": dict(self.turn_effects),
             "game_effects": dict(self.game_effects),
@@ -267,6 +275,8 @@ class Engine:
         engine._headline = dict(data.get("headline", {"US": None, "USSR": None}))
         engine._headline_resolving = data.get("headline_resolving", False)
         engine._headline_pending = [list(pair) for pair in data.get("headline_pending", [])]
+        current = data.get("headline_current")
+        engine._headline_current = list(current) if current else None
         engine.events_enabled = data.get("events_enabled", False)
         engine.turn_effects = dict(data.get("turn_effects", {}))
         engine.game_effects = dict(data.get("game_effects", {}))
@@ -427,9 +437,11 @@ class Engine:
                 # they land on the stack; _advance stops until they drain, then
                 # returns here for the next card (that is the interrupt order).
                 side_str, cid = self._headline_pending.pop(0)
+                self._headline_current = [side_str, cid]
                 self._resolve_headline_card(Side(side_str), cid)
                 return
             self._headline_resolving = False
+            self._headline_current = None
             self._begin_action_rounds()
             return
 
@@ -2644,10 +2656,17 @@ class Engine:
         whose action round it is, whoever moved the marker (the US winning
         a Summit the USSR played and degrading DEFCON to 1 loses the USSR
         the game; a US coup granted by Grain Sales during the USSR's round
-        does too). Outside the action rounds (the headline phase) it is
-        the side whose card did it, `caused_by`."""
+        does too). In the headline phase it is the player who *played* the
+        headline event being resolved (rule 4.5's note), interrupts and
+        grants included: the USSR headlining Grain Sales loses to the free
+        coup the US takes with the card it drew, even though the US moved
+        the marker -- the official AI rules the same game the same way.
+        Outside both (a bare harness), the side whose move did it,
+        `caused_by`."""
         if self.phase == "action_rounds" and self._ars_played >= 1:
             return self._side_for_play_index(self._ars_played - 1)
+        if self.phase == "headline" and self._headline_current is not None:
+            return Side(self._headline_current[0])
         return caused_by
 
     def _change_defcon(self, delta: int, caused_by: Side) -> None:
