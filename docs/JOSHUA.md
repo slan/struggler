@@ -622,6 +622,54 @@ scenario-seeded self-play (a training-time fix) is its named
 successor. The batch runs to completion on this final code
 (`runs/playdek/search4-*`) to put numbers on what search does buy.*
 
+**Result** (2026-08-26, `runs/playdek/search4-*`; raw v3's easy
+numbers are the standing baseline, its hard numbers
+`search1-hard-joshua-*`; 60 a seat easy / 30 a seat hard, bid 2,
+seeds 300+):
+
+| | easy USSR | easy US | easy mean | hard USSR | hard US |
+| --- | --- | --- | --- | --- | --- |
+| raw v3 | 0.093 | 0.078 | 0.086 | 0.111 | 0.036 |
+| v3+veto | 0.154 [.08,.28] | 0.038 [.01,.13] | 0.096 | 0.120 | 0.111 |
+| v3+search | **0.173** [.09,.30] | 0.088 [.04,.19] | **0.131** | 0.077 | 0.083 |
+
+\(a\) The easy two-seat mean moved +0.045 — **under the +0.05 bar by
+0.005**, on samples whose intervals are ±0.06 wide: the rule says the
+search does not become the standing reported player, and the honest
+reading is a real but modest lift the batch is underpowered to
+confirm. The lift is the USSR seat's (0.093 → 0.173, the gift seat);
+the US seat holds, its losses still the 20-VP blowouts (37 of 52) the
+search was never aimed at. (b) The DEFCON-gift suppression is real
+and visible in the loss mix everywhere: hard-mode DEFCON endings fall
+from 11/7 (raw, by seat) to 4/2 under search — and on hard the same
+games reappear as HELD_CARDS and VP losses, because those gifts were
+forced endgames (fourth amendment): the win rates stay flat
+(0.077/0.083 vs 0.111/0.036, all inside the intervals at 30 games).
+\(c\) Hard mode is now a standing eval: everything sits at ~0.04–0.12
+a seat — above Greedy's zero, an order below the internal yardsticks.
+Veto vs search: the rules-check alone captures most of the USSR-seat
+lift (0.154 vs 0.173) — third dataset agreeing the blunder refusal,
+not the value re-ranking, is the engine of the gain — though the
+veto's easy US seat dipped to 0.038 (21 Europe-control losses, n=52;
+noted as an open oddity, not explained). Bridge attrition 2–7 per
+60-game arm, as before.
+
+**Decision.** By the pre-registered rules: (a) missed by a hair —
+the standing Playdek eval keeps **raw v3** as the reported player,
+with `search=`/`veto=` available and their numbers recorded here;
+no re-run to chase the 0.005 (the same DLL hours are worth more as
+the next experiment's eval). The operative finding is (b)+(c): search
+removes the tactical gift, and what remains — forced endgames from
+card scheduling as USSR, the VP blowouts as US — is **strategic,
+learned-policy territory**. The road map's next step is therefore
+**scenario-seeded self-play**: training games started from
+gift-in-hand / DEFCON-2 positions (and lost eval games' prefixes if
+that purity line is accepted), where both seats learn what search
+cannot reach — spending the gift card while it is safe, and the US
+seat's early-war defence. Search returns as a cheap multiplier on
+whatever that training produces; the layout-bump question stays
+parked behind it.
+
 **Metrics and decision rule** (written before the runs): (a) the
 easy-AI two-seat mean vs raw v3's 0.093/0.078 — search becomes the
 standing reported player if it improves the mean by ≥ 0.05; (b) the
@@ -650,10 +698,12 @@ question (arm 1 closed it — a Greedy share is a wash and cannot
 punish the gift; the easy-AI-as-sparring candidate is banned by the
 constraint).
 
-1. **Search over the learned value head** — the pre-registered
-   veto/one-ply experiment above. Inference only; no bootstrap, no
-   layout change.
-2. **Scenario-seeded self-play** — shape the initial-state
+1. **Search over the learned value head** — done 2026-08-26 (the
+   entry above): the gift is suppressed and hard mode is measured,
+   but the easy-mean bar was missed by 0.005 and the remaining losses
+   are strategic — raw v3 stays the reported player, search stays a
+   multiplier in waiting.
+2. **Scenario-seeded self-play** — **next**: shape the initial-state
    distribution, not the opponent: a fraction of training games starts
    from positions where the failure is on the table (DEFCON 2, a
    gift card in hand; later, prefixes of lost eval games if that
