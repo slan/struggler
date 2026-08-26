@@ -1094,9 +1094,12 @@ Findings from the first four random games, and what became of each:
   exposed an open **rules** question: the AI's granted coup reached
   DEFCON 1 during the headline phase and the DLL awarded the win to
   the coup's own actor, blaming the player who *played the causing
-  event* (the printed 4.5 note's reading), where the engine blames the
-  marker's mover (`_defcon_one_loser`'s `caused_by`); pending a ruling
-  before any engine change, since it resolves rules (`RULES_VERSION`). **The DLL plays the
+  event* (the printed 4.5 note's reading), where the engine blamed the
+  marker's mover (`_defcon_one_loser`'s `caused_by`). Ruled for the
+  DLL's reading and fixed
+  (`fix/defcon-one-headline-event-owner`, rules version 4:
+  `_headline_current` tracks the resolving headline, and the DEFCON-1
+  loser during the headline phase is its owner). **The DLL plays the
   tournament bid natively**: `GameParameters.additionalInfluence` (the
   app's handicap) inserts a US "Place N Influence" step right after the
   regular setup with exactly the engine's 11.1.4 semantics — candidates

@@ -284,7 +284,12 @@ and before the banned coup; the end-of-turn Military Operations
 penalties netted before the marker moves, and paid before a held
 scoring card loses the game; Marine Barracks Bombing
 removing two points, not two countries; Willy Brandt prevented once
-Tear Down This Wall has been played).
+Tear Down This Wall has been played). Version 4 is one ruling the
+official AI exposed (docs/WOPR.md, `gs-trace-304`): DEFCON 1 reached
+during the headline phase loses the player who *played* the resolving
+headline event — rule 4.5's note — not the side that moved the marker
+(a USSR-headlined Grain Sales hands the US a card it coups with; the
+USSR loses).
 
 ## Opening deal order
 

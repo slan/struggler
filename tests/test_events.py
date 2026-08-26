@@ -1359,7 +1359,28 @@ def test_defcon_one_loses_the_phasing_player_whoever_moved_the_marker():
     engine.defcon = 2
     engine._change_defcon(-1, caused_by=Side.US)
     assert engine.is_terminal and engine.winner is Side.USSR
-    # In the headline phase the side whose card did it loses.
+    # In the headline phase the player who played the resolving headline
+    # event loses, whoever moved the marker (rule 4.5's note): the USSR
+    # headlined Grain Sales, the US spent the card it drew on a coup that
+    # reached DEFCON 1 -- the USSR loses.
+    engine = _bare()
+    engine.phase = "headline"
+    engine._headline_resolving = True
+    engine._headline_current = ["USSR", "Grain_Sales_to_Soviets"]
+    engine.defcon = 2
+    engine._change_defcon(-1, caused_by=Side.US)
+    assert engine.is_terminal and engine.winner is Side.US
+    # The tracked pair round-trips (mandate #5) and is absent otherwise.
+    engine = _bare()
+    engine.phase = "headline"
+    engine._headline_resolving = True
+    engine._headline_current = ["US", "Duck_and_Cover"]
+    data = engine.serialize()
+    assert data["headline_current"] == ["US", "Duck_and_Cover"]
+    assert Engine.deserialize(data)._headline_current == ["US", "Duck_and_Cover"]
+    assert "headline_current" not in _bare().serialize()
+    # Without a resolving headline (a bare harness) the side whose move
+    # did it loses, as before.
     engine = _bare()
     engine.phase = "headline"
     engine.defcon = 2
