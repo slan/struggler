@@ -650,9 +650,15 @@ a seat — above Greedy's zero, an order below the internal yardsticks.
 Veto vs search: the rules-check alone captures most of the USSR-seat
 lift (0.154 vs 0.173) — third dataset agreeing the blunder refusal,
 not the value re-ranking, is the engine of the gain — though the
-veto's easy US seat dipped to 0.038 (21 Europe-control losses, n=52;
-noted as an open oddity, not explained). Bridge attrition 2–7 per
-60-game arm, as before.
+veto's easy US seat dipped to 0.038 (21 Europe-control losses, n=52).
+*Resolved 2026-08-26: noise, not a veto effect. Same-seed games
+against the nondeterministic AI are not paired — across the 60
+veto/raw seed pairs the first diverging action is the AI's own in 59
+and a US decision in exactly 1, so the veto's behavioral footprint on
+that seat is nil (it only fires on provable losses, which the easy US
+seat rarely faces before the AI forks the game); the dip and the
+Europe-control cluster are sampling variance at n≈50.* Bridge
+attrition 2–7 per 60-game arm, as before.
 
 **Decision.** By the pre-registered rules: (a) missed by a hair —
 the standing Playdek eval keeps **raw v3** as the reported player,
