@@ -984,6 +984,80 @@ SELF-PLAY-ONLY becomes an explicit review decision. Neither starts
 without its own pre-registered entry. The scenario infrastructure
 stays: any future arm can shape its start states for free.
 
+### 2026-08-28 — the league exploiter (pre-registered)
+
+**Question.** Can an opponent *trained to beat the line* — rather than
+the line's naive self-play distribution — supply the punishment the
+easy AI applies and self-play does not? Three arms in a row (layout
+v2, search, the state prior) moved the internal ladder and not the
+Playdek number; scen1's diagnosis pinned the wall on the opponent
+distribution. The exploiter attacks exactly that while staying inside
+SELF-PLAY-ONLY: it is the line's own weights, trained against the
+line's frozen versions.
+
+**Setup.** Two runs, in order.
+
+*Run A, the exploiter* (`runs/exploit1`): **fresh weights** (decided
+on review over `--init` from v3: AlphaStar's exploiters started
+fresh, and a fresh net can find exploits outside v3's basin; the risk
+that one ab-budget is too small for a net that has to learn the game
+*and* the exploit is accepted, hedged by the mix below). Recipe v11's
+hyperparameters at bid 2, 8,000 games, with the mix changed to
+`--self-play 0.2 --vs-pool 0.8 --snapshot-every 0 --pool-seed
+v1=baselines/r3-bid2/v1/joshua.pt v2=baselines/r3-bid2/v2/joshua.pt
+v3=baselines/r3-bid2/v3/joshua.pt` (the new pool-seed wiring): the
+pool *is* the champion line and never grows. This is the
+fixed-opponent shape the r1 anchors failed on (constant reward once
+one side always wins) — the hedge is threefold: PFSP's hardness
+weighting walks the line as a curriculum (v1 first once anything
+falls), the 20% self-play slice keeps a live gradient while every
+champion still wins, and the entropy bonus does the rest. Scenario
+seeding on (`--scenarios scenarios/defcon2-gift-v3.jsonl
+--scenario-frac 0.25`): scen1 showed the state prior alone teaches
+nothing, but the exploiter *seated as the punisher* in those states
+is the half that was missing. No DLL anywhere in run A.
+
+*The gate, A → B* (pre-registered bar): the exploiter against v3,
+head to head (`wopr.eval`, argmax, eval seeds 0/1/2, 200 games a
+seed-pair per seed): **worst seed ≥ 0.6**. Miss it with the
+vs-champion curve still climbing at 8k → continue the run once, one
+more ab-budget, cap total 16k (the bootstrap's Cap rule). Miss it
+flat → the arm washes at step A; record the diagnosis and stop.
+Either way run A gets its `wopr.diagnose` (endings, VP by card, vs
+v3) — *how* an exploiter beats the line, or fails to, is the arm's
+finding regardless of the gates.
+
+*Run B, the champion counter-run* (`runs/counter1`): `--init` from
+v3, recipe v11 unchanged (self-play 0.5 / vs-pool 0.5, snapshots on)
+except the pool starts seeded with the exploiter
+(`--pool-seed exploit1=runs/exploit1/joshua.pt`), 8,000 games, bid 2.
+PFSP makes the exploiter's share self-adjusting: sampled most while
+it still beats the learner, fading as the lesson lands.
+
+*Internal gate before any DLL spend*: `wopr.diagnose` on run B — vs
+Greedy must hold (≥ 0.9; v3 is 0.940) and the USSR edge stay in
+family; a collapse voids the eval and the arm records why. Ledger
+rows via `wopr.ab --existing` for both runs.
+
+**Metrics and decision rule** (written before any training): (a) the
+standing easy eval of run B (120 games, 60 a seat, bid 2, argmax,
+seeds 300+) against raw v3's 0.093/0.078 (mean 0.086), bar **mean ≥
+0.136** (+0.05, the same bar search missed) → run B is the reported
+player and the loop continues with an exploiter slot in the mix. (b)
+The mechanism metric: the USSR DEFCON-loss share (raw v3 ~0.4) and
+the US blowout share. (a) flat with (b) halved → the punishment
+landed and transfer still failed — the strongest evidence yet that
+the wall is not reachable from inside SELF-PLAY-ONLY; relaxing it
+goes to review. Both flat → the arm closes negative; relaxing
+SELF-PLAY-ONLY becomes the explicit review decision either way
+(road map ladder, user's call, never an experiment default). (c) The
+eval's desyncs are mined first — the `grain` and `hand-drift`
+evidence lines (WOPR.md, ninth pass) should pin both open families.
+
+**Budget.** Run A 8k (~50 min, one continuation allowed on the Cap
+rule) + run B 8k + one DLL eval at the end (120 games, ~140 min).
+Nothing else without a new entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -1016,8 +1090,8 @@ constraint).
    bid 2), and hard is not measured again until that bar is met. The
    first hard numbers (search batch, ~0.04–0.12 a seat) stand as the
    record of the mountain's size.
-4. **In reserve: the league exploiter** — only if search plus seeding
-   leave the gift rate standing.
+4. **The league exploiter** — out of reserve 2026-08-28 (search plus
+   seeding left the gift rate standing); pre-registered above, running.
 5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
    traces caught by volume; matters more as evals move to hard mode's
    longer games.

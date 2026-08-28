@@ -183,6 +183,25 @@ def test_pool_prioritises_snapshots_the_learner_loses_to(tmp_path):
     assert (tmp_path / "strong.pt").exists() and strong == POOL_PREFIX + "strong"
 
 
+def test_pool_seed_copies_checkpoints_in_once_and_validates_specs(tmp_path):
+    from struggler.bots.joshua.model import load_checkpoint, save_checkpoint
+    from wopr.train import seed_pool
+
+    torch.manual_seed(0)
+    source_net, source = JoshuaNet(SMALL), tmp_path / "v3.pt"
+    save_checkpoint(source_net, source)
+    pool = CheckpointPool(tmp_path / "pool")
+    seed_pool(pool, [f"v3={source}"])
+    net, extra = load_checkpoint(pool.path("v3"))
+    assert pool.names == ["v3"] and extra["seeded_from"] == str(source)
+    assert all(torch.equal(v, source_net.state_dict()[k]) for k, v in net.state_dict().items())
+    assert pool.sample(random.Random(0)) == POOL_PREFIX + "v3"
+    seed_pool(pool, [f"v3={source}"])  # a resumed run passes the same flags again
+    assert pool.names == ["v3"]
+    with pytest.raises(ValueError):
+        seed_pool(pool, ["no-equals-sign"])
+
+
 def test_pool_save_retries_a_transient_rename_failure(tmp_path, monkeypatch):
     # Windows: a rename over a file another process has open for a moment
     # raises PermissionError; the stats are saved after every pool game.

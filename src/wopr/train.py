@@ -12,6 +12,8 @@ Opponent mix per game (`--self-play`, `--vs-pool`, remainder vs `--anchor`):
   both perspectives from one game.
 - vs pool: the learner takes a random seat against a PFSP-sampled past
   snapshot (falls back to self-play while the pool is empty).
+  `--pool-seed name=ckpt.pt ...` pre-loads the pool with frozen
+  checkpoints -- the exploiter/counter-run wiring (docs/WOPR.md).
 - vs anchor: against `random` or `greedy`, a fixed yardstick.
 
 `--eval-every N` plays the latest checkpoint against Greedy (`--eval-games`,
@@ -112,6 +114,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--anchor-window", type=int, default=100, help="anchor games the promotion win rate is measured over")
     p.add_argument("--snapshot-every", type=int, default=10, help="updates between pool snapshots (0: never)")
     p.add_argument("--pool-window", type=int, default=None, help="sample only the newest N snapshots")
+    p.add_argument(
+        "--pool-seed", nargs="+", default=None, metavar="NAME=CKPT",
+        help="checkpoints copied into the run's pool before training: frozen opponents "
+        "the seat assigner samples like any snapshot, PFSP-weighted by the learner's "
+        "record. Seeded first, they are the pool's oldest entries -- a --pool-window "
+        "can age them out. Idempotent on resume (a name already in the pool is skipped).",
+    )
     p.add_argument("--no-events", action="store_true", help="Ops-only curriculum: Engine.new_game(events=False)")
     p.add_argument("--margin", type=float, default=0.0, help="weight of the final VP margin in the terminal reward: (1-m)*outcome + m*clip(vp/20); 0 is the outcome alone")
     p.add_argument("--handicap", type=int, default=0, help="training games open with the US this many VP ahead (a tournament bid for the USSR seat); evaluation stays at 0")
@@ -154,6 +163,22 @@ def make_seat_assigner(self_play: float, vs_pool: float, anchor: AnchorSchedule,
         return {learner_side: LEARNER, learner_side.opponent: opponent}
 
     return assign
+
+
+def seed_pool(pool: CheckpointPool, specs: Sequence[str]) -> None:
+    """Copy `name=checkpoint.pt` specs into the pool as ordinary snapshots.
+
+    Loading (not file-copying) validates the checkpoint's layout version up
+    front and re-saves it self-describing. A name already in the pool is
+    skipped, so a resumed run can pass the same flags again."""
+    for spec in specs:
+        name, sep, path = spec.partition("=")
+        if not sep or not name or not path:
+            raise ValueError(f"--pool-seed {spec!r}: expected name=checkpoint.pt")
+        if name in pool.stats:
+            continue
+        net, _ = load_checkpoint(path, device="cpu")
+        pool.add(name, net, extra={"seeded_from": str(path)})
 
 
 def resolve_device(name: str) -> str:
@@ -290,6 +315,8 @@ def run(
     config_path = run_dir / "config.json"
     model_path = run_dir / "ppo.zip"
     pool = CheckpointPool(run_dir / "pool", window=args.pool_window)
+    if args.pool_seed:
+        seed_pool(pool, args.pool_seed)
 
     games_done = 0
     updates_done = 0

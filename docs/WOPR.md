@@ -476,7 +476,22 @@ Vinyals et al., *Grandmaster level in StarCraft II using multi-agent
 reinforcement learning*, Nature 575 (2019),
 <https://doi.org/10.1038/s41586-019-1724-z>; their `f_hard(p) = (1 − p)^k`
 is the weight above. What WOPR keeps is the main-agent pool and the
-weighting; the league's exploiter agents it does not have.
+weighting; a league exploiter is built from the same parts by
+*seeding* the pool.
+
+`--pool-seed name=ckpt.pt ...` copies frozen checkpoints into a run's
+pool before training (`train.seed_pool`; idempotent on resume — a name
+already present is skipped, and loading rather than file-copying
+validates the layout version up front). Seeded snapshots are ordinary
+pool entries: PFSP-weighted by the learner's record, sampled by the
+same seat assigner, `stats.json` beside them. Two shapes it enables
+(the exploiter arm, JOSHUA.md): an *exploiter* run — fresh weights,
+the pool seeded with a champion line and `--snapshot-every 0`, so the
+opponents are exactly the line and PFSP's hardness walks it as a
+curriculum — and a *counter-run* — `--init` from the champion with the
+exploiter seeded beside its own snapshots, its share self-adjusting
+(sampled most while it still beats the learner). Seeded entries are
+the pool's oldest, so a `--pool-window` can age them out.
 
 ### The ladder (`wopr/ladder.py`, `eval.py`)
 
