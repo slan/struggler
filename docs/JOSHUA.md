@@ -1129,6 +1129,30 @@ evals; run B and the DLL eval only past the gate, as already
 budgeted. Ledger: one `wopr.ab --existing` row at whatever endpoint
 this reaches.
 
+**Result** (2026-08-29). At 24k: gate 0.522 / 0.512 / 0.472 (worst
+0.472, miss), segment curve up (0.46 → 0.62 windowed), US seat
+0.31–0.38 — both watched metrics said budget, on to the cap. At 32k:
+gate **0.660 / 0.565 / 0.520 — worst seed 0.520, miss**, cap spent,
+final segment flattening (~0.59–0.64). The trajectory across the
+arm: worst seed 0.28 → 0.47 → 0.52, mean 0.31 → 0.50 → 0.58; the US
+seat went 0.16 → 0.34 → 0.45–0.64, so the specialist reading
+dissolved — at the cap the exploiter beats v3 *on mean on every
+seed* and misses only the pre-registered bar's worst-seed margin
+(and would miss the loop's own 0.55 bar by 0.03). Ledger row at the
+endpoint.
+
+**Decision.** The gate missed at the hard cap: this arm is done —
+no run B from this entry, no DLL hours spent, raw v3 still the
+reported player. The question's honest answer: budget was *most* of
+the problem (every doubling roughly halved the gap) but the curve
+flattened before the bar. The review reconvenes on options 2–4 with
+the evidence changed in one important way: option 3's asymmetric
+counter-run was argued at 16k from a USSR-only attack, and at 32k
+exploit1 is a *both-seats* near-peer of v3 (0.582 mean) with the
+attack intact — seeding it into a counter-run no longer waives much
+of the bar the gate protected. Options 2 (v3-init) and 4 (relaxing
+SELF-PLAY-ONLY) stand as before.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -1166,10 +1190,12 @@ constraint).
    champion line found a USSR-side attack (near-even vs v3 on that
    seat) but missed the 0.6 counter-training gate at the 16k cap
    while still climbing; run B never started, no DLL hours spent.
-   The review (2026-08-29) chose the cheapest fork first: the
-   continuation entry above, exploit1 to 32k with the same gate;
-   options 2–4 (v3-init, asymmetric counter-run, relaxing
-   SELF-PLAY-ONLY) stay live behind it.
+   The review (2026-08-29) chose the budget fork first; the
+   continuation ran exploit1 to the 32k cap and **missed the gate at
+   worst seed 0.520** (mean 0.582 vs v3, both seats risen, curve
+   flattening). The arm is closed; the review reconvenes on options
+   2–4, with option 3 (counter-run seeded with exploit1 as-is)
+   strengthened by the endpoint being a both-seats near-peer.
 5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
    traces caught by volume; matters more as evals move to hard mode's
    longer games.

@@ -18,3 +18,4 @@ docs/JOSHUA.md, or docs/archive/JOSHUA-r1.md for `r1`.
 | 2026-08-22 | r2 | `engine-fixes` | `b55daf5` | v11 | 8,000 | — | — | 0.748 [0.740] (US 0.74 / USSR 0.76) | 0.520 | first r2 clean run: recipe v11 on the nine engine fixes (b55daf5); no control on a fresh ladder; Greedy is the fixed one (cc04ffa) |
 | 2026-08-23 | r3 | `r3` | `dd2f4e1` | v11 | 14,020 | — | — | 0.865 [0.855] (US 0.79 / USSR 0.94) | 0.625 | the r3 bootstrap: recipe v11 from scratch, confirmed at 14,020 games; frozen as r3/v1 |
 | 2026-08-29 | r5 | `exploit1` | `8e8b3f9` | v11 | 16,000 | — | — | 0.838 [0.825] (US 0.77 / USSR 0.91) | 0.670 | league exploiter: fresh net vs the seeded line (JOSHUA.md), gate missed at the 16k cap |
+| 2026-08-29 | r5 | `exploit1` | `afc0183` | v11 | 32,000 | — | — | 0.962 [0.935] (US 0.98 / USSR 0.95) | 0.610 | exploiter continuation endpoint: 32k cap, gate missed at worst seed 0.52 (mean 0.582 vs v3, both seats risen) |
