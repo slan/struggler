@@ -19,9 +19,12 @@ from __future__ import annotations
 
 import random
 from dataclasses import dataclass, field
-from typing import Callable, Mapping, NamedTuple, Protocol, Sequence
+from typing import TYPE_CHECKING, Callable, Mapping, NamedTuple, Protocol, Sequence
 
 from struggler.engine import Engine, Observation, Side
+
+if TYPE_CHECKING:
+    from wopr.scenarios import ScenarioBank
 
 #: Decides the two seats' policy ids for a game: (slot, episode, rng) -> {side: policy id}.
 SeatAssigner = Callable[[int, int, random.Random], Mapping[Side, str]]
@@ -77,11 +80,20 @@ class Arena:
         total_slots: int | None = None,
         starting_vp: int = 0,
         us_bid: int = 0,
+        scenario_bank: "ScenarioBank | None" = None,
+        scenario_frac: float = 0.0,
     ) -> None:
         """`starting_vp` opens every game at that VP (US-positive): a handicap
         for the USSR seat, as a tournament bid. 0 is the printed game.
         `us_bid` opens every game with the official tournament bid instead
         (rule 11.1.4): that much extra US influence placed after setup.
+
+        `scenario_bank`/`scenario_frac` start that fraction of games from
+        a bank state re-hidden by `Engine.determinize` instead of the
+        printed setup (`wopr.scenarios`, docs/JOSHUA.md). The choice, the
+        entry and the determinize seed are pure functions of the game
+        seed, so both backends play the same games; the bank's game spec
+        must match the arena's.
 
         `slot_offset`/`total_slots` make this arena a slice of a larger
         one: its slots are numbered from `slot_offset` for seeding and for
@@ -97,6 +109,13 @@ class Arena:
         self._include_optional = include_optional
         self._starting_vp = starting_vp
         self._us_bid = us_bid
+        if scenario_frac and scenario_bank is None:
+            raise ValueError("scenario_frac needs a scenario_bank")
+        if scenario_bank is not None:
+            scenario_bank.validate(us_bid=us_bid, starting_vp=starting_vp,
+                                   events=events, include_optional=include_optional)
+        self._scenario_bank = scenario_bank
+        self._scenario_frac = scenario_frac
         self._slot_offset = slot_offset
         self._total_slots = n_games if total_slots is None else total_slots
         if slot_offset < 0 or slot_offset + n_games > self._total_slots:
@@ -110,15 +129,24 @@ class Arena:
         # seat assigner's randomness comes from the arena's own rng.
         global_slot = self._slot_offset + slot
         game_seed = self._seed * 1_000_003 + episode * self._total_slots + global_slot
-        engine = Engine.new_game(
-            seed=game_seed, events=self._events, include_optional=self._include_optional,
-            starting_vp=self._starting_vp, us_bid=self._us_bid,
-        )
+        engine = self._new_engine(game_seed)
         self._resolve_chance(engine)
         seats = dict(self._seat_assigner(global_slot, episode, self._rng))
         if set(seats) != {Side.US, Side.USSR}:
             raise ValueError(f"seat assigner must assign exactly US and USSR, got {sorted(s.value for s in seats)}")
         return _Slot(engine=engine, seats=seats, episode=episode, seed=game_seed)
+
+    def _new_engine(self, game_seed: int) -> Engine:
+        # The scenario draw hangs off the game seed alone, so k sliced
+        # arenas make the same choice one whole arena would for that slot.
+        if self._scenario_bank is not None and self._scenario_frac > 0.0:
+            rng = random.Random(game_seed * 2_147_483_629 + 17)
+            if rng.random() < self._scenario_frac:
+                return self._scenario_bank.start(rng.randrange(len(self._scenario_bank)), rng.getrandbits(63))
+        return Engine.new_game(
+            seed=game_seed, events=self._events, include_optional=self._include_optional,
+            starting_vp=self._starting_vp, us_bid=self._us_bid,
+        )
 
     def reset(self, slot: int) -> None:
         """Start the next game in `slot` (a fresh engine, a fresh seat assignment)."""

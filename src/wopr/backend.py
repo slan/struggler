@@ -194,9 +194,15 @@ class InProcessBackend:
             for slot in active:
                 if self.arena.is_terminal(slot):
                     if movers is not None:
-                        if records[slot] is not None:
-                            raise RuntimeError(f"slot {slot}: two games ended in one step")
-                        records[slot] = self._finish(slot, movers[slot])
+                        if records[slot] is None:
+                            records[slot] = self._finish(slot, movers[slot])
+                        # else: the slot's *replacement* game ended during
+                        # this same fast-forward, before its first learner
+                        # decision -- possible under scenario starts (a
+                        # DEFCON-2 opening the opponent seat closes at
+                        # once), impossible from the printed setup. No row
+                        # was written for it, so there is nothing to
+                        # reward: drop it and reset again.
                     self.arena.reset(slot)
                     still_active.append(slot)
                     continue
@@ -281,6 +287,8 @@ class ArenaSpec:
     starting_vp: int = 0
     us_bid: int = 0  # the tournament bid (Arena us_bid)
     margin: float = 0.0  # the terminal reward's final-VP weight (`EpisodeRecord.reward`)
+    scenario_path: str | None = None  # a scenario bank (wopr.scenarios); each worker loads it
+    scenario_frac: float = 0.0  # fraction of games started from the bank
 
 
 @dataclass(frozen=True)
@@ -351,10 +359,16 @@ def worker_main(
         us, ussr = shared["next_seats"][slot]
         return {Side.US: _decode(us), Side.USSR: _decode(ussr)}
 
+    bank = None
+    if spec.scenario_path is not None:
+        from wopr.scenarios import ScenarioBank
+
+        bank = ScenarioBank.load(spec.scenario_path)
     arena = Arena(
         len(slots), seed=spec.seed, seat_assigner=assign, events=spec.events,
         include_optional=spec.include_optional, slot_offset=lo, total_slots=spec.n_games,
         starting_vp=spec.starting_vp, us_bid=spec.us_bid,
+        scenario_bank=bank, scenario_frac=spec.scenario_frac,
     )
     backend = InProcessBackend(
         arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin

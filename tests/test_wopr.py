@@ -669,3 +669,40 @@ def test_the_tournament_bid_reaches_every_game_and_both_backends(tmp_path):
     jobs = [PairJob("random", "first", 4, seed=7, us_bid=2)]
     matches = play_pairs(jobs, workers=1)[0]
     assert len(matches) == 4  # the pair plays to results under the bid
+
+
+def test_backend_drops_a_replacement_game_that_ends_before_a_learner_decision(tmp_path, monkeypatch):
+    """A scenario start can die in the opponent's opening moves: the old
+    game's record is already written when the replacement ends inside the
+    same fast-forward, and no learner row exists for the new one -- the
+    backend must drop it and reset again, not raise (the scen1 collector
+    crash)."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).parent))
+    from conftest import bare_engine
+
+    def near_terminal(mover: Side):
+        # One coup decision for `mover` at DEFCON 2 on a battleground: any
+        # answer degrades DEFCON to 1 and ends the game.
+        e = bare_engine(seed=1)
+        e.defcon = 2
+        e.board.influence["Cuba"][mover.opponent.value] = 1
+        e.begin_coup(mover, ops=1)
+        return e
+
+    engines = [near_terminal(Side.USSR),  # consumed by Arena.__init__, replaced by reset()
+               near_terminal(Side.USSR),  # ep 1: the learner's own decision
+               near_terminal(Side.US),    # ep 2: the opponent's -- ends pre-learner
+               near_terminal(Side.USSR)]  # ep 3: a live learner decision again
+    calls = iter(engines)
+    monkeypatch.setattr(Arena, "_new_engine", lambda self, seed: next(calls))
+
+    arena = Arena(1, seed=3, seat_assigner=_seats("first", LEARNER))
+    backend = InProcessBackend(arena, StandardOpponents(str(tmp_path), seed=1))
+    backend.reset()
+    rewards, dones, records = backend.step(np.zeros(1, dtype=np.int64))
+
+    assert dones[0] and records[0] is not None  # the learner's game, closed once
+    assert records[0].mover is Side.USSR
+    assert arena.mover(0) is Side.USSR  # the slot sits at episode 2's learner row
+    assert arena.engine(0).defcon == 2 and not arena.is_terminal(0)

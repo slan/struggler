@@ -422,6 +422,45 @@ the loop's gate, `wopr.baseline` — stays at the printed game;
 `wopr.eval --handicap N` plays a pair under a bid, which with a policy
 against itself (`a=x.pt b=x.pt`) measures the USSR edge at that bid.
 
+### Scenario-seeded starts (`wopr/scenarios.py`)
+
+A *scenario bank* shapes the initial-state distribution of training
+games without touching the opponent mix (the scenario-seeded self-play
+arc, JOSHUA.md). `python -m wopr.scenarios --out
+scenarios/defcon2-gift.jsonl --games 400 --bid 2 --policy random`
+harvests states from scripted games — every first state per (turn,
+action round, mover) where a named predicate matches, at most
+`--per-game` per game. The bank is JSONL: a header recording the game
+spec it was harvested under (`us_bid`, `starting_vp`, `events`,
+`include_optional` — the arena refuses a bank whose spec differs from
+its own) and the generator, then one `Engine.serialize()` state per
+line. Predicates: `defcon2_gift` — an `ACTION_ROUND_PLAY` decision at
+DEFCON 2 with a granted-op gift in the mover's hand (CIA Created for
+the USSR seat, Lone Gunman for the US: the forced-endgame shape the
+search arc closed on).
+
+Starting from an entry never replays its game:
+`ScenarioBank.start(index, seed)` deserializes and re-hides the state
+with `Engine.determinize(mover, seed)` (`expose_chance_outcomes`
+cleared — a training game, not a search copy), so the mover's
+observation is preserved exactly while the deck order, the opponent's
+hand and every future roll are resampled. One entry is a distribution
+over games, all information-equivalent to what the mover knew
+(mandate #4).
+
+Wiring: `Arena(..., scenario_bank=, scenario_frac=)` draws each game's
+start from a pure function of the game seed — scenario or printed
+setup, the entry, the determinize seed — so k sliced arenas play
+exactly the whole arena's games and both backends stay step-for-step
+identical (`ArenaSpec.scenario_path`/`scenario_frac` carry it to the
+collectors, each of which loads the bank once). `wopr.train
+--scenarios bank.jsonl --scenario-frac 0.25` is the flag pair;
+`config.json` records both. Evaluation — the loop's gate,
+`wopr.baseline`, `--eval-every` — stays at the printed game: the bank
+shapes what is *practiced*, never what is *measured*.
+`tests/test_scenarios.py` pins the predicate, the resampling, the
+slice invariant and the spec check.
+
 ### The pool (`wopr/pool.py`)
 
 A directory of snapshots taken every `--snapshot-every` updates, with

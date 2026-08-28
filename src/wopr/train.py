@@ -116,6 +116,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--margin", type=float, default=0.0, help="weight of the final VP margin in the terminal reward: (1-m)*outcome + m*clip(vp/20); 0 is the outcome alone")
     p.add_argument("--handicap", type=int, default=0, help="training games open with the US this many VP ahead (a tournament bid for the USSR seat); evaluation stays at 0")
     p.add_argument("--bid", type=int, default=0, help="the tournament bid (11.1.4): this much extra US influence placed after setup, in every training game and in --eval-every's evaluations")
+    p.add_argument("--scenarios", default=None, help="a scenario bank (wopr.scenarios): start --scenario-frac of training games from its states; evaluation stays at the printed game")
+    p.add_argument("--scenario-frac", type=float, default=0.25, help="fraction of training games started from --scenarios (ignored without it)")
     p.add_argument("--device", default="auto", help="auto | cpu | cuda")
     p.add_argument("--precision", choices=list(PRECISIONS), default="bf16", help="bf16 autocast for the network (default; halves the update) or plain fp32")
     p.add_argument("--torch-threads", type=int, default=None)
@@ -163,14 +165,23 @@ def resolve_device(name: str) -> str:
 def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSchedule, device: str) -> WoprVecEnv:
     seats = make_seat_assigner(args.self_play, args.vs_pool, anchor, pool)
     opponents = StandardOpponents(str(pool.directory), args.seed, device)
+    scenario_path = getattr(args, "scenarios", None)
+    scenario_frac = getattr(args, "scenario_frac", 0.0) if scenario_path else 0.0
     if args.workers > 1:
         spec = ArenaSpec(args.n_envs, args.seed, events=not args.no_events, starting_vp=args.handicap,
-                         us_bid=args.bid, margin=args.margin)
+                         us_bid=args.bid, margin=args.margin,
+                         scenario_path=scenario_path, scenario_frac=scenario_frac)
         backend: Backend = SharedMemoryBackend(spec, seats, opponents, workers=args.workers, worker_threads=args.worker_threads)
     else:
+        bank = None
+        if scenario_path:
+            from wopr.scenarios import ScenarioBank
+
+            bank = ScenarioBank.load(scenario_path)
         backend = InProcessBackend(
             Arena(args.n_envs, seed=args.seed, seat_assigner=seats, events=not args.no_events,
-                  starting_vp=args.handicap, us_bid=args.bid),
+                  starting_vp=args.handicap, us_bid=args.bid,
+                  scenario_bank=bank, scenario_frac=scenario_frac),
             opponents,
             margin=args.margin,
         )
