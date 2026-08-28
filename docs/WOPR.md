@@ -211,7 +211,10 @@ new state out of Python objects and inside the layout.
 
 ## The model (`model.py`)
 
-`JoshuaNet`, ~270k parameters at defaults:
+`JoshuaNet`, ~286k parameters at defaults. The architecture as a
+picture: [WOPR_arch.svg](WOPR_arch.svg) (source `WOPR_arch.dot`;
+regenerate with `dot -Tsvg docs/WOPR_arch.dot -o docs/WOPR_arch.svg`
+after any change here). In prose:
 
 - **Board as a graph.** Country features pass through a small graph
   network over the fixed adjacency (dense, row-normalised, self-loops):

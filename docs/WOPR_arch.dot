@@ -1,0 +1,91 @@
+// JoshuaNet (bots/joshua/model.py) over the WOPR layout (features.py).
+// The prose contract is docs/WOPR.md ("The layout", "The model"); this is
+// the same architecture as a picture. Regenerate the SVG with:
+//   dot -Tsvg docs/WOPR_arch.dot -o docs/WOPR_arch.svg
+digraph JoshuaNet {
+    rankdir=LR;
+    fontname="Helvetica";
+    node [shape=record, fontname="Helvetica", fontsize=11];
+    edge [fontname="Helvetica", fontsize=10];
+
+    subgraph cluster_obs {
+        label="WOPR layout (one decision, mover's view)";
+        style="rounded";
+        color="#6BAED6";
+        obs_board   [label="board | [85 x 15]"];
+        obs_globals [label="globals | [102]"];
+        obs_loc     [label="card_loc | [110]"];
+        obs_rec     [label="card_recency | [110 x 2]"];
+        obs_hcard   [label="hist_card | [32]"];
+        obs_hfeats  [label="hist_feats | [32 x 7]"];
+        obs_focus   [label="focus | [2]"];
+        obs_ofeats  [label="opt_feats | [96 x 46]"];
+        obs_ocountry [label="opt_country | [96]"];
+        obs_ocard   [label="opt_card | [96]"];
+        obs_mask    [label="opt_mask | [96]", style="dashed"];
+    }
+
+    subgraph cluster_enc {
+        label="JoshuaNet.encode()";
+        style="rounded";
+        color="#74C476";
+        gnn [label="Linear 15→128\n2x graph layer\nrelu(Ws h + Wn (A h))\nfixed adjacency"];
+        nodes_latent [label="node latents | [85 x 128]"];
+        node_pool [label="Attention pool\nover nodes\n(query from globals)"];
+        globals_in [label="Linear 102→128"];
+        card_sum [label="card_emb + loc_emb\n+ W · recency\n[110 x 32]"];
+        loc_pool [label="Mean-pool\nper location\n→ 10 x 32"];
+        hist_sum [label="card_emb + W · feats\n[32 x 32]"];
+        hist_pool [label="Attention pool\nover history\n(query from globals,\nempty slots masked)"];
+        focus_emb [label="card_emb\n→ 2 x 32"];
+    }
+
+    concat [label="Concat\n[B, 672]"];
+    state_mlp [label="State MLP\n672→128, relu\n128→128, relu"];
+    state_latent [label="state latent | [B, 128]"];
+
+    value_head [label="Value head\n128→128→1 → V(s)", shape=box];
+
+    subgraph cluster_head {
+        label="Option head (score_options(), shared over every decision kind)";
+        style="rounded";
+        color="#9E9AC8";
+        opt_concat [shape=box, label="Per legal option, concat:\nstate 128 · option feats 46\ncountry node 128 · card emb 32"];
+        opt_mlp [label="MLP 334→128→1\n(legal rows only)"];
+        opt_logits [label="Masked logits [96]\n→ softmax / argmax"];
+    }
+
+    // Dataflow
+    obs_board -> gnn;
+    gnn -> nodes_latent;
+    nodes_latent -> node_pool;
+    obs_globals -> globals_in;
+    globals_in -> node_pool [label="query", style="dashed"];
+    globals_in -> hist_pool [label="query", style="dashed"];
+    obs_loc -> card_sum;
+    obs_rec -> card_sum;
+    card_sum -> loc_pool;
+    obs_hcard -> hist_sum;
+    obs_hfeats -> hist_sum;
+    hist_sum -> hist_pool;
+    obs_focus -> focus_emb;
+
+    node_pool -> concat [label="128"];
+    globals_in -> concat [label="128"];
+    loc_pool -> concat [label="320"];
+    hist_pool -> concat [label="32"];
+    focus_emb -> concat [label="64"];
+
+    concat -> state_mlp;
+    state_mlp -> state_latent;
+    state_latent -> value_head;
+
+    state_latent -> opt_concat;
+    nodes_latent -> opt_concat [label="the option's country row"];
+    obs_ofeats -> opt_concat;
+    obs_ocountry -> opt_concat;
+    obs_ocard -> opt_concat [label="card_emb"];
+    opt_concat -> opt_mlp;
+    opt_mlp -> opt_logits;
+    obs_mask -> opt_logits [style="dashed"];
+}
