@@ -1,0 +1,8 @@
+Sampled (stochastic), 200 games per opponent, eval seed 0
+
+v3 vs random: 0.985 over 200 | as US 0.990 | as USSR 0.980
+v3 vs first: 0.995 over 200 | as US 0.990 | as USSR 1.000
+v3 vs greedy: 0.775 over 200 | as US 0.720 | as USSR 0.830
+v3 vs v1: 0.725 over 200 | as US 0.720 | as USSR 0.730
+v3 vs v2: 0.583 over 200 | as US 0.365 | as USSR 0.800
+Elo: v3 +1082, v2 +902, v1 +886, greedy +814, first +219, random +0

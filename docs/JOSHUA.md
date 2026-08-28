@@ -768,7 +768,18 @@ Elo +1090 ± 215. Reading on (a), bootstrap half: **not faster** —
 steeper middle), landing at the same place. The loop's plateau and the
 Playdek eval remain the deciders.
 
-*(loop to plateau launched 2026-08-28; Playdek eval follows.)*
+**Result — loop** (2026-08-28, `runs/r4b2-boot/loop.csv`). Plateau at
+**v4 @28,520** (promotions at gens 1, 2, 4; gens 3 and 5 missed —
+2-of-3 rule): **0.940 vs Greedy** (US 0.900 / USSR 0.980), Elo +1180
+± 111. The old line: v3 @23k at 0.95 (0.941 re-rated on this engine).
+Reading on (a), complete: **the layout bump changes neither learning
+speed nor the internal ceiling** — one more promotion, ~5.5k more
+games, the same plateau height, and the gate's seat split (the
+challenger wins as USSR, not as US) unchanged. Whatever order and
+recency bought must show up against Playdek or not at all.
+
+*(Playdek eval of v4 launched 2026-08-28: easy 60 a seat, hard 30 a
+seat, bid 2, argmax, seeds 300+.)*
 
 ## Road map
 
