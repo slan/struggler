@@ -161,6 +161,7 @@ class Bridge:
         # first, whose records may by then be the FIFO's head.
         self._answered_countries: set[int] = set()
         self.recent: collections.deque[str] = collections.deque(maxlen=24)  # the last records, for diagnostics
+        self.loc_history: dict[str, list[str]] = {}  # card -> every CARD_LOCATION transition, for the hand-drift dump
         self._seq = 0  # absorbed records, counted: the arrival order of the facts below
         self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
         self.roll_seq: dict[int, int] = {}  # id(Roll) -> when it arrived
@@ -179,9 +180,14 @@ class Bridge:
         if self.trace:
             print(f"  !!  {self.report.divergences[-1]}")
 
+    #: Purely informational divergence kinds: evidence for later diagnosis,
+    #: never a reason to stop the game or to count toward the cap.
+    _DIAGNOSTIC = ("grain", "hand-drift")
+
     @property
     def stop(self) -> bool:
-        return any(d.fatal for d in self.report.divergences) or len(self.report.divergences) >= self.max_divergences
+        return (any(d.fatal for d in self.report.divergences)
+                or sum(1 for d in self.report.divergences if d.what not in self._DIAGNOSTIC) >= self.max_divergences)
 
     # -- the DLL side -----------------------------------------------------
 
@@ -340,6 +346,8 @@ class Bridge:
                     self._exits.append((self._move_seq, card, was, self._seq, self._exit_is_play(card, self._seq)))
             if was != loc:
                 self.recent.append(f"card {card}: {ffi.ECardLocation(was).name if was is not None else '?'} -> {ffi.ECardLocation(loc).name}")
+                self.loc_history.setdefault(card, []).append(
+                    f"{ffi.ECardLocation(was).name if was is not None else '?'}->{ffi.ECardLocation(loc).name}@{self._seq}")
                 if self.trace:
                     print(f"  EV  {self.recent[-1]}")
         else:
@@ -643,7 +651,10 @@ class Bridge:
                 return None
             offered = [a for a in d.options if a.payload["card"] in missing]
             if not offered:
-                self.diverge("illegal in engine", f"deal {sorted(missing)} to {side.value}: not in the engine's hidden pool", fatal=True)
+                trail = "; ".join(f"{c}: DLL history {self.loc_history.get(c, [])}" for c in sorted(missing))
+                self.diverge("illegal in engine", f"deal {sorted(missing)} to {side.value}: not in the engine's hidden pool "
+                             f"(engine hand {sorted(self.engine.hands[side.value])}; dealt-this-turn DLL {sorted(self._dealt[side])} "
+                             f"engine {sorted(self._engine_dealt[side])}; {trail})", fatal=True)
                 return d.options[0]
             self._engine_dealt[side].add(offered[0].payload["card"])
             return offered[0]
@@ -780,8 +791,13 @@ class Bridge:
         for a in d.options:
             if pred(a):
                 return a
+        # A card the engine does not offer is usually a hand drift: name the
+        # card's trail so the mismatch is diagnosable from the report alone.
+        card = what.split()[-1] if what else ""
+        trail = (f"; {card}: engine has it in {self._engine_location(card)}, DLL history {self.loc_history.get(card, [])}"
+                 if card in self.loc_history or card in ids.NUMBER_BY_CARD else "")
         self.diverge("illegal in engine", f"{d.actor.value} {d.kind.value}: Playdek chose {what}, engine offers "
-                     f"{[dict(a.payload) for a in d.options][:12]}{'...' if len(d.options) > 12 else ''}", fatal=True)
+                     f"{[dict(a.payload) for a in d.options][:12]}{'...' if len(d.options) > 12 else ''}{trail}", fatal=True)
         return d.options[0]
 
     def _pick_choice(self, d: Decision, mv: Move) -> Action:
@@ -881,6 +897,37 @@ class Bridge:
                         diffs.append(f"{side.value} hand: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")
         return diffs
 
+    def _engine_location(self, card: str) -> str:
+        e = self.engine
+        for side in ("USSR", "US"):
+            if card in e.hands[side]:
+                return f"{side} hand"
+        for name in ("draw_pile", "discard_pile", "removed_cards", "hidden_pool"):
+            if card in getattr(e, name):
+                return name
+        return "untracked"
+
+    def _hand_drift_dump(self) -> str:
+        """Every card the visible hands disagree on: the engine's location,
+        the DLL's full location history, and the deal bookkeeping."""
+        e = self.engine
+        parts = []
+        for side in (Side.USSR, Side.US):
+            if side is e.physical_side:
+                continue
+            theirs = {c for c, loc in self.card_loc.items() if loc == HAND_LOCATION[side]} - {CHINA}
+            ours = set(e.hands[side.value]) - {CHINA}
+            for card in sorted(theirs ^ ours):
+                tags = "".join(
+                    tag for cond, tag in (
+                        (card in self._dealt[side], " [DLL dealt this turn]"),
+                        (card in self._engine_dealt[side], " [engine dealt this turn]"),
+                        (self._last_played[side] == card, " [last played]"),
+                    ) if cond)
+                parts.append(f"{card} ({'DLL-only' if card in theirs else 'engine-only'}): engine has it in "
+                             f"{self._engine_location(card)}{tags}; DLL history {self.loc_history.get(card, [])}")
+        return "; ".join(parts) or "no visible-hand diff at dump time"
+
     def compare_state(self) -> None:
         e = self.engine
         if e.phase in ("idle", "predeal", "setup"):
@@ -894,6 +941,12 @@ class Bridge:
         text = "; ".join(diffs)
         if diffs and text != self._last_state_diff:
             self.diverge("state", f"turn {e.turn} AR {e.action_round}: " + text)
+            if any("hand: only" in d for d in diffs):
+                # A hand-contents drift never self-heals and its cause is a
+                # deal or card-move mismatch long scrolled out of `recent`:
+                # dump the diverging cards' whole DLL location history and
+                # where the engine has each, once, at first sight.
+                self.diverge("hand-drift", self._hand_drift_dump())
         self._last_state_diff = text
         if not diffs:
             self.synced_seq = self._seq

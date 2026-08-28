@@ -170,7 +170,9 @@ def main(argv: list[str] | None = None) -> None:
         print(f"[{len(results)}/{len(jobs)}] seed {r['seed']} as {r['side']}: {'DESYNC' if r['desync'] else 'VOID' if r.get('void') else won} "
               f"({r['win_type']}, score {r['score']}, turn {r['turn']}, {r['seconds']:.0f}s)", flush=True)
         for d in r["divergences"]:
-            if "known: " not in d:
+            # known counters and the grain/hand-drift evidence lines stay in
+            # results.jsonl; the console shows what needs eyes.
+            if "known: " not in d and "] grain: " not in d and "] hand-drift: " not in d:
                 print("    " + d, flush=True)
         if out:
             with (out / "results.jsonl").open("a", encoding="utf-8") as f:

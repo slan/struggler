@@ -249,7 +249,6 @@ class PlaydekOperator(Bridge):
             if actor is not self.other:
                 return True
             self._plays_seen.add(card)
-            self._flower_power_check(actor, card)
             if self._played != (card, self._dll_turn):
                 self._played = (card, self._dll_turn)
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"play {card}"))
@@ -268,18 +267,41 @@ class PlaydekOperator(Bridge):
             if card is not None:
                 self._fired.remove(card)
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"Missile Envy takes {card} (pushed as fired)")
+            # The emulated giver's own "Select Card to Give" answer, queued
+            # by `_choose`: the exact card, no inference needed.
+            q = self.moves[self.engine.physical_side]
+            if q and q[0].option.hint == SelectionHint.GIVE_CARD and q[0].meaning.card in offered:
+                given = q.popleft().meaning.card
+                return self._pick(d, lambda a: a.payload["choice"] == given,
+                                  f"Missile Envy takes {given} (the giver's own answer)")
+            # No reveal yet, and none is coming: when the exchange follows
+            # inside a headline chain (a headlined Grain Sales resolved
+            # first, seed 30 of the grain harness), the DLL is already
+            # asking the taker the exchanged card's use and reports the
+            # card's exit only after -- while the engine cannot reach the
+            # taker's decision before this pick. The card is computable:
+            # Missile Envy takes the highest-Ops card of the giver's hand,
+            # which the DLL's card locations name. A tie is the giver's
+            # choice, so only a unique maximum is safe to infer.
+            giver = self.engine.physical_side
+            hand = [c for c, loc in self.card_loc.items()
+                    if loc == HAND_LOCATION[giver] and c in offered]
+            if hand:
+                ops = {c: self.engine.cards[c].ops for c in hand}
+                top = max(ops.values())
+                best = [c for c in hand if ops[c] == top]
+                if len(best) == 1:
+                    return self._pick(d, lambda a: a.payload["choice"] == best[0],
+                                      f"Missile Envy takes {best[0]} (highest Ops of the DLL's hand, no reveal yet)")
         return action
 
-    def _flower_power_check(self, side: Side, card: str) -> None:
-        """Flower Power pays the USSR 2 VP for a war card the US *plays*
-        (the engine, and the card); the DLL pays only when the war's event
-        happens -- not for an Arab-Israeli War under Camp David Accords.
-        The VP then differ for the rest of the game: known, and void."""
-        if (side is Side.US and card in RULES["war_cards"] and self.engine.game_effects.get("flower_power")
-                and card in EVENTS and not EVENTS[card].eligible(self.engine, Side.US) and not self._simulating):
-            self.known["Flower Power: the DLL pays no VP for a US war card whose event is prevented (Arab-Israeli War under Camp David)"] += 1
-            self.diverge("rules", f"Flower Power: the engine pays the USSR 2 VP for the US playing {card} whose event cannot happen, "
-                         "the DLL does not", fatal=True)
+    # Flower Power on a prevented war card (Arab-Israeli War under Camp
+    # David Accords) was a known DLL difference this operator voided games
+    # on (`_flower_power_check`); rules version 5 adopts the DLL's reading
+    # in the engine (`_maybe_flower_power` checks `_event_fires`), so the
+    # two programs agree and the check is gone -- but the seed-358 trace
+    # shows the old check also failed to fire on the AI's play, so if such
+    # a VP drift ever reappears, suspect this corner first.
 
     def _exit_is_play(self, card: str, record_seq: int) -> bool:
         played = self._play_seq.get(card)
@@ -346,6 +368,18 @@ class PlaydekOperator(Bridge):
                 if r.win_type is ffi.GameOverType.HELD_CARDS and self._sides_by_player.get(r.winner_id) is self.side:
                     self.known["held scoring card in the hand the engine cannot see"] += 1
                     raise PlaydekEnded
+                if (r.win_type is ffi.GameOverType.HELD_CARDS
+                        and self.engine._trap_key_for(self.side) is not None):
+                    # The other face of the trapped-scoring-card difference:
+                    # the engine let the trapped bot play its scoring card
+                    # (the card: "may only play scoring cards") and plays
+                    # on; the DLL held it (ffi.TRAP_SCORING_CARD) and ends
+                    # the game on it at the turn's end. A documented rules
+                    # difference reaching game over: void, not a desync.
+                    self.known["trapped seat's held scoring card: the engine plays it under the trap, the DLL holds it to a HELD_CARDS loss"] += 1
+                    self.diverge("rules", f"held scoring card: the DLL ends the game ({r}) on the trapped {self.side.value} seat's "
+                                 "held scoring card where the engine had it played under the trap and plays on", fatal=True)
+                    return False
                 self.diverge("game over", f"Playdek's game ended ({self.game.result}) while the engine still asks {decision.actor.value} "
                              f"{decision.kind.value} at DEFCON {self.engine.defcon}, VP {self.engine.vp}, turn {self.engine.turn} AR {self.engine.action_round}",
                              fatal=True)
@@ -381,6 +415,15 @@ class PlaydekOperator(Bridge):
         if grain is not None and self.prompt_side(prompt) is self.other:
             # The emulated seat's Grain Sales: taken when the drawn card is played (a scoring card under its own hint)
             self._grain = (grain, option.hint in (SelectionHint.SWITCH_CARD, SelectionHint.PLAY_SCORING_CARD))
+        if option.hint == SelectionHint.GIVE_CARD and self.prompt_side(prompt) is self.other:
+            # Missile Envy: the emulated giver's "Select Card to Give". The
+            # DLL reveals the exchange record only after the event is done
+            # asking, but the engine's physical pick needs the card at once
+            # (its Ops-max inference cannot break a tie -- seed 30 of the
+            # grain harness): queue the real option, hint included, for
+            # `_answer_hidden_hand` to consume. Against the real AI no
+            # prompt exists and a tie stays a diagnosable divergence.
+            self.queue(self.other, Move(self.other, prompt, option, T.meaning(option)))
         if self.trace:
             print(f"  PD  {self.prompt_side(prompt).value:4s} {prompt.text!r} -> {option.text!r}")
         if self.emulate is not None and self.report.prompts == 1:
@@ -722,13 +765,28 @@ class PlaydekOperator(Bridge):
         # Where the DLL filed the card says which: back in the USSR's hand
         # it was returned, in a pile it was taken and played (taken and
         # still in the US hand: the same, not yet played).
-        loc = self.card_loc.get(d.context.get("card"))
+        taken = d.context.get("card")
+        loc = self.card_loc.get(taken)
         told = ("return" if loc == HAND_LOCATION[Side.USSR] else "take" if loc in PILES or loc == HAND_LOCATION[Side.US] else None)
+
+        def evidence(read: str) -> None:
+            # The scen1-eval Grain Sales family: three desyncs whose root
+            # was this very inference. One non-fatal line per real (not
+            # simulated) resolution, so the next batch's failures carry
+            # what the read was based on.
+            if not self._simulating:
+                self.diverge("grain", f"Grain Sales taken card {taken}: read {read}; DLL location {loc}, "
+                             f"history {self.loc_history.get(taken, [])}; queued moves "
+                             f"{[m.option.text for q in self.moves.values() for m in q][:6]}")
+
         if told is not None:
             option = next(a for a in d.options if a.payload["choice"] == told)
             if self._simulate_one(option):
+                evidence(f"'{told}' off the card's location, confirmed by simulation")
                 return option
         action = self._simulate(d)
+        if action is not None:
+            evidence(f"'{action.payload.get('choice')}' by simulation alone (location said {told!r})")
         if not (self.stop and len(self.report.divergences) > before):
             return action
         failed = self.report.divergences[before:]
@@ -767,6 +825,7 @@ class PlaydekOperator(Bridge):
         answered from the same facts, and keep the ones that leave the copy
         in the DLL's state. Nested choices recurse."""
         matches = []  # (facts left unconsumed, option order, option)
+        fails = []  # each option's failure, for the divergence report
         for i, option in enumerate(d.options):
             real, queues = self.engine, self._queues()
             divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
@@ -775,12 +834,18 @@ class PlaydekOperator(Bridge):
             try:
                 ok = self._try(option)
                 left = len(self.rolls) + sum(len(q) for q in self.moves.values())
+                if not ok:
+                    # Read off the copy before it is discarded: where this
+                    # option's line stopped and how it differed.
+                    fails.append(f"{dict(option.payload)} -> {'; '.join(self.state_diffs(hands=False)) or 'no diff at its stop point'}"
+                                 f" (at {self.engine.pending_decision.kind.value if self.engine.pending_decision else 'the end'})")
                 if self.trace:
                     print(f"  SIM {d.kind.value} {dict(option.payload)}: {'matches' if ok else 'no'}, {left} facts left"
                           f"{' (the copy ended)' if self.engine.is_terminal else ''}"
-                          f"{'' if ok else ': ' + ('; '.join(self.state_diffs(hands=False)) or 'stopped short')}")
+                          f"{'' if ok else ': ' + fails[-1]}")
             except Exception as e:  # an option the engine rejects downstream is simply not it
                 ok = False
+                fails.append(f"{dict(option.payload)} -> rejected ({e!r})")
                 if self.trace:
                     print(f"  SIM {d.kind.value} {dict(option.payload)}: rejected ({e!r})")
             finally:
@@ -793,7 +858,8 @@ class PlaydekOperator(Bridge):
                 matches.append((left, i, option))
         if not matches:
             self.diverge("choice", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: none of {[dict(a.payload) for a in d.options]} "
-                         f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}", fatal=True)
+                         f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}"
+                         f"; tried: {' | '.join(fails)}", fatal=True)
             return d.options[0]
         # Several may leave the same board (Junta's free Realignment that
         # removed nothing, and declining it): the one that consumed the
@@ -979,8 +1045,6 @@ class PlaydekOperator(Bridge):
         self.report.steps += 1
         if d.kind is DecisionKind.EVENT_RESUME:
             return
-        if d.kind in (DecisionKind.ACTION_ROUND_PLAY, DecisionKind.HEADLINE_PLAY):
-            self._flower_power_check(d.actor, action.payload["card"])
         if d.kind is DecisionKind.PLAY_MODE and self.engine.cards[d.context["card"]].scoring:
             return  # the DLL asks no use for a scoring card
         if (d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == CMC_DEFUSE and action.payload["choice"] == "skip"

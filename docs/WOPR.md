@@ -1082,7 +1082,9 @@ Findings from the first four random games, and what became of each:
   Arab-Israeli War under Camp David Accords is 2 VP in the engine and
   nothing in the DLL, and the VP differ for the rest of the game:
   `_flower_power_check` ends it as `known` the moment such a card is
-  played. And the largest: the DLL conducts Grain Sales' 2 Ops *and*
+  played. (Resolved at rules version 5: the engine adopts the DLL's
+  reading — a prevented event's war card does not trigger Flower Power
+  — and the check is gone; the ninth pass.) And the largest: the DLL conducts Grain Sales' 2 Ops *and*
   plays the taken card, against its own card text ("if returned, use
   this card to conduct Operations") -- the AI's favourite headline, so
   one USSR-seat game in ten: when neither take nor return reproduces the
@@ -1291,6 +1293,64 @@ Findings from the first four random games, and what became of each:
   at `--seed 40`, 47 held-card endings among them, and Greedy against
   the hard AI on it (`--seed 300`) is 30/30 a seat, zero desyncs, zero
   void (`runs/playdek/greedy-hard-ussr-run8`, `greedy-hard-us-run4`).
+- **Ninth pass, from the r4b2v4 easy evals** (16 desyncs over 240
+  games, two families sized, both addressed). One engine fix: an
+  event-granted free Realignment chain (Tear Down This Wall, Junta)
+  lost the card's terms after its first roll —
+  `_maybe_push_realignment_target` rebuilt the target list with the
+  ordinary DEFCON geography and no region restriction, so at DEFCON 2
+  the second European target was never offered (the eval's standing
+  weather; 5 of the 16, every one Tear Down This Wall) and, the other
+  face, a target outside the card's named countries was. The chain
+  context now carries `restrict`/`ignore_defcon` through every roll.
+  One classification fix: the trapped seat's scoring card reaching
+  game over — the engine lets the trapped seat play it (the card:
+  "may only play scoring cards"), the DLL holds it
+  (`TRAP_SCORING_CARD`) and ends the game HELD_CARDS at the turn's
+  end while the engine plays on; that was a fatal "game over"
+  mismatch (2 of the 16) and is now the documented rules difference's
+  void. And one diagnostic: a `_simulate` that matches no option now
+  reports where each option's line stopped and how it differed, so
+  the remaining singleton families come back from ordinary eval
+  volume with their traces attached. Verified: hotseat 8/8 at
+  `--seed 40`, the differ 12/12 at `--seed 1`, known families only.
+  The scen1 eval's six desyncs (first 100 games on this code) sorted
+  into three families with the new detail: Grain Sales' taken-card
+  resolution (3 — seeds 332, 354, 382: the engine and the DLL
+  disagree about whether the taken card was returned, played, or
+  still in hand, and the hands drift), a one-card hand/deal drift
+  (2 — seeds 338, 370: the bot's turn-8 deal differing in one card;
+  the AI playing a card the engine's hidden-hand tracking did not
+  contain), and Flower Power on a prevented war card (1 — seed 358:
+  the engine paid 2 VP for Arab-Israeli War under Camp David where
+  the DLL pays nothing; also rules version 5's second fix, above —
+  the old `_flower_power_check` void had failed to fire on the AI's
+  play). The Grain Sales and deal families are open: the plan is
+  volume with the per-option failure detail plus a hand-drift dump
+  (the recent `CARD_LOCATION` records and both hands at the first
+  mismatch), and the hidden-prompt harness
+  (`runs/playdek/trace/emu_grain.py`) extended over the taken-card
+  corners. Instruments landed for both: a per-card DLL location
+  history (`Bridge.loc_history`) behind three sights — a `hand-drift`
+  divergence dumping every diverging card's trail at the first
+  visible-hand mismatch, the card's trail on the two "illegal in
+  engine" fatals, and a `grain` line recording what every real Grain
+  Sales resolution was read from (neither kind counts toward
+  `max_divergences` or prints in the eval console; both ride
+  `results.jsonl`). The grain-biased harness
+  (`runs/playdek/trace/emu_grain2.py`: the emulated seat plays Grain
+  Sales whenever offered) found one reproducible desync in 149 seeds
+  and it was Missile Envy, not Grain Sales: a headlined Grain Sales
+  resolving before the bot's headlined Missile Envy leaves the
+  engine's physical pick waiting on an exchange record the DLL only
+  emits after its event stops asking — a deadlock. Two operator
+  fixes: the pick now falls back to the giver's hand per the DLL's
+  card locations, taking a *unique* Ops maximum (Missile Envy's own
+  rule; a tie is the giver's choice and is never guessed), and the
+  emulated giver's "Select Card to Give" answer is queued with its
+  real hint so the pick can consume it exactly (hotseat; against the
+  AI no prompt exists and a tie stays a diagnosable divergence).
+  After: the sweep 149/149, hotseat 8/8, the differ 12/12.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
