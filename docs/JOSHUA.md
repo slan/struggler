@@ -756,7 +756,19 @@ style training question stays parked (it multiplies strength on the
 policy's own distribution, which is not the failing axis). Ledger: the
 bootstrap's freeze writes the row.
 
-**Result.** *(pending — bootstrap launched 2026-08-28.)*
+**Result — bootstrap** (2026-08-28, `runs/r4b2-boot`,
+`bootstrap.csv`). **Confirmed @12,518** (r3-bid2: 11,024). The curve
+by rolling mean: 0.13 at 2k, 0.23 at 4k (old: 0.17, 0.38 — the USSR
+seat lagged at 0.11–0.19 while the US was already 0.33+), one sharp
+USSR catch-up at 6k (0.19 → 0.52 in one tick), 0.54 at 6.5k (old: 0.40
+at 8k), confirmation 0.788 (US 0.750 / USSR 0.827) over 600. Frozen as
+**r4-bid2/v1**: vs Greedy 0.766 (US 0.697 / USSR 0.835), random 0.988,
+Elo +1090 ± 215. Reading on (a), bootstrap half: **not faster** —
+~14% more games to confirm, a differently-shaped curve (slower early,
+steeper middle), landing at the same place. The loop's plateau and the
+Playdek eval remain the deciders.
+
+*(loop to plateau launched 2026-08-28; Playdek eval follows.)*
 
 ## Road map
 
