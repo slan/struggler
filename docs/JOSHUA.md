@@ -912,6 +912,78 @@ unmoved), **Greedy against itself at bid 2 0.52/0.48 by seat** over
 Verified against the DLL: hotseat 8/8, the differ 12/12, known
 families only.
 
+### 2026-08-28 — scenario-seeded self-play: the first run
+
+**Question.** Does shaping the initial-state distribution — training a
+fraction of games from positions where the named failure is on the
+table — move the easy-AI numbers where the layout bump and
+inference-time search did not? The arc bar: > 0.5 both seats at bid 2;
+this run's bar is more modest and pre-registered below.
+
+**Setup.** The layout-v1 line continues: a fresh run `--init` from
+r3-bid2/v3 (recipe v11, bid 2, self-play + pool as always), with
+`--scenarios scenarios/defcon2-gift-v3.jsonl --scenario-frac 0.25` —
+the bank harvested from v3's own sampled self-play (400 games,
+predicate `defcon2_gift`: an action-round card pick at DEFCON 2 with
+the granted-op gift in the mover's hand; WOPR.md, "Scenario-seeded
+starts"). Each scenario game re-hides the state with
+`Engine.determinize`, so the mover's knowledge is preserved and the
+hidden world is fresh per game. 8,000 games, ~50 min at 8 workers.
+No control arm (decided on review: the eval hours are worth more on
+the arm itself; v3's standing numbers are the reference). Evaluation
+stays at the printed game.
+
+**Metrics and decision rule** (written before the run): (a) the
+standing easy eval of the result (120 games, 60 a seat, bid 2, argmax,
+seeds 300+) against raw v3's 0.093/0.078 (mean 0.086) — the run
+becomes the reported player if the two-seat mean improves by ≥ 0.05
+(the bar the search missed); (b) the mechanism metric: the
+DEFCON-ending share of the USSR seat's losses (raw v3: ~17–21 of
+~50) — halving with a flat mean still says the gift lesson landed and
+the residual is the US blowout, pointing scenario v2 at early-war
+US-defence states; (c) vs Greedy and the USSR edge (`wopr.diagnose`)
+as internal sanity — a collapse there voids the eval spend. Readings:
+(a) clears → scenarios transfer; loop with scenarios to plateau, then
+the eval again. (a) flat with (b) halved → the prior works but is too
+narrow; scenario v2 adds the US-seat shape. Both flat → the prior as
+constructed does not transfer; diagnose before the next arm (the
+league exploiter stays in reserve). Ledger: the run's `wopr.ab
+--existing` row when it is compared.
+
+**Result** (2026-08-28, `runs/playdek/scen1-easy`; 120 games, 140
+min): USSR **0.113** [0.05, 0.23] (6/53), US **0.052** [0.02, 0.14]
+(3/58), two-seat mean **0.081** — raw v3's 0.086, the bar 0.136.
+(b) unmoved: the USSR DEFCON-loss share is 23 of 47 (raw v3: ~0.4);
+the US seat's mix is 35 VP blowouts and a new prominence of 11
+Europe-control losses. (c) passed before the eval: 0.942 vs Greedy,
+USSR edge 0.575. Attrition 7 desyncs + 2 void (one the old Flower
+Power check firing — that family's frequency confirmed; both void
+kinds are gone on the fixed code). Both (a) and (b) flat: the
+pre-registered negative branch.
+
+**Diagnosis** (2026-08-28, run before any next arm, per the decision
+points): scen1 against v3 head-to-head, argmax, 200 games each
+condition — **from the bank's own gift states 0.640, from the printed
+start 0.605**. The run is simply stronger than v3 across the board
+(8,000 more games; it would clear a loop gate), and the gift-specific
+edge (+0.035) is inside noise. So the scenario dose did not
+specifically teach the gift lesson even in self-play, and the general
+internal gain transfers to the easy AI not at all — the third
+experiment in a row (layout v2, search, now the state prior) where
+the internal ladder moves and the Playdek number does not.
+
+**Decision.** The question closes negative as constructed: a 25%
+state prior at 8k games neither shifts the loss mix nor the easy
+mean. The reading this leaves standing: the wall is the *opponent
+distribution*, not the state distribution — self-play opponents do
+not punish the gift the way the AI does, wherever the game starts.
+That is the exact case the road map's ladder anticipated: the league
+exploiter (a policy trained to beat the line's champion, PFSP-style)
+comes out of reserve as the next candidate, and behind it, relaxing
+SELF-PLAY-ONLY becomes an explicit review decision. Neither starts
+without its own pre-registered entry. The scenario infrastructure
+stays: any future arm can shape its start states for free.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -930,15 +1002,15 @@ constraint).
    but the easy-mean bar was missed by 0.005 and the remaining losses
    are strategic — raw v3 stays the reported player, search stays a
    multiplier in waiting.
-2. **Scenario-seeded self-play** — **next** (the layout-v2 retrain
-   closed negative, 2026-08-28; the arc bar is now the easy AI at
-   > 0.5 both seats, and its first pre-registered question is the
-   hist-ablation of layout v2): shape the initial-state
-   distribution, not the opponent: a fraction of training games starts
-   from positions where the failure is on the table (DEFCON 2, a
-   gift card in hand; later, prefixes of lost eval games if that
-   purity line is acceptable). Both seats are the learner;
-   `Engine.serialize`/`deserialize` makes seeding cheap.
+2. **Scenario-seeded self-play** — **closed negative 2026-08-28**
+   (the entry above): the hist-mask diagnostic sent the arc to the
+   layout-v1 line (layout v1 restored in-tree), the infrastructure
+   landed (`wopr.scenarios`, `--scenarios`/`--scenario-frac`, the
+   `defcon2_gift` bank), and the first run — v3 + 8k games at a 25%
+   gift prior — beat v3 internally (0.605 printed / 0.640 from the
+   bank states) while the easy mean stayed at raw v3's level (0.081
+   vs 0.086) with the loss mix unmoved. The state prior is not the
+   lever; the infrastructure stays for any future arm.
 3. **Hard mode as a standing eval** — superseded 2026-08-28: the goal
    is re-anchored to **beating the easy AI first** (> 0.5 both seats,
    bid 2), and hard is not measured again until that bar is met. The
