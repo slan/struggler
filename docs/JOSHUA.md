@@ -1058,6 +1058,38 @@ evidence lines (WOPR.md, ninth pass) should pin both open families.
 rule) + run B 8k + one DLL eval at the end (120 games, ~140 min).
 Nothing else without a new entry.
 
+**Result** (2026-08-29, `runs/exploit1`). At 8k the fresh net was at a
+0.06 cumulative rate against v3 with the windowed pool curve tripling
+(0.045 → 0.15, no plateau) — the Cap continuation ran to 16k. There
+the curve was *still* climbing (0.17 → 0.43 windowed; final
+cumulative v1 0.262 / v2 0.168 / v3 0.140, a clean hardness
+gradient). The gate, argmax vs v3 at bid 2, seeds 0/1/2 × 200:
+**0.330 / 0.320 / 0.280 — worst seed 0.28 against the 0.6 bar,
+miss**, and the 16k cap is spent. The seat split is the finding: as
+USSR the exploiter plays v3 near-even (0.48 / 0.50 / 0.39), as US it
+is ~0.16. The diagnosis agrees — it became a *USSR specialist*: USSR
+edge 0.725 sampled (v3: 0.575), a scoring-card engine tilted hard to
+the USSR side (Europe +328/66, Central America +223/32 net VP), half
+its self-play wins USSR-by-VP, and vs Greedy 0.838 [0.825]
+(US 0.77 / USSR 0.91) against v3's 0.940 — general strength traded
+for the anti-line lesson, which is what an exploiter is for. Ledger
+row written (`wopr.ab --existing`); `runs/exploit1/diagnose-vs-v3.json`.
+
+**Decision.** The gate missed at the cap, so run B never starts and
+no DLL hours were spent — the standing easy number (raw v3, 0.086)
+is untouched. The question closes **negative as constructed**, with
+the honest caveat in the curve: 16k games was not enough for a fresh
+net to crack the 0.6 bar, but it was still learning when the budget
+ran out, and one seat got to even. What the arm established: the
+line *is* exploitable from inside SELF-PLAY-ONLY (a fresh net finds
+a USSR-side attack v3 does not defend), but reaching
+counter-training strength costs more than an ab-budget of exploiter
+training — and whether to spend that (a bigger exploiter budget, or
+a v3-init variant, each needing a new entry) now competes directly
+with relaxing SELF-PLAY-ONLY, which per the road map's ladder is an
+**explicit review decision, the user's call**. The pool-seed wiring
+stays: either continuation reuses it.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -1090,8 +1122,13 @@ constraint).
    bid 2), and hard is not measured again until that bar is met. The
    first hard numbers (search batch, ~0.04–0.12 a seat) stand as the
    record of the mountain's size.
-4. **The league exploiter** — out of reserve 2026-08-28 (search plus
-   seeding left the gift rate standing); pre-registered above, running.
+4. **The league exploiter** — **closed negative as constructed
+   2026-08-29** (the entry above): a fresh net vs the PFSP-seeded
+   champion line found a USSR-side attack (near-even vs v3 on that
+   seat) but missed the 0.6 counter-training gate at the 16k cap
+   while still climbing; run B never started, no DLL hours spent.
+   The next fork — a bigger exploiter budget vs relaxing
+   SELF-PLAY-ONLY — is the review decision, the user's call.
 5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
    traces caught by volume; matters more as evals move to hard mode's
    longer games.
