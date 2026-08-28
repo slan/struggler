@@ -810,6 +810,72 @@ consequences adopted:
 
 Ledger: the frozen versions' README entries are the rows.
 
+### 2026-08-28 — the scenario arc opens: the hist-mask diagnostic
+
+**Question.** The arc's carried first question is whether layout v2
+stays for training, and the fork is expensive: a hist-ablation ladder
+(layout v2 minus `hist_*`, recency kept) is a full bootstrap + loop +
+Playdek eval before any scenario seeding happens. One DLL-hour buys a
+pointer first: is the v2 line's easy deficit (0.045 vs raw v3's 0.086)
+carried by the `hist_*` features *at inference* — the
+sequence-features-sharpen-self-play-overfitting suspicion, the policy
+conditioning on play-order patterns only a self-play opponent produces
+— or baked into the trained weights either way?
+
+**Setup.** `r4-bid2/v4` replayed against the easy AI with the play
+history masked empty at inference: `hist_card` all empty slots,
+`hist_feats` zero — the encoding of a game's first decision, so the
+history attention pools to zero; `card_recency` and
+`discard_this_turn` kept. `JoshuaPlayer(mask_hist=True)`,
+`--policy histmask=ckpt.pt` in `wopr.playdek.eval`;
+`tests/test_joshua_player.py` pins that nothing but `hist_*` moves.
+The caveat is stated up front: a mid-game state with an empty log is
+off-distribution for these weights, so some degradation is the
+expected direction — only *recovery* is evidence, and a flat or worse
+number cannot separate "the features were inert" from "the masking
+itself hurt".
+
+**Metrics and decision rule** (written before the run): the standing
+easy eval, same flags as `runs/playdek/r4b2v4-easy` (120 games, 60 a
+seat, bid 2, argmax, seeds 300+), primary metric the two-seat mean
+against masked-off v4's 0.045 and raw v3's 0.086; secondary the loss
+mix (the US blowout share, the USSR DEFCON share). Readings: mean
+recovers to ≥ 0.08 → the hist features actively hurt at inference —
+the hist-ablation (layout v2 minus `hist_*`, recency kept) earns its
+bootstrap as the arc's base line; ≤ 0.05 → no evidence against the
+weights-not-features reading — the arc starts from the layout-v1 line
+(`--init` from r3-bid2/v3), the hist-ablation parked unless the arc
+plateaus and diagnosis points back at the guessing problem;
+in between → underpowered either way, and the layout-v1 line is the
+cheap default, the question noted as unresolved rather than closed.
+Ledger: no row — nothing is trained.
+
+**Result** (2026-08-28, `runs/playdek/r4b2v4-easy-histmask`; 152 min,
+8 workers): USSR **0.038** [0.01, 0.13] (2/53), US **0.018**
+[0.00, 0.10] (1/55), two-seat mean **0.028** [0.01, 0.08] — against
+raw v4's 0.045 and raw v3's 0.086. Attrition 11 desyncs + 1 void of
+120 (known families, a notch above the raw run's 5+5). The loss mix
+moved: DEFCON endings 36 of 105 clean losses (raw v4: 17 among the
+first 96), VP 58, mean final turn 4.5 — masked games die earlier and
+more often by DEFCON.
+
+**Decision** (2026-08-28, by the pre-registered rule). ≤ 0.05 fired:
+no recovery — the v2 line's deficit is in the trained weights, not
+removable at inference. The DEFCON-loss share *rising* under the mask
+says the policy genuinely leans on `hist_*` in self-play (losing the
+features off-distribution hurts) while whatever it reads there does
+not transfer — consistent with the overfitting suspicion, though this
+diagnostic cannot prove that direction. **The arc trains from the
+layout-v1 line (`--init` from r3-bid2/v3); the hist-ablation ladder
+is parked** unless the arc plateaus and diagnosis points back at the
+guessing problem. Consequence executed with this entry: the encoding
+returns to layout v1 (`LAYOUT_VERSION` 1 — r3-bid2 checkpoints load
+again; the r4-bid2 ladder stays frozen as the layout-v2 record), the
+engine's public `card_history` stays (rules-neutral, serialized,
+goldens already regenerated), and layout v2's encoding — with the
+`histmask=` diagnostic that closed it — remains recoverable from git
+history (`4b74b5e`, this entry's commit for the diagnostic).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

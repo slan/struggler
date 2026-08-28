@@ -31,7 +31,7 @@ from struggler.engine.board import Board
 from struggler.engine.cards import load_cards
 from struggler.engine.types import Period
 
-LAYOUT_VERSION = 2  # v2: order/recency -- discard_this_turn, card_recency, hist_*
+LAYOUT_VERSION = 1
 
 # -- static game data ---------------------------------------------------------
 
@@ -113,44 +113,11 @@ CARD_LOCATIONS: tuple[str, ...] = (
     "china_theirs_face_up",
     "china_theirs_face_down",
     "not_yet_in_play",  # a later period's card, before its turn comes
-    "discard_this_turn",  # in the discard pile AND filed there this turn
 )
 LOC_UNSEEN, LOC_MY_HAND, LOC_DISCARD, LOC_REMOVED = 0, 1, 2, 3
 LOC_CHINA_MINE_UP, LOC_CHINA_MINE_DOWN, LOC_CHINA_THEIRS_UP, LOC_CHINA_THEIRS_DOWN = 4, 5, 6, 7
 LOC_FUTURE = 8
-LOC_DISCARD_THIS_TURN = 9
 N_CARD_LOCATIONS = len(CARD_LOCATIONS)
-
-# -- order and recency (layout v2) ---------------------------------------------
-
-# Per-card recency, read off `Observation.card_history` (the public log of
-# every card that left a hand for a pile): whether the card was ever seen
-# leaving a hand, and how long ago. Survives reshuffles -- an Asia Scoring
-# discarded on turn 2 and reshuffled is `unseen` by location but (1, recent)
-# here, which is exactly the "which scoring cards are out" guess the US's
-# early turns hinge on.
-CARD_RECENCY_FEATURES: tuple[str, ...] = (
-    "seen",  # 1.0 once the card has ever been played/discarded
-    "turns_since",  # (current turn - turn of its latest exit) / 10
-)
-F_CARD_RECENCY = len(CARD_RECENCY_FEATURES)
-
-# The last H_HIST entries of `card_history` as a sequence, most recent first
-# (`hist_card[0]` is the latest play). A full turn is ~20 entries (2
-# headlines + up to 8 action rounds a side + event discards), so 32 spans
-# the current turn and reaches into the previous one.
-H_HIST = 32
-HIST_FEATURES: tuple[str, ...] = (
-    "by_me",
-    "by_them",
-    "turns_ago",  # / 10
-    "this_turn",
-    "headline",  # filed during the headline phase
-    "action_round",  # the entry's action round, / 8
-    "position",  # slot index (recency rank), / H_HIST
-)
-HIST_INDEX: dict[str, int] = {name: i for i, name in enumerate(HIST_FEATURES)}
-F_HIST = len(HIST_FEATURES)
 
 # -- global features -----------------------------------------------------------
 
@@ -339,9 +306,6 @@ F_OPTION = len(OPTION_FEATURES)
 LAYOUT: dict[str, tuple[tuple[int, ...], type]] = {
     "board": ((N_COUNTRIES, F_BOARD), np.float32),
     "card_loc": ((N_CARDS,), np.int64),
-    "card_recency": ((N_CARDS, F_CARD_RECENCY), np.float32),
-    "hist_card": ((H_HIST,), np.int64),  # N_CARDS = empty slot
-    "hist_feats": ((H_HIST, F_HIST), np.float32),
     "globals": ((G,), np.float32),
     "focus": ((N_FOCUS,), np.int64),
     "opt_feats": ((K_MAX, F_OPTION), np.float32),
@@ -427,41 +391,6 @@ def encode_into(observation: Observation, buffers: dict[str, np.ndarray], i: int
         loc[_CHINA_INDEX] = LOC_CHINA_MINE_UP if observation.china_card_available else LOC_CHINA_MINE_DOWN
     else:
         loc[_CHINA_INDEX] = LOC_CHINA_THEIRS_UP if observation.china_card_available else LOC_CHINA_THEIRS_DOWN
-
-    # -- order and recency (from the public play/discard log)
-    history = observation.card_history
-    turn = observation.turn
-    last_exit_turn: dict[str, int] = {}
-    for entry in history:  # oldest first: later entries overwrite
-        last_exit_turn[entry["card"]] = entry["turn"]
-    for cid in observation.discard_pile:
-        if last_exit_turn.get(cid) == turn:
-            loc[CARD_INDEX[cid]] = LOC_DISCARD_THIS_TURN
-    recency = buffers["card_recency"][i]
-    recency[:] = 0.0
-    for cid, t in last_exit_turn.items():
-        idx = CARD_INDEX.get(cid)
-        if idx is not None:
-            recency[idx, 0] = 1.0
-            recency[idx, 1] = (turn - t) / 10.0
-    hist_card = buffers["hist_card"][i]
-    hist_feats = buffers["hist_feats"][i]
-    hist_card[:] = N_CARDS
-    hist_feats[:] = 0.0
-    for k, entry in enumerate(reversed(history[-H_HIST:])):  # most recent first
-        idx = CARD_INDEX.get(entry["card"])
-        if idx is None:
-            continue  # leaves an empty slot; only a non-standard card id could
-        hist_card[k] = idx
-        row = hist_feats[k]
-        mine = entry["side"] == my
-        row[HIST_INDEX["by_me"]] = 1.0 if mine else 0.0
-        row[HIST_INDEX["by_them"]] = 0.0 if mine else 1.0
-        row[HIST_INDEX["turns_ago"]] = (turn - entry["turn"]) / 10.0
-        row[HIST_INDEX["this_turn"]] = 1.0 if entry["turn"] == turn else 0.0
-        row[HIST_INDEX["headline"]] = 1.0 if entry["phase"] == "headline" else 0.0
-        row[HIST_INDEX["action_round"]] = entry["action_round"] / 8.0
-        row[HIST_INDEX["position"]] = k / H_HIST
 
     # -- globals
     g = buffers["globals"][i]

@@ -125,53 +125,6 @@ def test_relocated_effect_keeps_its_slot():
     assert "game_we_will_bury_you" not in F.GLOBAL_INDEX
 
 
-def test_order_and_recency_encoding():
-    # Layout v2: the discard location splits by recency, `card_recency` reads
-    # the public play log per card, and `hist_*` carries the last plays most
-    # recent first, sided from the viewer's perspective.
-    engine = bare_engine()
-    engine.phase = "action_rounds"
-    engine.turn = 3
-    engine.hands["USSR"] = ["Korean_War"]
-    engine.hands["US"] = ["NATO"]
-    engine.discard_pile = ["Duck_and_Cover", "Fidel"]
-    engine.card_history = [
-        {"card": "Fidel", "side": "USSR", "turn": 1, "action_round": 1, "phase": "headline"},
-        {"card": "Duck_and_Cover", "side": "US", "turn": 3, "action_round": 2, "phase": "action_rounds"},
-    ]
-    engine._advance()
-    assert engine.pending_decision.actor is Side.USSR
-
-    buffers = _encode(engine, Side.USSR)
-    loc = buffers["card_loc"][0]
-    assert loc[F.CARD_INDEX["Duck_and_Cover"]] == F.LOC_DISCARD_THIS_TURN
-    assert loc[F.CARD_INDEX["Fidel"]] == F.LOC_DISCARD
-
-    recency = buffers["card_recency"][0]
-    assert tuple(recency[F.CARD_INDEX["Fidel"]]) == pytest.approx((1.0, 2 / 10))
-    assert tuple(recency[F.CARD_INDEX["Duck_and_Cover"]]) == pytest.approx((1.0, 0.0))
-    assert tuple(recency[F.CARD_INDEX["Korean_War"]]) == (0.0, 0.0)  # never filed
-
-    hist_card = buffers["hist_card"][0]
-    assert hist_card[0] == F.CARD_INDEX["Duck_and_Cover"]  # most recent first
-    assert hist_card[1] == F.CARD_INDEX["Fidel"]
-    assert hist_card[2] == F.N_CARDS  # empty slot sentinel
-
-    latest, older = buffers["hist_feats"][0, 0], buffers["hist_feats"][0, 1]
-    assert latest[F.HIST_INDEX["by_me"]] == 0.0 and latest[F.HIST_INDEX["by_them"]] == 1.0
-    assert latest[F.HIST_INDEX["this_turn"]] == 1.0 and latest[F.HIST_INDEX["turns_ago"]] == 0.0
-    assert latest[F.HIST_INDEX["headline"]] == 0.0
-    assert latest[F.HIST_INDEX["action_round"]] == pytest.approx(2 / 8)
-    assert older[F.HIST_INDEX["by_me"]] == 1.0 and older[F.HIST_INDEX["headline"]] == 1.0
-    assert older[F.HIST_INDEX["turns_ago"]] == pytest.approx(2 / 10)
-    assert older[F.HIST_INDEX["position"]] == pytest.approx(1 / F.H_HIST)
-    assert not buffers["hist_feats"][0, 2:].any()
-
-    # The same history seen from the US seat swaps the by_me/by_them flags.
-    us = _encode(engine, Side.US)["hist_feats"][0, 0]
-    assert us[F.HIST_INDEX["by_me"]] == 1.0 and us[F.HIST_INDEX["by_them"]] == 0.0
-
-
 @pytest.mark.parametrize("seed", [11, 12])
 def test_every_decision_of_a_random_game_encodes(seed: int):
     buffers = F.allocate(1)

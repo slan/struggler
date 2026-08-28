@@ -42,7 +42,6 @@ def observation_space() -> spaces.Dict:
             boxes[name] = spaces.MultiBinary(shape)
         elif dtype is np.int64:
             high = {"card_loc": F.N_CARD_LOCATIONS - 1, "focus": F.N_CARDS,
-                    "hist_card": F.N_CARDS,
                     "opt_country": F.N_COUNTRIES, "opt_card": F.N_CARDS}[name]
             boxes[name] = spaces.Box(low=0, high=high, shape=shape, dtype=np.int64)
         else:
