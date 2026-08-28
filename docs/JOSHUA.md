@@ -778,8 +778,37 @@ games, the same plateau height, and the gate's seat split (the
 challenger wins as USSR, not as US) unchanged. Whatever order and
 recency bought must show up against Playdek or not at all.
 
-*(Playdek eval of v4 launched 2026-08-28: easy 60 a seat, hard 30 a
-seat, bid 2, argmax, seeds 300+.)*
+**Result — Playdek** (2026-08-28, `runs/playdek/r4b2v4-easy`; easy,
+bid 2, argmax, seeds 300+): USSR **0.057** [0.02, 0.15] (3/53), US
+**0.035** [0.01, 0.12] (2/57), two-seat mean **0.045** — against raw
+v3's 0.093 / 0.078 (mean 0.086) and the pre-registered bar of 0.136.
+Attrition 5 desyncs + 5 void (known families) of 120. The loss mix is
+the familiar pair, unmoved: 33 US-seat VP blowouts, 17 USSR-seat
+DEFCON endings among the first 96. The hard arm was cancelled by
+decision (below) — its DLL-hours are worth more elsewhere.
+
+**Decision** (2026-08-28, on review). (b) missed decisively with (a)
+flat: the r1 order/recency hypothesis **closes negative** — the
+features change nothing internally and buy nothing against the real
+opponent (plausibly cost something: 0.045 vs 0.086, intervals
+overlapping). **Raw v3 (r3-bid2) stays the reported player.** Two
+consequences adopted:
+
+1. **The goal is re-anchored: beat the easy AI first** — > 0.5 on
+   both seats at bid 2 is the arc bar, and hard mode is not measured
+   again until it is met. Everything measured to date sits at
+   ≤ 0.17 a seat against easy; hard evals were sizing a mountain that
+   cannot be attempted until this one is climbed.
+2. **Carried to the priors arc as its first question: does layout v2
+   stay?** A live suspicion: the sequence features may *sharpen*
+   self-play overfitting — the policy can condition on play-order
+   patterns only a self-play opponent produces, which Playdek never
+   does. When the priors arc trains on this line, a hist-ablation
+   (layout v2 minus `hist_*`, recency kept) is pre-registered first;
+   starting from the layout-v1 line (r3-bid2/v3) instead remains on
+   the table.
+
+Ledger: the frozen versions' README entries are the rows.
 
 ## Road map
 
@@ -799,16 +828,20 @@ constraint).
    but the easy-mean bar was missed by 0.005 and the remaining losses
    are strategic — raw v3 stays the reported player, search stays a
    multiplier in waiting.
-2. **Scenario-seeded self-play** — next after the layout-v2 retrain
-   (the entry above): shape the initial-state
+2. **Scenario-seeded self-play** — **next** (the layout-v2 retrain
+   closed negative, 2026-08-28; the arc bar is now the easy AI at
+   > 0.5 both seats, and its first pre-registered question is the
+   hist-ablation of layout v2): shape the initial-state
    distribution, not the opponent: a fraction of training games starts
    from positions where the failure is on the table (DEFCON 2, a
    gift card in hand; later, prefixes of lost eval games if that
    purity line is acceptable). Both seats are the learner;
    `Engine.serialize`/`deserialize` makes seeding cheap.
-3. **Hard mode as a standing eval** — first numbers land in the search
-   batch above; thereafter hard sits beside easy for every claim.
-   Evaluation only.
+3. **Hard mode as a standing eval** — superseded 2026-08-28: the goal
+   is re-anchored to **beating the easy AI first** (> 0.5 both seats,
+   bid 2), and hard is not measured again until that bar is met. The
+   first hard numbers (search batch, ~0.04–0.12 a seat) stand as the
+   record of the mountain's size.
 4. **In reserve: the league exploiter** — only if search plus seeding
    leave the gift rate standing.
 5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
