@@ -1075,7 +1075,8 @@ its self-play wins USSR-by-VP, and vs Greedy 0.838 [0.825]
 for the anti-line lesson, which is what an exploiter is for. Ledger
 row written (`wopr.ab --existing`); `runs/exploit1/diagnose-vs-v3.json`.
 
-**Decision.** The gate missed at the cap, so run B never starts and
+**Decision (superseded in part — see the continuation entry below).**
+The gate missed at the cap, so run B never starts and
 no DLL hours were spent — the standing easy number (raw v3, 0.086)
 is untouched. The question closes **negative as constructed**, with
 the honest caveat in the curve: 16k games was not enough for a fresh
@@ -1089,6 +1090,44 @@ a v3-init variant, each needing a new entry) now competes directly
 with relaxing SELF-PLAY-ONLY, which per the road map's ladder is an
 **explicit review decision, the user's call**. The pool-seed wiring
 stays: either continuation reuses it.
+
+### 2026-08-29 — the exploiter continuation (pre-registered)
+
+**The review decision** (user, 2026-08-29): option 1 of the four —
+more exploiter budget. The others (v3-init exploiter, counter-run on
+exploit1 as-is, relaxing SELF-PLAY-ONLY) stay live and can follow;
+nothing about them is decided by this entry.
+
+**Question.** Was the budget the only thing between the fresh
+exploiter and the gate? The 16k curve says maybe: still climbing at
+the cap, one seat already even. This entry buys the cheapest possible
+answer before the more expensive forks.
+
+**Setup.** `runs/exploit1` resumes unchanged — same recipe, mix,
+seeded pool, gift bank (`--pool-seed` is idempotent on resume) — in
+two more ab-budgets: to 24k, gate eval; if missed *and the windowed
+vs-pool curve rose over the segment*, to 32k, gate eval. **Hard cap
+32k**, no further continuation from this entry.
+
+**Metrics and decision rule** (written before resuming): the gate is
+unchanged — argmax vs v3 at bid 2, seeds 0/1/2 × 200 games, **worst
+seed ≥ 0.6**. Watched beside it, per segment: the windowed vs-pool
+curve (flat across a whole segment + a gate miss = stop early, the
+budget is not the answer) and the US-seat share of the head-to-head
+(0.16 at 16k — the gate cannot pass without the US seat moving; a
+gate miss with the USSR seat ≥ 0.6 and the US seat still < 0.3 says
+*specialist, not budget*, and points at option 3's asymmetric
+counter-run rather than more of this). Gate passes → run B and the
+decider exactly as pre-registered in the parent entry (counter1,
+v3-init, exploiter-seeded pool, 8k; `wopr.diagnose` internal gate;
+one DLL easy eval vs 0.086, bar +0.05). Gate misses at 32k → this
+arm is done for good; the review reconvenes on options 2–4 with the
+curve and seat split as evidence.
+
+**Budget.** Up to 16k more training games (~100 min) + two gate
+evals; run B and the DLL eval only past the gate, as already
+budgeted. Ledger: one `wopr.ab --existing` row at whatever endpoint
+this reaches.
 
 ## Road map
 
@@ -1127,8 +1166,10 @@ constraint).
    champion line found a USSR-side attack (near-even vs v3 on that
    seat) but missed the 0.6 counter-training gate at the 16k cap
    while still climbing; run B never started, no DLL hours spent.
-   The next fork — a bigger exploiter budget vs relaxing
-   SELF-PLAY-ONLY — is the review decision, the user's call.
+   The review (2026-08-29) chose the cheapest fork first: the
+   continuation entry above, exploit1 to 32k with the same gate;
+   options 2–4 (v3-init, asymmetric counter-run, relaxing
+   SELF-PLAY-ONLY) stay live behind it.
 5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
    traces caught by volume; matters more as evals move to hard mode's
    longer games.
