@@ -4357,6 +4357,22 @@
           "Containment"
         ],
         "removed_cards": [],
+        "card_history": [
+          {
+            "card": "NATO",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Containment",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          }
+        ],
         "hands": {
           "US": [
             "Vietnam_Revolts",
@@ -5520,6 +5536,372 @@
           "Blockade"
         ],
         "removed_cards": [],
+        "card_history": [
+          {
+            "card": "NATO",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Containment",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Duck_and_Cover",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Blockade",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arab_Israeli_War",
+            "side": "US",
+            "turn": 1,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Test_Ban",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Defectors",
+            "side": "US",
+            "turn": 1,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Independent_Reds",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 1,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Warsaw_Pact_Formed",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "US",
+            "turn": 1,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Middle_East_Scoring",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Olympic_Games",
+            "side": "US",
+            "turn": 1,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Fidel",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Marshall_Plan",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Suez_Crisis",
+            "side": "US",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Socialist_Governments",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "US",
+            "turn": 2,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Five_Year_Plan",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Captured_Nazi_Scientist",
+            "side": "US",
+            "turn": 2,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "De_Stalinization",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Europe_Scoring",
+            "side": "US",
+            "turn": 2,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nasser",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Red_Scare_Purge",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Formosan_Resolution",
+            "side": "US",
+            "turn": 2,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "East_European_Unrest",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Truman_Doctrine",
+            "side": "US",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Socialist_Governments",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Duck_and_Cover",
+            "side": "US",
+            "turn": 3,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Indo_Pakistani_War",
+            "side": "US",
+            "turn": 3,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Decolonization",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "COMECON",
+            "side": "US",
+            "turn": 3,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "De_Gaulle_Leads_France",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "CIA_Created",
+            "side": "US",
+            "turn": 3,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Warsaw_Pact_Formed",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 3,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Defectors",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Summit",
+            "side": "US",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "US_Japan_Mutual_Defense_Pact",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Shuttle_Diplomacy",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Africa_Scoring",
+            "side": "US",
+            "turn": 4,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arab_Israeli_War",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "UN_Intervention",
+            "side": "US",
+            "turn": 4,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Red_Scare_Purge",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Brezhnev_Doctrine",
+            "side": "US",
+            "turn": 4,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "OPEC",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "John_Paul_II_Elected_Pope",
+            "side": "US",
+            "turn": 4,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Suez_Crisis",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Blockade",
+            "side": "US",
+            "turn": 4,
+            "action_round": 6,
+            "phase": "action_rounds"
+          }
+        ],
         "hands": {
           "US": [
             "South_African_Unrest",
@@ -6657,6 +7039,694 @@
         "removed_cards": [
           "Southeast_Asia_Scoring"
         ],
+        "card_history": [
+          {
+            "card": "NATO",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Containment",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Duck_and_Cover",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Blockade",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arab_Israeli_War",
+            "side": "US",
+            "turn": 1,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Test_Ban",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Defectors",
+            "side": "US",
+            "turn": 1,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Independent_Reds",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 1,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Warsaw_Pact_Formed",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "US",
+            "turn": 1,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Middle_East_Scoring",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Olympic_Games",
+            "side": "US",
+            "turn": 1,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Fidel",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Marshall_Plan",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Suez_Crisis",
+            "side": "US",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Socialist_Governments",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "US",
+            "turn": 2,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Five_Year_Plan",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Captured_Nazi_Scientist",
+            "side": "US",
+            "turn": 2,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "De_Stalinization",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Europe_Scoring",
+            "side": "US",
+            "turn": 2,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nasser",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Red_Scare_Purge",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Formosan_Resolution",
+            "side": "US",
+            "turn": 2,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "East_European_Unrest",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Truman_Doctrine",
+            "side": "US",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Socialist_Governments",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Duck_and_Cover",
+            "side": "US",
+            "turn": 3,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Indo_Pakistani_War",
+            "side": "US",
+            "turn": 3,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Decolonization",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "COMECON",
+            "side": "US",
+            "turn": 3,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "De_Gaulle_Leads_France",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "CIA_Created",
+            "side": "US",
+            "turn": 3,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Warsaw_Pact_Formed",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 3,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Defectors",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Summit",
+            "side": "US",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "US_Japan_Mutual_Defense_Pact",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Shuttle_Diplomacy",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Africa_Scoring",
+            "side": "US",
+            "turn": 4,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arab_Israeli_War",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "UN_Intervention",
+            "side": "US",
+            "turn": 4,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Red_Scare_Purge",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Brezhnev_Doctrine",
+            "side": "US",
+            "turn": 4,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "OPEC",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "John_Paul_II_Elected_Pope",
+            "side": "US",
+            "turn": 4,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Suez_Crisis",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Blockade",
+            "side": "US",
+            "turn": 4,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Ask_Not_What_Your_Country_Can_Do_For_You",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "South_African_Unrest",
+            "side": "US",
+            "turn": 4,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "U2_Incident",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Willy_Brandt",
+            "side": "US",
+            "turn": 5,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "De_Stalinization",
+            "side": "US",
+            "turn": 5,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Flower_Power",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Test_Ban",
+            "side": "US",
+            "turn": 5,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Missile_Envy",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Camp_David_Accords",
+            "side": "US",
+            "turn": 5,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Containment",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nasser",
+            "side": "US",
+            "turn": 5,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Independent_Reds",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Southeast_Asia_Scoring",
+            "side": "US",
+            "turn": 5,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Olympic_Games",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arms_Race",
+            "side": "US",
+            "turn": 5,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Puppet_Governments",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "The_Voice_Of_America",
+            "side": "US",
+            "turn": 5,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Central_America_Scoring",
+            "side": "US",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Colonial_Rear_Guards",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "South_America_Scoring",
+            "side": "US",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Sadat_Expels_Soviets",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Cuban_Missile_Crisis",
+            "side": "US",
+            "turn": 6,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "We_Will_Bury_You",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Muslim_Revolution",
+            "side": "US",
+            "turn": 6,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Lone_Gunman",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Europe_Scoring",
+            "side": "US",
+            "turn": 6,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "NATO",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Bear_Trap",
+            "side": "US",
+            "turn": 6,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "How_I_Learned_to_Stop_Worrying",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Fidel",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Latin_American_Death_Squads",
+            "side": "US",
+            "turn": 6,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Ussuri_River_Skirmish",
+            "side": "US",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Alliance_for_Progress",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Junta",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Panama_Canal_Returned",
+            "side": "US",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Middle_East_Scoring",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Captured_Nazi_Scientist",
+            "side": "US",
+            "turn": 7,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Allende",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Subs",
+            "side": "US",
+            "turn": 7,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "OAS_Founded",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Grain_Sales_to_Soviets",
+            "side": "US",
+            "turn": 7,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Quagmire",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Cultural_Revolution",
+            "side": "US",
+            "turn": 7,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Formosan_Resolution",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Liberation_Theology",
+            "side": "US",
+            "turn": 7,
+            "action_round": 6,
+            "phase": "action_rounds"
+          }
+        ],
         "hands": {
           "US": [
             "Marshall_Plan",
@@ -7791,6 +8861,1023 @@
         ],
         "removed_cards": [
           "Southeast_Asia_Scoring"
+        ],
+        "card_history": [
+          {
+            "card": "NATO",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Containment",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Duck_and_Cover",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Blockade",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arab_Israeli_War",
+            "side": "US",
+            "turn": 1,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Test_Ban",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Defectors",
+            "side": "US",
+            "turn": 1,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Independent_Reds",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 1,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Warsaw_Pact_Formed",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "US",
+            "turn": 1,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Middle_East_Scoring",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Olympic_Games",
+            "side": "US",
+            "turn": 1,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Fidel",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Marshall_Plan",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Suez_Crisis",
+            "side": "US",
+            "turn": 2,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Socialist_Governments",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "US",
+            "turn": 2,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Five_Year_Plan",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Captured_Nazi_Scientist",
+            "side": "US",
+            "turn": 2,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "De_Stalinization",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Europe_Scoring",
+            "side": "US",
+            "turn": 2,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nasser",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Red_Scare_Purge",
+            "side": "USSR",
+            "turn": 2,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Formosan_Resolution",
+            "side": "US",
+            "turn": 2,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "East_European_Unrest",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Truman_Doctrine",
+            "side": "US",
+            "turn": 3,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Socialist_Governments",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Duck_and_Cover",
+            "side": "US",
+            "turn": 3,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Indo_Pakistani_War",
+            "side": "US",
+            "turn": 3,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Decolonization",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "COMECON",
+            "side": "US",
+            "turn": 3,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "De_Gaulle_Leads_France",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "CIA_Created",
+            "side": "US",
+            "turn": 3,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Warsaw_Pact_Formed",
+            "side": "USSR",
+            "turn": 3,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 3,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Defectors",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Summit",
+            "side": "US",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "US_Japan_Mutual_Defense_Pact",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Shuttle_Diplomacy",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Africa_Scoring",
+            "side": "US",
+            "turn": 4,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arab_Israeli_War",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "UN_Intervention",
+            "side": "US",
+            "turn": 4,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Red_Scare_Purge",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Brezhnev_Doctrine",
+            "side": "US",
+            "turn": 4,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "OPEC",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "John_Paul_II_Elected_Pope",
+            "side": "US",
+            "turn": 4,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Suez_Crisis",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Blockade",
+            "side": "US",
+            "turn": 4,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Ask_Not_What_Your_Country_Can_Do_For_You",
+            "side": "USSR",
+            "turn": 4,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "South_African_Unrest",
+            "side": "US",
+            "turn": 4,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "U2_Incident",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Willy_Brandt",
+            "side": "US",
+            "turn": 5,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "De_Stalinization",
+            "side": "US",
+            "turn": 5,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Flower_Power",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Test_Ban",
+            "side": "US",
+            "turn": 5,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Missile_Envy",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Camp_David_Accords",
+            "side": "US",
+            "turn": 5,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Containment",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nasser",
+            "side": "US",
+            "turn": 5,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Independent_Reds",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Southeast_Asia_Scoring",
+            "side": "US",
+            "turn": 5,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Olympic_Games",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Arms_Race",
+            "side": "US",
+            "turn": 5,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Puppet_Governments",
+            "side": "USSR",
+            "turn": 5,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "The_Voice_Of_America",
+            "side": "US",
+            "turn": 5,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Central_America_Scoring",
+            "side": "US",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Colonial_Rear_Guards",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "South_America_Scoring",
+            "side": "US",
+            "turn": 6,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Sadat_Expels_Soviets",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Cuban_Missile_Crisis",
+            "side": "US",
+            "turn": 6,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "We_Will_Bury_You",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Muslim_Revolution",
+            "side": "US",
+            "turn": 6,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Lone_Gunman",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Europe_Scoring",
+            "side": "US",
+            "turn": 6,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "NATO",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Bear_Trap",
+            "side": "US",
+            "turn": 6,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "How_I_Learned_to_Stop_Worrying",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Fidel",
+            "side": "USSR",
+            "turn": 6,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Latin_American_Death_Squads",
+            "side": "US",
+            "turn": 6,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Ussuri_River_Skirmish",
+            "side": "US",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Alliance_for_Progress",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Junta",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Panama_Canal_Returned",
+            "side": "US",
+            "turn": 7,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Middle_East_Scoring",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Captured_Nazi_Scientist",
+            "side": "US",
+            "turn": 7,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Allende",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Subs",
+            "side": "US",
+            "turn": 7,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "OAS_Founded",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Grain_Sales_to_Soviets",
+            "side": "US",
+            "turn": 7,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Quagmire",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Cultural_Revolution",
+            "side": "US",
+            "turn": 7,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Formosan_Resolution",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Liberation_Theology",
+            "side": "US",
+            "turn": 7,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nixon_Plays_The_China_Card",
+            "side": "USSR",
+            "turn": 7,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Marshall_Plan",
+            "side": "US",
+            "turn": 7,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Pershing_II_Deployed",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Marine_Barracks_Bombing",
+            "side": "US",
+            "turn": 8,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "The_Reformer",
+            "side": "US",
+            "turn": 8,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "ABM_Treaty",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Glasnost",
+            "side": "US",
+            "turn": 8,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Reagan_Bombs_Libya",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Wargames",
+            "side": "US",
+            "turn": 8,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Solidarity",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Chernobyl",
+            "side": "US",
+            "turn": 8,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Star_Wars",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Tear_Down_This_Wall",
+            "side": "US",
+            "turn": 8,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "North_Sea_Oil",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Iran_Contra_Scandal",
+            "side": "US",
+            "turn": 8,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Iran_Iraq_War",
+            "side": "USSR",
+            "turn": 8,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Brush_War",
+            "side": "US",
+            "turn": 8,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Test_Ban",
+            "side": "US",
+            "turn": 9,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Iranian_Hostage_Crisis",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "One_Small_Step",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Latin_American_Debt_Crisis",
+            "side": "US",
+            "turn": 9,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Terrorism",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Fidel",
+            "side": "US",
+            "turn": 9,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Soviets_Shoot_Down_KAL_007",
+            "side": "US",
+            "turn": 9,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Kitchen_Debates",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Five_Year_Plan",
+            "side": "US",
+            "turn": 9,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Salt_Negotiations",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "An_Evil_Empire",
+            "side": "US",
+            "turn": 9,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Portuguese_Empire_Crumbles",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Aldrich_Ames_Remix",
+            "side": "USSR",
+            "turn": 9,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Ortega_Elected_in_Nicaragua",
+            "side": "US",
+            "turn": 9,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "North_Sea_Oil",
+            "side": "US",
+            "turn": 10,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Lone_Gunman",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Solidarity",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nuclear_Subs",
+            "side": "US",
+            "turn": 10,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Wargames",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Grain_Sales_to_Soviets",
+            "side": "US",
+            "turn": 10,
+            "action_round": 2,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Brezhnev_Doctrine",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "The_Reformer",
+            "side": "US",
+            "turn": 10,
+            "action_round": 3,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "The_Iron_Lady",
+            "side": "US",
+            "turn": 10,
+            "action_round": 4,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Korean_War",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Vietnam_Revolts",
+            "side": "US",
+            "turn": 10,
+            "action_round": 5,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Nasser",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "ABM_Treaty",
+            "side": "US",
+            "turn": 10,
+            "action_round": 6,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Flower_Power",
+            "side": "USSR",
+            "turn": 10,
+            "action_round": 7,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Star_Wars",
+            "side": "US",
+            "turn": 10,
+            "action_round": 7,
+            "phase": "action_rounds"
+          }
         ],
         "hands": {
           "US": [

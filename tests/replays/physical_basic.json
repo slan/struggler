@@ -1286,6 +1286,43 @@
           "Romanian_Abdication"
         ],
         "removed_cards": [],
+        "card_history": [
+          {
+            "card": "Blockade",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Asia_Scoring",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "headline"
+          },
+          {
+            "card": "Korean_War",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Europe_Scoring",
+            "side": "US",
+            "turn": 1,
+            "action_round": 1,
+            "phase": "action_rounds"
+          },
+          {
+            "card": "Romanian_Abdication",
+            "side": "USSR",
+            "turn": 1,
+            "action_round": 2,
+            "phase": "action_rounds"
+          }
+        ],
         "hands": {
           "US": [
             "Middle_East_Scoring",

@@ -10,9 +10,14 @@ Shape of the network, input by input:
   registered as a buffer): each layer is `relu(W_self h + W_nb (A h))`.
   The board is a graph and adjacency decides reachability, coups'
   neighbourhoods, and realignment bonuses, so the node latents learn it.
-- `card_loc` [N_CARDS] becomes, per card, `card_embedding + location_embedding`,
-  mean-pooled per location into one vector per location (my hand, discard,
-  unseen, ...) -- a compact "what is where" summary.
+- `card_loc` [N_CARDS] becomes, per card, `card_embedding + location_embedding
+  + W(card_recency)`, mean-pooled per location into one vector per location
+  (my hand, discard, unseen, ...) -- a compact "what is where (and since
+  when)" summary.
+- `hist_card`/`hist_feats` [H_HIST] (layout v2): each history slot is
+  `card_embedding + W(hist_feats)`, attention-pooled with a query from the
+  globals latent (same mechanism as the node pool), empty slots masked --
+  "what has been played lately, by whom, in what order".
 - `globals` [G] through a linear layer; also the query for an attention pool
   over the node latents ("which countries matter right now").
 - `focus` [N_FOCUS]: embeddings of the card the decision is about.
@@ -80,7 +85,14 @@ class JoshuaNet(nn.Module):
         self.pool_query = nn.Linear(h, h)
         self.pool_key = nn.Linear(h, h)
 
-        state_in = h + h + F.N_CARD_LOCATIONS * d + F.N_FOCUS * d
+        # Order/recency (layout v2). `recency_in` has no bias so a never-seen
+        # card's vector stays exactly `card_embedding + location_embedding`.
+        self.recency_in = nn.Linear(F.F_CARD_RECENCY, d, bias=False)
+        self.hist_in = nn.Linear(F.F_HIST, d)
+        self.hist_query = nn.Linear(h, d)
+        self.hist_key = nn.Linear(d, d)
+
+        state_in = h + h + F.N_CARD_LOCATIONS * d + F.N_FOCUS * d + d
         self.state = nn.Sequential(nn.Linear(state_in, h), nn.ReLU(), nn.Linear(h, h), nn.ReLU())
 
         option_in = h + F.F_OPTION + h + d
@@ -122,7 +134,11 @@ class JoshuaNet(nn.Module):
         pooled = (weights.unsqueeze(-1) * nodes).sum(1)
 
         card_ids = torch.arange(F.N_CARDS, device=board.device)
-        per_card = self.card_embedding(card_ids).unsqueeze(0) + self.location_embedding(obs["card_loc"])
+        per_card = (
+            self.card_embedding(card_ids).unsqueeze(0)
+            + self.location_embedding(obs["card_loc"])
+            + self.recency_in(obs["card_recency"])
+        )
         location_one_hot = torch.nn.functional.one_hot(obs["card_loc"], F.N_CARD_LOCATIONS).to(per_card.dtype)
         location_sums = torch.einsum("bkl,bkd->bld", location_one_hot, per_card)
         location_counts = location_one_hot.sum(1).unsqueeze(-1)
@@ -130,7 +146,19 @@ class JoshuaNet(nn.Module):
 
         focus = self.card_embedding(obs["focus"]).reshape(batch, -1)
 
-        latent = self.state(torch.cat([pooled, globals_latent, cards, focus], dim=-1))
+        # The play-history pool: same attention mechanism as the node pool,
+        # empty slots masked out. With no history at all (a game's first
+        # decisions) the mask multiply zeroes the vector rather than NaN-ing
+        # the softmax.
+        hist = self.card_embedding(obs["hist_card"]) + self.hist_in(obs["hist_feats"])
+        hist_mask = obs["hist_card"] != F.N_CARDS  # [B, H_HIST]
+        hist_scores = (self.hist_key(hist) * self.hist_query(globals_latent).unsqueeze(1)).sum(-1)
+        hist_scores = hist_scores / math.sqrt(self.config.card_dim)
+        hist_weights = torch.softmax(hist_scores.masked_fill(~hist_mask, -1e9), dim=-1)
+        hist_weights = hist_weights * hist_mask.to(hist_weights.dtype)
+        pooled_hist = (hist_weights.unsqueeze(-1) * hist).sum(1)
+
+        latent = self.state(torch.cat([pooled, globals_latent, cards, focus, pooled_hist], dim=-1))
         return nodes, latent
 
     def score_options(self, obs: Mapping[str, Tensor], nodes: Tensor, latent: Tensor) -> Tensor:

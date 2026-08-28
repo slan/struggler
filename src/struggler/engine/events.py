@@ -1658,6 +1658,9 @@ def _our_man_in_tehran_choice(engine: "Engine", side: Side, choice: str, context
     if choice == "keep":
         engine._our_man_kept.append(card)
     else:
+        # Public the moment it hits the removed pile (which observe() shows),
+        # so the history entry leaks nothing more than the pile itself.
+        engine._log_card_exit(side, card)
         engine.removed_cards.append(card)
     _push_our_man_step(engine)
 

@@ -169,7 +169,10 @@ seats, and a self-play game trains both perspectives at once.
 | Array | Shape | dtype | Contents |
 | --- | --- | --- | --- |
 | `board` | `[85, 15]` | float32 | per country: my/their influence (/5), net, my/their control, stability (/5), battleground, adjacency to my/their superpower, region one-hot (6) |
-| `card_loc` | `[110]` | int64 | per card, one of 9 locations: unseen, my hand, discard, removed, China Card mine/theirs × face up/down, not yet in play |
+| `card_loc` | `[110]` | int64 | per card, one of 10 locations: unseen, my hand, discard, removed, China Card mine/theirs × face up/down, not yet in play, discarded this turn (in the discard pile and filed there this turn) |
+| `card_recency` | `[110, 2]` | float32 | per card, off the engine's public play/discard log (`Observation.card_history`): seen leaving a hand ever, turns since (/10). Survives reshuffles — a scoring card discarded and reshuffled is `unseen` by location but recent here |
+| `hist_card` | `[32]` | int64 | the last `H_HIST` cards of the play/discard log, most recent first; `110` = empty slot |
+| `hist_feats` | `[32, 7]` | float32 | per history slot: by me/them, turns ago (/10), this turn, headline phase, action round (/8), recency rank (/32) |
 | `globals` | `[102]` | float32 | `am_us`, DEFCON, VP (signed for me), turn, action round, phase one-hot, hand sizes, draw pile size, space race positions/attempts, military ops, China Card flags, every turn/game effect flag (sided ones as me/them), decision-kind one-hot (23), decision-context scalars |
 | `focus` | `[2]` | int64 | card indices the decision is about: the card/event being resolved, the opponent's revealed headline; `110` = none |
 | `opt_feats` | `[96, 46]` | float32 | per option: one-hot over the closed payload vocabulary (play modes, ops types, event/ops order, event-choice words, regions), numeric value, is-country/is-card/is-empty/other flags, position |
@@ -216,12 +219,16 @@ new state out of Python objects and inside the layout.
   realignment bonuses are all adjacency facts; the node latents learn
   them. There is one map, so memorising that Poland is Poland is the
   point — no node shuffling, no coordinate stripping.
-- **Cards** as `card_embedding + location_embedding`, mean-pooled per
-  location into a "what is where" summary; `focus` cards as raw
-  embeddings.
+- **Cards** as `card_embedding + location_embedding + W(card_recency)`,
+  mean-pooled per location into a "what is where (and since when)"
+  summary; `focus` cards as raw embeddings.
+- **The play history** (layout v2): each `hist_*` slot as
+  `card_embedding + W(hist_feats)`, attention-pooled with a query from
+  the globals latent — the same mechanism as the node pool, empty slots
+  masked (a historyless first decision pools to zero, not NaN).
 - **State latent** from attention-pooled nodes (queried by the globals),
-  the globals, the card summary, and the focus cards. The value head reads
-  it.
+  the globals, the card summary, the focus cards, and the pooled play
+  history. The value head reads it.
 - **One option head for every decision kind**: each option is scored from
   `[state latent, option features, node latent of its country, embedding
   of its card]`, masked, softmaxed. The decision kind lives in `globals`,

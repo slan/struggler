@@ -706,6 +706,58 @@ noted. Every number in this file measured before this date is rules
 version ≤3's; the differences live only where a headline event chain
 reaches DEFCON 1.
 
+### 2026-08-28 — layout v2: order and recency; a fresh bootstrap
+
+**Question.** The search arc closed on "the remaining losses are
+strategic": the US seat's early-war 20-VP blowouts and the USSR seat's
+forced endgames. The r1 road map's carried hypothesis says the first is
+partly a *guessing problem* — which scoring cards are out, what the
+opponent's plays this turn say about its hand — that the layout cannot
+express: a region scored on turn 2 and one scored this turn look the
+same, and the set of discards carries no order. Does giving the network
+order and recency move what self-play learns, before any prior is
+introduced? (Decided on reflection 2026-08-28: exhaust the no-priors
+levers — this bump plus the retrain it forces — then assess
+scenario-seeded self-play, a prior over *states*, on the result.)
+
+**Setup.** The engine gains a public play/discard log
+(`Engine.card_history`, exposed by `observe()` — every entry a card
+both players saw leave a hand for a pile, so mandate #4 holds; carried
+by `serialize()`, goldens regenerated, rules unchanged — no
+`RULES_VERSION` bump). Layout v2 (`LAYOUT_VERSION` 2): a
+`discard_this_turn` card location, per-card `card_recency` (seen ever /
+turns since — survives reshuffles, which is exactly the scoring-cards
+guess), and `hist_*` — the last 32 log entries, most recent first, by
+me/them, attention-pooled by a query from the globals latent (WOPR.md
+has the tables). Checkpoints refuse to load across the bump, so the
+line restarts with `wopr.bootstrap --bid 2` (recipe v11, rules
+version 4): it freezes as `baselines/r4-bid2/v1`, then the loop to
+plateau, then the Playdek eval. `r3-bid2` stands as the old-layout
+reference — its v3 re-rated on this engine at 0.941 vs Greedy over
+400.
+
+**Metrics and decision rule** (written before the run): (a) the
+bootstrap's Greedy curve against the old bid-2 bootstrap's (0.17 /
+0.38 / 0.40 / 0.83 at 2/4/8/11k, confirmed @11,024) and the loop's
+plateau against r3-bid2's (v3 @23k, 0.95) — faster or higher says the
+features help *learning*; (b) the standing Playdek eval of the new
+line's champion (60 a seat easy / 30 hard, bid 2, raw argmax) against
+raw v3's 0.093/0.078 easy and 0.111/0.036 hard — the champion becomes
+the reported player if the easy two-seat mean improves on 0.086 by
+≥ 0.05, the bar search missed; (c) `wopr.diagnose` and the eval's loss
+mix on the two named failure shapes — the US early-war blowout share
+is the one the features were aimed at. Readings: (b) clears →
+scenario-seeded self-play starts from this champion, the ceiling
+higher than feared; (b) washes while (a) improved → the gain is
+internal-only and transfer is still the wall — priors next, as
+assessed; both flat → the r1 recency hypothesis closes negative and
+the layout was not the constraint — priors next, and the AlphaZero-
+style training question stays parked (it multiplies strength on the
+policy's own distribution, which is not the failing axis). Ledger: the
+bootstrap's freeze writes the row.
+
+**Result.** *(pending — bootstrap launched 2026-08-28.)*
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -724,7 +776,8 @@ constraint).
    but the easy-mean bar was missed by 0.005 and the remaining losses
    are strategic — raw v3 stays the reported player, search stays a
    multiplier in waiting.
-2. **Scenario-seeded self-play** — **next**: shape the initial-state
+2. **Scenario-seeded self-play** — next after the layout-v2 retrain
+   (the entry above): shape the initial-state
    distribution, not the opponent: a fraction of training games starts
    from positions where the failure is on the table (DEFCON 2, a
    gift card in hand; later, prefixes of lost eval games if that
@@ -740,10 +793,9 @@ constraint).
    longer games.
 6. **Protocol hygiene as the numbers tighten** — more eval seeds per
    claim, Wilson bounds on every reported Playdek rate.
-7. **Candidates carried, unranked:** order and recency features (a
-   layout bump — mandates a fresh bootstrap, since checkpoints refuse
-   to load across `LAYOUT_VERSION`; take it with the next retrain,
-   informed by 1–2); a third graph layer.
+7. **Candidates carried:** order and recency features — **taken
+   2026-08-28** (layout v2, the entry above; the bootstrap it mandates
+   is running). Still unranked: a third graph layer.
 
 At a plateau, diagnose before choosing: the next experiment's control,
 metric, budget and decision rule are written into its entry before

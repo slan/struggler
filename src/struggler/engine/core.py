@@ -81,6 +81,13 @@ class Engine:
         self.draw_pile: list[str] = []
         self.discard_pile: list[str] = []
         self.removed_cards: list[str] = []
+        # Public log of every card that left a hand for a pile (played, or
+        # discarded by an event), oldest first. Entries are flat JSON
+        # primitives (mandate #5): {"card", "side", "turn", "action_round",
+        # "phase"}. Appended by `_log_card_exit` and never mutated after;
+        # survives reshuffles (it is history, not a location). What the
+        # learned bot's recency/order features read (docs/WOPR.md).
+        self.card_history: list[dict] = []
         self.hands: dict[str, list[str]] = {"US": [], "USSR": []}
         self.china_card_owner = "USSR"
         self.china_card_available = True  # face-up: playable by its owner this turn
@@ -210,6 +217,9 @@ class Engine:
             # way), so a shallow copy is a complete snapshot.
             turn_effects=dict(self.turn_effects),
             game_effects=dict(self.game_effects),
+            # Shallow tuple: entries are appended once and never mutated, and
+            # every one is public (a play or discard announced at the table).
+            card_history=tuple(self.card_history),
         )
 
     @property
@@ -245,6 +255,7 @@ class Engine:
             "draw_pile": list(self.draw_pile),
             "discard_pile": list(self.discard_pile),
             "removed_cards": list(self.removed_cards),
+            "card_history": [dict(entry) for entry in self.card_history],
             "hands": {side: list(cards) for side, cards in self.hands.items()},
             "china_card_owner": self.china_card_owner,
             "china_card_available": self.china_card_available,
@@ -298,6 +309,7 @@ class Engine:
         engine.draw_pile = list(data.get("draw_pile", []))
         engine.discard_pile = list(data.get("discard_pile", []))
         engine.removed_cards = list(data.get("removed_cards", []))
+        engine.card_history = [dict(entry) for entry in data.get("card_history", [])]
         hands = data.get("hands", {"US": [], "USSR": []})
         engine.hands = {side: list(cards) for side, cards in hands.items()}
         engine.china_card_owner = data.get("china_card_owner", "USSR")
@@ -1378,6 +1390,7 @@ class Engine:
             # literal id, until declared.
             self.declare_physical_card(side, un_id)
             self._hand_remove_known(side, un_id)
+            self._log_card_exit(side, un_id)
             self.discard_pile.append(un_id)
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
             self._push_ops_type(side, self._effective_ops(side, card))
@@ -2266,10 +2279,25 @@ class Engine:
         # mistakenly removing a second, unrelated HIDDEN_CARD placeholder.
         if not already_removed_from_hand:
             self._hand_remove_known(side, cid)
+        self._log_card_exit(side, cid)
         if fired and self.cards[cid].remove_after_event:
             self.removed_cards.append(cid)
         else:
             self.discard_pile.append(cid)
+
+    def _log_card_exit(self, side: Side, cid: str) -> None:
+        """One `card_history` entry: `cid` left `side`'s hand for a pile.
+        `side` is the seat whose play or discard moved it (a headlined card's
+        entry lands at its resolution, phase "headline")."""
+        self.card_history.append(
+            {
+                "card": cid,
+                "side": side.value,
+                "turn": self.turn,
+                "action_round": self.action_round,
+                "phase": self.phase,
+            }
+        )
 
     # -- dispatch -----------------------------------------------------------
 
@@ -2806,6 +2834,7 @@ class Engine:
             if implemented:
                 self._fire_event(taker, cid)
         else:  # ops
+            self._log_card_exit(taker, cid)
             self.discard_pile.append(cid)
             self.push_event_operations(taker, card.ops)
 

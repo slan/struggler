@@ -186,3 +186,10 @@ class Observation:
     military_ops: Mapping[str, int]
     turn_effects: Mapping[str, Any]
     game_effects: Mapping[str, Any]
+    # Public play/discard log, oldest first: one entry per card that left a
+    # hand for a pile (played, or discarded by an event), as
+    # {"card", "side", "turn", "action_round", "phase"}. Every such move is
+    # announced at the table, so exposing the order and timing leaks nothing
+    # (mandate #4); the China Card is absent (it never enters a pile -- its
+    # passing is visible via `china_card_owner`/`china_card_available`).
+    card_history: tuple[Mapping[str, Any], ...] = ()

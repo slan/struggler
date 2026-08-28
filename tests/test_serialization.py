@@ -89,6 +89,37 @@ def test_starting_vp_opens_the_game_there_and_round_trips():
     assert Engine.deserialize(legacy).starting_vp == 0
 
 
+def test_card_history_logs_plays_publicly_and_round_trips():
+    # The public play/discard log: one entry per card filed to a pile, in
+    # resolution order, visible identically to both seats, and part of the
+    # serialized state (mandate #5). A legacy save without the key loads empty.
+    from conftest import bare_engine, headline_setup
+
+    engine = bare_engine(seed=1)
+    engine.board.influence["Cuba"] = {"US": 1, "USSR": 0}
+    headline_setup(engine, "Fidel", "Duck_and_Cover")
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Fidel"}))
+    engine.step(Action(DecisionKind.HEADLINE_PLAY, {"card": "Duck_and_Cover"}))
+
+    # Duck and Cover (3 Ops) resolved before Fidel (2): the log keeps that order.
+    assert [(e["card"], e["side"], e["phase"]) for e in engine.card_history] == [
+        ("Duck_and_Cover", "US", "headline"),
+        ("Fidel", "USSR", "headline"),
+    ]
+    assert all(e["turn"] == 1 for e in engine.card_history)
+    assert (
+        engine.observe(Side.US).card_history
+        == engine.observe(Side.USSR).card_history
+        == tuple(engine.card_history)
+    )
+
+    data = engine.serialize()
+    assert Engine.deserialize(data).serialize() == data
+    legacy = dict(data)
+    del legacy["card_history"]
+    assert Engine.deserialize(legacy).card_history == []
+
+
 def test_variants_survive_serialization_and_shape_the_game():
     from struggler.engine import Engine, Side
 
