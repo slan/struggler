@@ -289,7 +289,14 @@ official AI exposed (docs/WOPR.md, `gs-trace-304`): DEFCON 1 reached
 during the headline phase loses the player who *played* the resolving
 headline event — rule 4.5's note — not the side that moved the marker
 (a USSR-headlined Grain Sales hands the US a card it coups with; the
-USSR loses).
+USSR loses). Version 5 is two fixes the r4b2v4/scen1 easy evals
+exposed (docs/WOPR.md, the ninth pass): an event-granted free
+Realignment chain (Tear Down This Wall, Junta) keeps the card's
+terms — its named countries and the DEFCON-geography exemption — for
+every roll, not just the first; and a war card whose event is
+prevented (Arab-Israeli War under Camp David Accords) no longer
+triggers Flower Power — the official AI's reading, adopted over the
+card's bare "for Ops or for Event".
 
 ## Opening deal order
 

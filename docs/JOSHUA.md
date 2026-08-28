@@ -876,6 +876,42 @@ goldens already regenerated), and layout v2's encoding — with the
 `histmask=` diagnostic that closed it — remains recoverable from git
 history (`4b74b5e`, this entry's commit for the diagnostic).
 
+### 2026-08-28 — rules version 5: the ladder stands
+
+The r4b2v4 easy evals' desync mix (16 over 240 games) gave up two
+families. The larger (5 of 16, every one Tear Down This Wall) was an
+engine bug: an event-granted free Realignment chain lost the card's
+terms after its first roll — at DEFCON 2 the second European target
+was never offered, and a target outside the card's named countries
+was. Fixed by carrying `restrict`/`ignore_defcon` through the chain
+(`RULES_VERSION` 5, docs/ARCHITECTURE.md; WOPR.md's ninth pass). The
+second (2 of 16) was the trapped seat's scoring card reaching game
+over — the engine plays it, the DLL holds it to a HELD_CARDS loss —
+now the documented rules difference's void instead of a fatal desync.
+A `_simulate` that matches no option now reports each option's stop
+point and diff, so the singleton families come back from eval volume
+with traces attached.
+
+*Amended same day, from the scen1 eval's six desyncs (the new detail
+sorted them in one pass).* A second rules-v5 fix: a war card whose
+event is prevented does not trigger Flower Power (seed 358 — the
+engine paid 2 VP for Arab-Israeli War under Camp David where the DLL
+pays nothing; adopted from the DLL's reading, and the operator's old
+`_flower_power_check` void, which had failed to fire there anyway, is
+gone since the programs now agree). Still open, the plan in WOPR.md's
+ninth pass: Grain Sales' taken-card resolution (3 of 6) and a
+one-card hand/deal drift (2 of 6). Note: scen1 trained and its eval
+ran on v5's first fix only; the Flower Power corner affects neither
+(a training-arena game has no DLL, and the eval's drifted games were
+already desyncs).
+
+The decision points' re-rating on the new engine: **r3-bid2/v3 vs
+Greedy 0.940** over 400 (US 0.940 / USSR 0.940; standing 0.941 —
+unmoved), **Greedy against itself at bid 2 0.52/0.48 by seat** over
+200 — even within noise. The `r3-bid2` ladder stands, the bump noted.
+Verified against the DLL: hotseat 8/8, the differ 12/12, known
+families only.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

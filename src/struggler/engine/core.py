@@ -1076,8 +1076,12 @@ class Engine:
 
     def _maybe_flower_power(self, side: Side, cid: str) -> None:
         """Flower Power: the USSR scores 2 VP each time the US plays a war card
-        (for its Event or Operations), until An Evil Empire cancels it."""
-        if side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power"):
+        (for its Event or Operations), until An Evil Empire cancels it. A war
+        card whose event is prevented (Arab-Israeli War under Camp David
+        Accords) does not trigger it -- the FAQ's ruling, and the official
+        AI's (the seed-358 trace, docs/WOPR.md ninth pass)."""
+        if (side is Side.US and cid in RULES["war_cards"] and self.game_effects.get("flower_power")
+                and self._event_fires(side, cid)):
             self._award_vp(Side.USSR, 2)
 
     def _defectors_fired_by_five_year_plan(self) -> None:
@@ -2716,7 +2720,11 @@ class Engine:
             if options:
                 self._push(
                     side, DecisionKind.REALIGNMENT_TARGET, options,
-                    {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0},
+                    # restrict/ignore_defcon: the card's terms hold for every
+                    # roll of the chain, not just this first target
+                    # (`_maybe_push_realignment_target` reads them back).
+                    {"card_ops": ops, "spent": 0, "bonus": None, "non_bonus": 0,
+                     "restrict": list(countries), "ignore_defcon": True},
                 )
 
     # -- reclaim a card from the (public) discard pile ----------------------
@@ -2937,11 +2945,11 @@ class Engine:
 
     # -- realignment ---------------------------------------------------------
 
-    def _realignment_target_options(self, side: Side) -> tuple[Action, ...]:
+    def _realignment_target_options(self, side: Side, ignore_defcon: bool = False) -> tuple[Action, ...]:
         return tuple(
             Action(DecisionKind.REALIGNMENT_TARGET, {"country": cid})
             for cid in self.board.countries
-            if self._usable_coup_realign_target(side, cid, for_coup=False)
+            if self._usable_coup_realign_target(side, cid, for_coup=False, ignore_defcon=ignore_defcon)
         )
 
     def _maybe_push_realignment_target(
@@ -2951,19 +2959,27 @@ class Engine:
         spent: int,
         bonus: list[str] | None = None,
         non_bonus: list[int] | None = None,
+        restrict: list[str] | None = None,
+        ignore_defcon: bool = False,
     ) -> None:
         """Push the next Realignment-attempt decision, if any attempts are
         still available. `spent` attempts are always allowed up to
         `card_ops`; one extra attempt per bonus region is allowed on top of
         that only while every attempt so far has stayed inside that region
         (its `non_bonus` count is 0) -- the same all-or-nothing rule
-        `_maybe_push_bonus_influence` uses."""
+        `_maybe_push_bonus_influence` uses. `restrict`/`ignore_defcon`
+        carry an event-granted free op's terms (`resolve_free_op_choice`)
+        through the whole chain: every roll stays inside the card's named
+        countries and keeps its DEFCON-geography exemption, not just the
+        first."""
         if self.is_terminal:
             return
         extra = self._bonus_extra(non_bonus) if bonus else 0
         if not spent < card_ops + extra:
             return
-        options = self._realignment_target_options(side)
+        options = self._realignment_target_options(side, ignore_defcon=ignore_defcon)
+        if restrict is not None:
+            options = tuple(a for a in options if a.payload["country"] in restrict)
         if bonus and spent >= card_ops:
             # Only bonus attempts are left, and each exists only if every
             # attempt stays inside its region: the target must lie in
@@ -2981,12 +2997,12 @@ class Engine:
             # 6.3: each Op *may* be used for a roll. Once at least one has
             # been, the rest may be left unused.
             options += (Action(DecisionKind.REALIGNMENT_TARGET, {"country": REALIGNMENT_STOP}),)
-        self._push(
-            side,
-            DecisionKind.REALIGNMENT_TARGET,
-            options,
-            {"card_ops": card_ops, "spent": spent, "bonus": bonus, "non_bonus": non_bonus},
-        )
+        context: dict = {"card_ops": card_ops, "spent": spent, "bonus": bonus, "non_bonus": non_bonus}
+        if restrict is not None:
+            context["restrict"] = list(restrict)
+        if ignore_defcon:
+            context["ignore_defcon"] = True
+        self._push(side, DecisionKind.REALIGNMENT_TARGET, options, context)
 
     def _handle_realignment_target(self, decision: Decision, action: Action) -> None:
         side = decision.actor
@@ -2997,14 +3013,9 @@ class Engine:
             Side.CHANCE,
             DecisionKind.REALIGNMENT_ACTOR_ROLL,
             self._d6_actions(DecisionKind.REALIGNMENT_ACTOR_ROLL),
-            {
-                "side": side.value,
-                "country": country,
-                "card_ops": decision.context["card_ops"],
-                "spent": decision.context["spent"],
-                "bonus": decision.context["bonus"],
-                "non_bonus": decision.context["non_bonus"],
-            },
+            # The whole chain context rides along (card_ops/spent/bonus/
+            # non_bonus, and a free op's restrict/ignore_defcon).
+            {**decision.context, "side": side.value, "country": country},
         )
 
     def _handle_realignment_actor_roll(self, decision: Decision, action: Action) -> None:
@@ -3049,7 +3060,11 @@ class Engine:
         if bonus:
             non_bonus = [outside + (0 if self._in_bonus_region(country, region) else 1)
                          for outside, region in zip(non_bonus, bonus)]
-        self._maybe_push_realignment_target(side, card_ops, spent + 1, bonus, non_bonus)
+        self._maybe_push_realignment_target(
+            side, card_ops, spent + 1, bonus, non_bonus,
+            restrict=decision.context.get("restrict"),
+            ignore_defcon=decision.context.get("ignore_defcon", False),
+        )
 
     def _realignment_bonus(self, side: Side, country: str) -> int:
         bonus = 1 if self.board.is_adjacent(side.value, country) else 0

@@ -1207,6 +1207,30 @@ def test_tear_down_this_wall_places_then_offers_a_europe_free_op():
     )
 
 
+def test_tear_down_this_wall_free_realign_chain_keeps_its_region_and_defcon_exemption():
+    # The card's terms -- Europe only, DEFCON geography ignored -- hold for
+    # every roll of the free Realignment chain, not just the first: at
+    # DEFCON 2 the second target must still offer Europe (and nothing
+    # outside it), where the plain chain would offer no European target
+    # at all.
+    engine = _bare(seed=1)
+    engine.defcon = 2
+    engine.board.influence["West_Germany"]["USSR"] = 2
+    engine.board.influence["Austria"]["USSR"] = 3
+    engine.board.influence["Angola"]["USSR"] = 3  # outside Europe: must never be offered
+    engine._fire_event(Side.US, "Tear_Down_This_Wall")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "realign"}))
+    engine.step(Action(DecisionKind.REALIGNMENT_TARGET, {"country": "West_Germany"}))
+    engine.step(engine.pending_decision.options[0])  # actor's die
+    engine.step(engine.pending_decision.options[0])  # opponent's die
+    second = engine.pending_decision
+    assert second is not None and second.kind is DecisionKind.REALIGNMENT_TARGET
+    countries = {a.payload["country"] for a in second.options}
+    assert "Austria" in countries  # Europe stays open despite DEFCON 2
+    assert "Angola" not in countries  # the card's region confines every roll
+    assert "stop" in countries  # attempts past the first may be declined
+
+
 def test_tear_down_this_wall_free_op_ignores_defcon_region_restriction():
     # Europe's normal Coup/Realignment DEFCON floor is 5 (8.1.5), but a
     # card-granted free op that names its own region overrides that
@@ -2826,3 +2850,17 @@ def test_un_intervention_cannot_be_headlined():
     engine.hands["US"] = ["UN_Intervention", "Duck_and_Cover"]
     engine._push_headline(Side.US)
     assert {a.payload["card"] for a in engine.pending_decision.options} == {"Duck_and_Cover"}
+
+
+def test_flower_power_does_not_trigger_on_a_war_card_whose_event_is_prevented():
+    # Camp David Accords prevents Arab-Israeli War's event; the US playing
+    # the card for Operations afterwards is not a "war card played" for
+    # Flower Power (FAQ; the official AI rules it the same way).
+    engine = _bare()
+    engine.game_effects["flower_power"] = True
+    engine.game_effects["camp_david"] = True
+    engine.hands["US"] = ["Arab_Israeli_War"]
+    _play_card_for(engine, Side.US, "Arab_Israeli_War", "ops")
+    while engine.pending_decision is not None and engine.pending_decision.actor is not Side.US:
+        engine.step(engine.pending_decision.options[0])
+    assert engine.vp == 0  # no war (prevented), and no Flower Power VP
