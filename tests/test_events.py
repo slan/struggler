@@ -2809,6 +2809,37 @@ def test_untrapped_side_still_gets_a_normal_action_round_play():
     assert engine.pending_decision.actor is Side.US
 
 
+def test_trapped_seat_carries_a_held_scoring_card_past_the_turn():
+    # Rules version 7 (the DLL's reading): a seat still in Quagmire / Bear
+    # Trap does not lose to a scoring card held at the turn's end -- the
+    # trap makes the card unplayable for it, so the card carries over.
+    engine = Engine.new_game(seed=2, events=True)
+    engine.game_effects["quagmire"] = True  # traps the US
+    engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
+    engine.hands["USSR"] = ["Fidel"]
+    engine._end_of_turn()
+    assert not engine.is_terminal
+    assert "Asia_Scoring" in engine.hands["US"]  # carried into the next turn
+
+    # Freed of the trap, the normal loss applies again.
+    engine = Engine.new_game(seed=2, events=True)
+    engine.hands["US"] = ["Asia_Scoring", "Duck_and_Cover"]
+    engine.hands["USSR"] = ["Fidel"]
+    engine._end_of_turn()
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.serialize()["game_over_reason"] == "held_scoring_card"
+
+    # Both holding one, one of them trapped: only the untrapped seat loses
+    # (no draw -- the trapped seat's card does not count).
+    engine = Engine.new_game(seed=2, events=True)
+    engine.game_effects["bear_trap"] = True  # traps the USSR
+    engine.hands["US"] = ["Asia_Scoring"]
+    engine.hands["USSR"] = ["Europe_Scoring"]
+    engine._end_of_turn()
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.serialize()["game_over_reason"] == "held_scoring_card"
+
+
 # -- Southeast Asia Scoring: Thailand is worth double ------------------------
 
 

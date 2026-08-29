@@ -45,12 +45,15 @@ the engine as referee. Some things the engine simply cannot know.
   trusted to honor the rule, the same trust model any human player already
   gets for rules `HumanPlayer` does not independently re-verify.
 
-  The one place it *is* enforced: a trapped side's Ops-2+-less round
-  (`_push_trap_step`'s fallback) offers any scoring-card candidates as a
-  genuine `QUAGMIRE_DISCARD` decision (`context["forced_scoring"]`) instead
-  of auto-resolving one the way the non-physical path does. Auto-filing
-  would risk firing a `hidden_pool` card that is not actually in that hand,
-  since the pool is a superset, not a location.
+  A trapped side's Ops-2+-less round (`_push_trap_step`'s fallback) still
+  offers any scoring-card candidates as a genuine `QUAGMIRE_DISCARD`
+  decision (`context["scoring_only"]`) instead of auto-resolving one the
+  way the non-physical path does. Auto-filing would risk firing a
+  `hidden_pool` card that is not actually in that hand, since the pool is
+  a superset, not a location. Playing one there is optional, and keeping
+  it is free while the trap holds: a still-trapped seat is exempt from
+  the held-scoring-card loss and carries the card into the next turn
+  (rules version 7, adopted from the DLL).
 - **Our Man in Tehran is a no-op.** It peeks at the *draw pile's* real
   contents, which physical mode makes unknown to the engine itself, not
   merely hidden from a player, so there is nothing to queue instead of

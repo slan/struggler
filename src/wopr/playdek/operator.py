@@ -509,12 +509,18 @@ class PlaydekOperator(Bridge):
                 # simulation of gs-trace-304 stalled on it at `play_mode`).
                 self.moves[self.other].popleft()
             if (d.kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER) and d.context.get("card") in self._handed
-                    and not self.moves[self.other]):
+                    and not (self.moves[self.other] and self.moves[self.other][0].meaning.meaning is T.Meaning.USE)):
                 # The card Grain Sales handed over is played at once, and the
                 # DLL reports no use for it (only the coup or the influence
                 # that followed): each use is tried on a copy. Once the real
                 # engine has its answer the card is played (the order of an
                 # opponent card's event and Ops is the one decision left).
+                # A queued card play is the seat's *next* action, not this
+                # card's mode -- the DLL runs whole actions ahead, and the
+                # simulation spends it downstream (v3-easy-r7 seeds 324/408:
+                # the taken card fired as an event with nothing queued for
+                # it, and the next play blocked this branch). Only a queued
+                # use belongs to this play and answers it below instead.
                 action = self._simulate(d)
                 if not self._simulating and (d.kind is DecisionKind.EVENT_OPS_ORDER or action.payload.get("mode") != "ops"
                                              or not self.engine._is_opponent_event(Side.US, self.engine.cards[d.context["card"]])):
@@ -1040,6 +1046,16 @@ class PlaydekOperator(Bridge):
                 self._auto_declined -= 1
                 self._declined_for_dll = d
                 return dataclasses.replace(d, options=decline[:1])
+        if d.kind is DecisionKind.QUAGMIRE_DISCARD and d.context.get("scoring_only"):
+            # The DLL's own seat cannot play a scoring card under the trap
+            # (ffi.TRAP_SCORING_CARD is an inert entry: selecting it does
+            # nothing and the prompt returns with Pass alone) -- the bot's
+            # play is cut to the keep, which rules version 7 makes free
+            # (the card carries over while the trap holds).
+            keep = tuple(a for a in d.options if a.payload["card"] == "none")
+            if keep and len(d.options) > 1:
+                self.known["trapped scoring card: the DLL's own seat cannot play it; the bot keeps it"] += 1
+                return dataclasses.replace(d, options=keep)
         if prompt is None or d.kind not in COUNTRY_KINDS | CARD_KINDS | {DecisionKind.EVENT_CHOICE, DecisionKind.OPS_TYPE} or self.prompt_side(prompt) is not self.side:
             return d
         if self.outgoing or self._un_target is not None:
@@ -1347,7 +1363,11 @@ class PlaydekOperator(Bridge):
                     self.diverge("rules", f"held scoring card: the engine ends the turn with {loser.value} trapped and holding a scoring card "
                                  f"({self.engine.winner.value} wins), the DLL plays on to {prompt.text!r}", fatal=True)
                     break
-                self.diverge("game over", f"the engine is over ({self.engine.winner}) while the DLL still asks {prompt.text!r}", fatal=True)
+                e = self.engine
+                self.diverge("game over", f"the engine is over ({e.winner}, {getattr(e, '_game_over_reason', None)}, "
+                             f"turn {e.turn}, VP {e.vp}; hands US {e.hands['US']} / USSR {e.hands['USSR']}; "
+                             f"DLL hand counts US {self.game.hand_count(self._player_of[Side.US])} / USSR {self.game.hand_count(self._player_of[Side.USSR])}) "
+                             f"while the DLL still asks {prompt.text!r}", fatal=True)
                 break
             self._choose(prompt, option)
         report = self.finish()

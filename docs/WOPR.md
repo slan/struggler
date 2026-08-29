@@ -1473,6 +1473,38 @@ Findings from the first four random games, and what became of each:
   engine over while the DLL still headlines (330, 350), and two
   illegal-in-Playdek singletons (300: 'Place 2 Influence' in Europe;
   388: South African Unrest's choice against the bot's card play).
+- **Thirteenth pass, from the r7 read: the trapped-seat void adopted,
+  the handed-card family fixed.** **Rules version 7**, the DLL's
+  reading of the traps: a seat still in Bear Trap / Quagmire is
+  exempt from the held-scoring-card loss at the turn's end and
+  carries the card over — the DLL's own seat cannot even play it
+  there (`ffi.TRAP_SCORING_CARD` is an inert entry), so holding it is
+  not that player's choice. `_end_of_turn` filters trapped holders
+  (an untrapped holder still loses, alone even when the trapped
+  opponent also holds one); the optional scoring play under the trap
+  *stays* — the DLL's AI seat does play one at times (the bridge's
+  "a scoring card is played" path) — and `narrow` cuts the *bot's*
+  scoring play to the keep, under a new `known`, since the DLL
+  cannot express it (the old drift behind the "engine plays it under
+  the trap, the DLL holds it" face). This retires the five r7 voids.
+  Bridge fix, the r7 grain family (seeds 324/408, r6b 344/382): the
+  Grain-handed card's `play_mode`/`EVENT_OPS_ORDER` simulate branch
+  required an *empty* queue, but the DLL runs whole actions ahead —
+  a taken card played as its event leaves nothing queued for itself
+  while the seat's next play is already queued behind it, so both
+  take/return simulations stalled at `play_mode` and the mismatch
+  followed. The branch now treats a queued *card* play as the next
+  action (the simulation spends it downstream) and defers only to a
+  queued *use*. Diagnostics: the finish-match game-over fatal now
+  names the engine's reason, turn, VP, both engine hands and the
+  DLL's hand counts (seeds 330/350 — whose engine end a log replay
+  shows came from a revealed scoring card in the hidden US hand with
+  no trap active: the next batch's trace will say which reveal).
+  Yardstick on the bump: v3 vs Greedy 0.945 over 400 at bid 2
+  (standing 0.940 — unmoved; the `r3-bid2` ladder stands; the
+  Greedy-self pairing is not runnable by name in `wopr.eval`).
+  Verified: suite 538, the grain sweep 149/149, hotseat 8/8, the
+  differ 12/12 with zero fatals, known families only.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

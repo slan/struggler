@@ -679,11 +679,17 @@ class Engine:
         # A scoring card still in hand at the end of the turn loses the game
         # for its holder (scoring cards must be played the turn they are
         # held). Holding one each is a draw. A physical hand's unrevealed
-        # cards (HIDDEN_CARD) cannot be checked.
+        # cards (HIDDEN_CARD) cannot be checked. A seat still in Bear Trap /
+        # Quagmire is exempt and carries the card into the next turn (rules
+        # version 7, the DLL's reading: the trap makes the card unplayable
+        # -- ffi.TRAP_SCORING_CARD is an inert entry -- so holding it is not
+        # the trapped player's choice and costs nothing while the trap
+        # holds; once free, the normal loss applies again).
         holders = [
             side
             for side in (Side.US, Side.USSR)
             if any(cid != HIDDEN_CARD and self.cards[cid].scoring for cid in self.hands[side.value])
+            and self._trap_key_for(side) is None
         ]
         if len(holders) == 1:
             self._win(holders[0].opponent, "held_scoring_card")
@@ -2867,9 +2873,10 @@ class Engine:
     #     round. The action round is spent either way -- never also a normal
     #     play.
     #   - If it holds no such card: the round is wasted with *no* roll at
-    #     all (the trap persists untouched into the next round) -- except any
-    #     scoring card still in hand must still be played (a scoring card may
-    #     never be held past end of turn; this is the one exception).
+    #     all (the trap persists untouched into the next round) -- a scoring
+    #     card in hand *may* be played (the DLL's AI does at times), or kept:
+    #     holding it past the turn's end costs nothing while the trap holds
+    #     (rules version 7, the DLL's reading; `_end_of_turn`'s exemption).
     # Bear Trap traps the USSR; Quagmire traps the US -- independent of who
     # actually plays the card, exactly like Duck and Cover always favors the
     # US regardless of who plays it.
@@ -2909,11 +2916,12 @@ class Engine:
         # No Ops-2+ card: no roll this round. The card: "if out of
         # appropriate cards, the player may only play scoring cards" --
         # may, so a scoring card in hand is offered, with "none" to keep
-        # it (a scoring card held past the turn's end still loses the
-        # game, `_end_of_turn`; with action rounds left the choice is
-        # the player's). In physical mode the candidates are the hidden
-        # pool's, and the operator, who can see the hand, says which, if
-        # any, is really there.
+        # it (holding it past the turn's end costs nothing while the trap
+        # holds -- rules version 7, `_end_of_turn`'s exemption; the DLL's
+        # AI does play one here at times, so the option stays). In
+        # physical mode the candidates are the hidden pool's, and the
+        # operator, who can see the hand, says which, if any, is really
+        # there.
         scoring_candidates = [cid for cid in source if self.cards[cid].scoring]
         if scoring_candidates:
             options = tuple(
