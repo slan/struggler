@@ -1458,7 +1458,21 @@ Findings from the first four random games, and what became of each:
   reading or a mode misread; the Warsaw Pact simulation failure two
   turns later is downstream of the standing VP diff, whose 'add'
   branch reproduced the influence exactly), the trap-discard corner
-  (seed 348), and 315's pre-pick ±1 slot.
+  (seed 348), and 315's pre-pick ±1 slot. Measured at volume the same
+  day, back to back on seeds 300–419: `v3-easy-r6b` (the pre-fix
+  binary) reproduced seed 315's pick fatal *verbatim* and seed 371 in
+  the SALT shape, and repeated the US-seat zero (0/56, 0/113 across
+  the two v6 batches); `v3-easy-r7` (the fixed code) — none of the
+  three roots recurred (315 runs a turn further into a different
+  family, 371/338/405 clean), desyncs 9 → 7, void 5 (all the
+  documented trapped-seat held-scoring-card difference), and the US
+  seat scored 2/57 (USSR 5/51). The surviving desyncs sort into: a US
+  influence/coup the engine missed before a Grain Sales simulation
+  (r7 seeds 324/408 and 315's new stop, r6b 344/382 — the biggest
+  family, plausibly one root in the hidden-seat US replay), the
+  engine over while the DLL still headlines (330, 350), and two
+  illegal-in-Playdek singletons (300: 'Place 2 Influence' in Europe;
+  388: South African Unrest's choice against the bot's card play).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
