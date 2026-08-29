@@ -1546,6 +1546,28 @@ Findings from the first four random games, and what became of each:
   asking a two-influence placement the engine has no source for) is
   untraceable post-hoc. Verified: suite 538, the grain sweep 149/149,
   hotseat 8/8, the differ 12/12 zero fatals.
+- **Fifteenth pass, from the r9 read** (`v3-easy-r9`, the fourteenth
+  pass measured: desyncs 14 → 7, void 0, US seat 4/57 = 0.070 after
+  0/113 pre-twelfth-pass — and every instrument delivered). The
+  China comparison located seed 306's fork live (China Card Playdek
+  US, engine USSR, flagged from t6 AR1 with the hand-drift dump
+  beside it); the record dump named the long-standing trap-discard
+  corner: seeds 348/416 both stuck with the bot's Cuban Missile
+  Crisis defuse answer ('Cuba') queued against a DLL prompt that
+  offers no defusing — the DLL folds defusing into the play prompt
+  and gives a trapped seat's round no defuse entry at all, while the
+  engine offers it as its own round-start choice. The fix: `narrow`
+  cuts the round-start offer to "skip" when the bot's live prompt
+  shows no defuse entry (a `known`; the at-coup offer keeps its
+  options — the DLL asks that one as its own prompt). The stall-retry
+  fix held: r8's 315/323 How-I-Learned fatals are gone, and the two
+  surviving How-I-Learned/Junta fatals (404, 323) show genuine
+  standing drift in their headers, not stalls. Left open with
+  fresh traces: the China fork's origin (306), an event-resolution
+  ordering where the DLL resolves the bot's UN-Intervened Socialist
+  Governments removals itself (325), Marshall-Plan-vs-engine target
+  lists (373), and the deep-drift pair (323, 404). Verified: suite
+  538, sweep 149/149, hotseat 8/8, differ 12/12 zero fatals.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

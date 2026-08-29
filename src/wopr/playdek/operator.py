@@ -1078,6 +1078,21 @@ class PlaydekOperator(Bridge):
         if self.outgoing or self._un_target is not None:
             return d  # the prompt is for an earlier action still to be told
         if d.context.get("event") == CMC_DEFUSE:
+            # The DLL folds defusing into the play prompt ('Remove 2
+            # Influence from <country>' beside the cards) and gives a
+            # trapped seat's round no defuse entry at all: when the bot's
+            # live prompt shows no defuse entry, the round-start offer is
+            # cut to "skip" (v3-easy-r9 seeds 348/416: the bot's 'Cuba'
+            # stuck against a trap discard / an event choice) -- a play
+            # prompt's own entry, if one comes, simply goes unselected on
+            # both sides. The at-coup offer keeps its options: the DLL
+            # asks that one as its own prompt.
+            if (d.context.get("at") != "coup" and prompt is not None and self.prompt_side(prompt) is self.side
+                    and not any(o.hint in (SelectionHint.CMC_DEFUSE, SelectionHint.CMC_DEFUSE_AT_COUP) for o in prompt.visible)):
+                skip = tuple(a for a in d.options if a.payload["choice"] == "skip")
+                if skip and len(d.options) > 1:
+                    self.known["Cuban Missile Crisis: the DLL's prompt offers no defusing here; the bot's offer is cut to skip"] += 1
+                    return dataclasses.replace(d, options=skip)
             return d  # "skip" is a card play, always there
         meanings = {T.meaning(o).meaning for o in prompt.visible}
         if not self._fits(d, meanings):
