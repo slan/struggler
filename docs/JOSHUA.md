@@ -1199,6 +1199,46 @@ decision. The eval's desyncs are mined first (the `grain` /
 DLL easy eval (120 games, ~140 min). Nothing else without a new
 entry.
 
+**Result** (2026-08-29, `runs/counter1`, `runs/playdek/counter1-easy`).
+The internal story is exactly what the arm asked for: PFSP kept the
+exploiter prominent (409 of its pool games), the learner's record
+against it rose to 0.489 in training, and the head-to-heads confirm
+the defense — counter1 vs exploit1 **0.532** (v3 managed 0.418), vs
+v3 **0.600**, vs Greedy **0.975**. Internal gate passed (one flag:
+USSR edge 0.742, inherited tilt from the exploiter's 0.725; v3 is
+0.575). Then the decider: easy AI 120 games, USSR **0.093**
+[0.04, 0.20], US **0.053** [0.02, 0.14], two-seat mean **0.072** —
+raw v3's 0.086, the bar 0.136. Mechanism metric worse, not halved:
+the USSR DEFCON-loss share is 27/48 = **0.56** (raw v3 ~0.4) — the
+inherited USSR aggression buys wins against the line and DEFCON
+deaths against the AI; the US mix is 28 VP blowouts + 14
+Europe-control of 55. The fourth arm in a row where the internal
+ladder moves (0.600 over the champion would clear any gate) and the
+Playdek number does not.
+
+**Desync mining** (pre-registered first step; 6 desyncs + 3 void of
+120): the ninth-pass instrumentation delivered. *Grain family
+pinned*: three traces with the taken card's full location history —
+seed 354 (UN_Intervention, 'return' read off location, confirmed by
+simulation), seed 386 (Independent_Reds, 'take' by simulation,
+location agreeing), and the decisive seed 390 (Olympic_Games:
+**simulation says 'take' while the location read says 'return'** —
+the location heuristic is unreliable and the resolution must trust
+simulation). *Hand-drift evidenced*: seed 338 carries the
+unaccounted-exits list (Decolonization, Lone_Gunman; US hand DLL 8
+vs engine 2) and seed 405 a one-card drift with the full state diff.
+Bridge work, next time the bridge is the arm.
+
+**Decision.** The question closes **negative**: counter-training
+against the line's own exploiter teaches the defense the exploiter
+tests and none the easy AI applies. With it, the
+opponent-distribution lever *as reachable from inside SELF-PLAY-ONLY*
+is spent — the exploiter existed, the defense landed, the transfer
+did not happen. The remaining rung is option 4, relaxing
+SELF-PLAY-ONLY (the easy AI or Greedy as a teacher in the mix),
+which stays what it always was: an explicit review decision, the
+user's call. Raw v3 remains the reported player.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -1236,12 +1276,15 @@ constraint).
    champion line found a USSR-side attack (near-even vs v3 on that
    seat) but missed the 0.6 counter-training gate at the 16k cap
    while still climbing; run B never started, no DLL hours spent.
-   The review (2026-08-29) chose the budget fork first; the
-   continuation ran exploit1 to the 32k cap and **missed the gate at
-   worst seed 0.520** (mean 0.582 vs v3, both seats risen, curve
-   flattening). The arm is closed; the review reconvenes on options
-   2–4, with option 3 (counter-run seeded with exploit1 as-is)
-   strengthened by the endpoint being a both-seats near-peer.
+   The review (2026-08-29) ran the budget fork (exploit1 to the 32k
+   cap: gate missed at worst seed 0.520, a 0.582-mean near-peer) and
+   then the counter-run on it (entry above): internal gate passed,
+   defense landed (0.532 vs the exploiter, 0.600 vs v3), easy eval
+   **0.072 vs the 0.136 bar** with the USSR DEFCON-loss share *up*
+   at 0.56 — **closed negative 2026-08-29**, the fourth
+   internal-transfer negative. The self-play-only
+   opponent-distribution lever is spent; the remaining rung is
+   relaxing SELF-PLAY-ONLY, an explicit review decision.
 5. **Bridge to <2% attrition** — the open desync families (WOPR.md),
    traces caught by volume; matters more as evals move to hard mode's
    longer games.
