@@ -121,6 +121,7 @@ class Bridge:
         self._engine_dealt: dict[Side, set[str]] = {Side.USSR: set(), Side.US: set()}  # ...and already dealt to the engine
         self._dll_turn = 0
         self._last_moves: dict[str, tuple[int, int, int]] = {}  # card -> (from, to, sequence no.) of its latest move
+        self._reclaims: list[tuple[int, str, int]] = []  # (sequence no., card, hand) of every discard-to-hand move (SALT), consumed as answered
         self._move_seq = 0
         # Every move from a hand to the discard or removed pile, in order,
         # until the engine's own discard accounts for it (`card_that_left`):
@@ -339,6 +340,14 @@ class Bridge:
             if was is not None and was != loc:
                 self._move_seq += 1
                 self._last_moves[card] = (was, loc, self._move_seq)
+                if was == int(ffi.ECardLocation.DISCARDED) and loc in HAND_OF:
+                    # A card taken back from the discard pile (SALT
+                    # Negotiations). Kept in its own log: `_last_moves` holds
+                    # only the latest move, and a reclaimed card played again
+                    # before the engine asks would hide the recovery there
+                    # (counter1-easy seed 405: ABM Treaty back in hand at
+                    # @1733, replayed at @1759, the reclaim read as declined).
+                    self._reclaims.append((self._move_seq, card, loc))
                 if was in HAND_OF and loc in PILES:
                     # Whether the move is the card's play is settled now: the
                     # card may come back to a hand (SALT Negotiations) and be
@@ -432,9 +441,18 @@ class Bridge:
         if self.game.hand_count(self._player_of[physical]) != len(e.hands[physical.value]):
             return
         ahead = self._dll_turn != e.turn
+        # Equal counts do not mean the slots correspond: an Ask Not that
+        # discarded as many as it drew leaves the DLL's count where it was
+        # while the engine still holds the old hand (counter1-easy seed 338
+        # -- the drawn scoring cards took slots of the hand being
+        # discarded, and the last discards had none). A card the DLL drew
+        # this turn waits while the physical seat has unreplayed exits or
+        # queued moves; the reveal follows once the engine has caught up.
+        behind = bool(self.moves[physical]) or any(
+            was == HAND_LOCATION[physical] and not play for _, _, was, _, play in self._exits)
         for card, loc in self.card_loc.items():
             if (loc == HAND_LOCATION[physical] and card in e.hidden_pool and e.cards[card].scoring
-                    and not (ahead and card in self._dealt[physical])):
+                    and not ((ahead or behind) and card in self._dealt[physical])):
                 e._reveal_in_hand(physical, card)
                 if HIDDEN_CARD not in e.hands[physical.value]:
                     return
@@ -704,10 +722,14 @@ class Bridge:
         in_hand = {c for c, loc in self.card_loc.items() if loc == HAND_LOCATION[physical]}
         if event == "Missile_Envy_physical_pick":
             # The card the giver handed over: the latest to leave that hand
-            # (for the taker's hand or wherever the DLL files it).
+            # (for the taker's hand or wherever the DLL files it) -- except
+            # Grain Sales' random draw, which an exchanged Grain Sales pulls
+            # out of the same hand while its take/return prompt is up: that
+            # card is the draw's fact, never the exchanged card.
             taker = Side(d.context["taker"])
+            drawn = self.grain_card(self.game.prompt) if self.game.prompt is not None else None
             gone = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
-                    if was == HAND_LOCATION[physical] and c in offered]
+                    if was == HAND_LOCATION[physical] and c in offered and c != drawn]
             if not gone:
                 return None
             card = max(gone)[1]

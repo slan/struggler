@@ -261,9 +261,17 @@ class PlaydekOperator(Bridge):
         if action is None and d.context.get("event") == "Missile_Envy_physical_pick":
             # The card the AI gave is pushed into the resolve slot as "fired"
             # the moment it is exchanged; its move out of the hand is reported
-            # only once its event is done asking (SALT's recovery).
+            # only once its event is done asking (SALT's recovery). An
+            # exchanged Grain Sales fires at once and draws a second card out
+            # of the same hidden hand, also as "fired" and later than the
+            # exchange -- that draw is Grain Sales' fact, never the exchanged
+            # card, so it is excluded here (v3-easy-r6 seed 315: the pick took
+            # the drawn card, the giver's hand kept the real exchanged one).
             offered = {a.payload["choice"] for a in d.options}
-            card = next((c for c in reversed(self._fired) if c in offered and self._taken.get(c) is self.engine.physical_side), None)
+            prompt = self.game.prompt
+            drawn = self.grain_card(prompt) if prompt is not None else None
+            card = next((c for c in reversed(self._fired) if c in offered and c != drawn
+                         and self._taken.get(c) is self.engine.physical_side), None)
             if card is not None:
                 self._fired.remove(card)
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"Missile Envy takes {card} (pushed as fired)")
@@ -274,6 +282,16 @@ class PlaydekOperator(Bridge):
                 given = q.popleft().meaning.card
                 return self._pick(d, lambda a: a.payload["choice"] == given,
                                   f"Missile Envy takes {given} (the giver's own answer)")
+            # The DLL is already asking Grain Sales' take/return while the
+            # engine is still at the pick: only Grain Sales asks that, and
+            # nobody played it -- the exchanged card was Grain Sales itself,
+            # its event drew `drawn` from the same hand before any exit
+            # record. Named directly, whether or not its own animation came.
+            if drawn is not None and "Grain_Sales_to_Soviets" in offered:
+                if "Grain_Sales_to_Soviets" in self._fired:
+                    self._fired.remove("Grain_Sales_to_Soviets")
+                return self._pick(d, lambda a: a.payload["choice"] == "Grain_Sales_to_Soviets",
+                                  f"Missile Envy takes Grain_Sales_to_Soviets (its event is asking about {drawn})")
             # No reveal yet, and none is coming: when the exchange follows
             # inside a headline chain (a headlined Grain Sales resolved
             # first, seed 30 of the grain harness), the DLL is already
@@ -698,13 +716,22 @@ class PlaydekOperator(Bridge):
                     return None
                 return next((a for a in d.options if a.payload["choice"] in DECLINES), None)  # at rest with nothing pushed: declined
             # A card taken back from the discard pile (SALT Negotiations):
-            # the one that moved there into this seat's hand.
-            taken = [(seq, c) for c, (was, now, seq) in self._last_moves.items()
-                     if was == int(ffi.ECardLocation.DISCARDED) and now == HAND_LOCATION[self.other] and c in choices]
+            # the one that moved there into this seat's hand. Read from the
+            # recovery log, not `_last_moves`: a reclaimed card played again
+            # before the engine asks has its recovery overwritten there
+            # (counter1-easy seed 405).
+            taken = [(seq, c) for seq, c, loc in self._reclaims
+                     if loc == HAND_LOCATION[self.other] and c in choices]
             if taken:
-                card = max(taken)[1]
-                del self._last_moves[card]
+                seq, card = max(taken)
+                self._reclaims.remove((seq, card, HAND_LOCATION[self.other]))
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"took back {card}")
+            if d.context.get("event") == "Salt_Negotiations" and self.game.prompt is None:
+                # The DLL may still be resolving SALT: its recovery record has
+                # not arrived, and "no record" is not yet a decline. Pump it
+                # to its next prompt first (the Star Wars guard above, same
+                # reasoning); at rest with nothing reclaimed, it declined.
+                return None
             # Discard a card or decline (Blockade): the card that left the hand
             # -- the bot's own when the choices are its cards (Aldrich Ames
             # Remix: the USSR names a US card).
@@ -971,7 +998,8 @@ class PlaydekOperator(Bridge):
         return (list(self.rolls), copy.deepcopy((self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
                                                  self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired,
                                                  self._revealed, self._taken, self._exits, self._exits_before_reshuffle, self.reshuffled,
-                                                 self.synced_seq, self._extra_ops_pending, self._handed, self._from_discard)))
+                                                 self.synced_seq, self._extra_ops_pending, self._handed, self._from_discard,
+                                                 self._reclaims)))
 
     def _set_queues(self, queues: tuple) -> None:
         rolls, rest = queues
@@ -979,7 +1007,7 @@ class PlaydekOperator(Bridge):
         (self.moves, self._last_moves, self._grain, self._forced_mode, self._un_ops,
          self._dealt, self._engine_dealt, self._last_played, self._replay, self._fired, self._revealed, self._taken,
          self._exits, self._exits_before_reshuffle, self.reshuffled, self.synced_seq, self._extra_ops_pending, self._handed,
-         self._from_discard) = copy.deepcopy(rest)
+         self._from_discard, self._reclaims) = copy.deepcopy(rest)
 
     # -- the bot's actions -> the DLL's prompts -------------------------------
 

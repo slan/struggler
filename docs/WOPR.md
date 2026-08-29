@@ -1417,6 +1417,48 @@ Findings from the first four random games, and what became of each:
   asking the other seat, hand 7 v 8; seed 391: a 1-VP drift walking
   from turn 7), and a trap-discard prompt against a bot event
   choice (seed 348).
+- **Twelfth pass, from the standing traces alone** (no new DLL
+  volume: the three open trace sets each yielded a root by static
+  read against the per-game action logs). Seed 315 (v3-easy-r6): the
+  Missile Envy physical pick took **Grain Sales' random draw** as the
+  exchanged card — an exchanged Grain Sales fires at once and pulls a
+  second card out of the same hidden hand, also as "fired" and later
+  than the exchange, so the pick's LIFO read of `_fired` named the
+  drawn card (the game log's action 255: `CHANCE event_choice
+  Latin_American_Death_Squads`) while the DLL was asking the bot the
+  take/return of the card it actually exchanged. The pick now
+  excludes the live Grain prompt's drawn card from the `_fired` and
+  `_last_moves` scans, and a live take/return prompt names
+  `Grain_Sales_to_Soviets` directly (only Grain Sales asks it, and
+  nobody had played it). Two footnotes from the trace: Playdek's
+  giver handed over a 2-Ops card past three 3-Ops ones, so the
+  ninth pass's unique-Ops-maximum fallback is a heuristic about the
+  DLL, not its rule; and the engine's hand stayed one slot larger
+  than the DLL's *before* the pick — the turn-deal ±1 is a separate,
+  still-untraced root. Seed 405 (counter1-easy): the SALT
+  Negotiations reclaim was read as declined — `_last_moves` keeps
+  only a card's latest move, and ABM Treaty reclaimed at @1733 then
+  replayed at @1759 had its recovery overwritten before the engine
+  asked; the reclaim now reads from a dedicated `_reclaims` log
+  (every `DISCARDED -> hand` record, consumed as answered), and the
+  decline gained the Star Wars pump guard (no decline while the
+  DLL's prompt is down: "no record yet" is not "declined"). Seed
+  338 (counter1-easy): `_reveal_hidden_scoring_cards`' equal-count
+  gate passed on an Ask Not that discarded eight and drew eight —
+  the counts agreed while the slots did not correspond, and the
+  drawn scoring cards took slots of the hand still being discarded
+  (the last two discards had none: "unaccounted exits"). A card the
+  DLL drew this turn now also waits while the physical seat has
+  unreplayed exits or queued moves; the reveal follows once the
+  engine catches up. Verified: suite 537, the grain sweep 149/149,
+  hotseat 8/8, the differ 12/12, known families only. Still open:
+  seed 391's 1-VP drift (turn 7 AR 5, at the USSR's
+  `un_intervention` play of Alliance for Progress — the DLL's VP
+  moved as if the cancelled event's award fired, either a Playdek
+  reading or a mode misread; the Warsaw Pact simulation failure two
+  turns later is downstream of the standing VP diff, whose 'add'
+  branch reproduced the influence exactly), the trap-discard corner
+  (seed 348), and 315's pre-pick ±1 slot.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
