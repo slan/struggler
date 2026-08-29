@@ -1504,7 +1504,26 @@ Findings from the first four random games, and what became of each:
   (standing 0.940 — unmoved; the `r3-bid2` ladder stands; the
   Greedy-self pairing is not runnable by name in `wopr.eval`).
   Verified: suite 538, the grain sweep 149/149, hotseat 8/8, the
-  differ 12/12 with zero fatals, known families only.
+  differ 12/12 with zero fatals, known families only. Measured
+  (`v3-easy-r8`, the same seeds): **void 0** — four of r7's five
+  trapped-carry games play clean to completion, the fifth converts to
+  a deeper desync (345, South African Unrest) — and the handed-card
+  family did not recur (324/408 clean). Desyncs 14/120 (9 → 7 → 14
+  across the three identical-seed batches: the AI is not
+  deterministic, families matter more than the count), and the new
+  game-over diagnostic paid off at once: seed 405's end names a
+  revealed **Middle_East_Scoring** standing in the engine's USSR hand
+  at turn 6's end while the DLL, hands 9/9, is already dealing turn 7
+  — the reveal-drift family's first named card. The surviving shapes:
+  simulations blocked by *earlier* board drift (How I Learned at
+  315/323 with the DLL 5 military Ops ahead — a coup the engine
+  missed; Junta at 354/383; South African Unrest at 345, r7's 388),
+  the DLL-ahead `play_mode`/`ops_type` mismatches outside the handed
+  set (350/361, 360/402 — the granted-Ops attribution face), 'Place
+  2 Influence' illegal-in-Playdek (314/379, r7's 300), and one grain
+  take/return where both branches stop clean without confirming
+  (384). US seat 2/52 — 0.035–0.038 on the fixed bridge across
+  r7/r8, against 0/113 before it.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
