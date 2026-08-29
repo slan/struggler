@@ -905,6 +905,12 @@ class Bridge:
             diffs.append(f"mil ops Playdek {self.milops}, engine {(e.military_ops['USSR'], e.military_ops['US'])}")
         if (e.space_race["USSR"], e.space_race["US"]) != self.space:
             diffs.append(f"space race Playdek {self.space}, engine {(e.space_race['USSR'], e.space_race['US'])}")
+        china = getattr(self, "_china", None)  # the operator tracks the DLL's holder; the differ does not
+        if china is not None and china.value != e.china_card_owner:
+            # Ownership forks silently (a Cultural Revolution mode misread)
+            # and only surfaces turns later (Nixon's +2-VP-or-take branch,
+            # v3-easy-r8 seed 405): compared here so the drift is located.
+            diffs.append(f"China Card Playdek {china.value}, engine {e.china_card_owner}")
         if hands:
             for side in (Side.USSR, Side.US):
                 pd_count = self.game.hand_count(self._player_of[side])

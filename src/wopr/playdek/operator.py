@@ -522,6 +522,8 @@ class PlaydekOperator(Bridge):
                 # it, and the next play blocked this branch). Only a queued
                 # use belongs to this play and answers it below instead.
                 action = self._simulate(d)
+                if action is None:
+                    return None  # every branch stalled clean: the DLL advances first
                 if not self._simulating and (d.kind is DecisionKind.EVENT_OPS_ORDER or action.payload.get("mode") != "ops"
                                              or not self.engine._is_opponent_event(Side.US, self.engine.cards[d.context["card"]])):
                     self._handed.discard(d.context["card"])
@@ -866,21 +868,32 @@ class PlaydekOperator(Bridge):
     def _simulate(self, d: Decision) -> Action | None:
         """Play each option on a copy of the engine, the rest of the chunk
         answered from the same facts, and keep the ones that leave the copy
-        in the DLL's state. Nested choices recurse."""
+        in the DLL's state. Nested choices recurse. None when no option
+        matched but one stalled *clean* -- stuck at a decision the facts
+        cannot answer yet with no state diff at its stop (the DLL simply
+        has not been advanced far enough): the caller's retry loop pumps
+        the DLL and asks again (v3-easy-r8 seeds 315/323: How I Learned's
+        right DEFCON reproduced the state and stalled at the next round,
+        and the premature fatal blamed the choice)."""
         matches = []  # (facts left unconsumed, option order, option)
         fails = []  # each option's failure, for the divergence report
+        stalled_clean = False  # some option ran out of facts with no diff: advance the DLL, retry
         for i, option in enumerate(d.options):
             real, queues = self.engine, self._queues()
             divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
             self.engine = Engine.deserialize(real.serialize())
             self._simulating += 1
+            self._sim_stalled = False
             try:
                 ok = self._try(option)
                 left = len(self.rolls) + sum(len(q) for q in self.moves.values())
                 if not ok:
                     # Read off the copy before it is discarded: where this
                     # option's line stopped and how it differed.
-                    fails.append(f"{dict(option.payload)} -> {'; '.join(self.state_diffs(hands=False)) or 'no diff at its stop point'}"
+                    diffs = "; ".join(self.state_diffs(hands=False))
+                    if self._sim_stalled and not diffs:
+                        stalled_clean = True
+                    fails.append(f"{dict(option.payload)} -> {diffs or 'no diff at its stop point'}"
                                  f" (at {self.engine.pending_decision.kind.value if self.engine.pending_decision else 'the end'})")
                 if self.trace:
                     print(f"  SIM {d.kind.value} {dict(option.payload)}: {'matches' if ok else 'no'}, {left} facts left"
@@ -900,6 +913,8 @@ class PlaydekOperator(Bridge):
             if ok:
                 matches.append((left, i, option))
         if not matches:
+            if stalled_clean and self.game.result is None:
+                return None  # not wrong, just early: the DLL advances and the choice is asked again
             self.diverge("choice", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: none of {[dict(a.payload) for a in d.options]} "
                          f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}"
                          f"; tried: {' | '.join(fails)}", fatal=True)
@@ -957,6 +972,7 @@ class PlaydekOperator(Bridge):
             if a is None or self.stop:
                 if self.trace:
                     print(f"  SIM   stuck at {d.actor.value} {d.kind.value}: {'no answer' if a is None else self.report.divergences[-1]}")
+                self._sim_stalled = a is None and not self.stop  # out of facts, not rejected: the DLL may just be behind
                 return False
             self.engine.step(a)
         if self.game.result is not None:
@@ -968,6 +984,7 @@ class PlaydekOperator(Bridge):
         return not self.state_diffs(hands=False)
 
     _trying_bot = False  # inside `_try_each`: one level, no fan-out of fan-outs
+    _sim_stalled = False  # the last `_run_copy` stopped for lack of facts, not on a rejection
 
     def _records_left(self) -> bool:
         return bool(self.rolls) or any(self.moves.values())
@@ -1160,7 +1177,7 @@ class PlaydekOperator(Bridge):
         try:
             return self._reply_or_raise(prompt)
         except LookupError as e:
-            self.diverge("illegal in Playdek", str(e), fatal=True)
+            self.diverge("illegal in Playdek", f"{e} (recent records: {list(self.recent)})", fatal=True)
             raise Desync(str(e)) from None
 
     def _reply_or_raise(self, prompt: Prompt) -> Option | None:

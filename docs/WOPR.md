@@ -1524,6 +1524,28 @@ Findings from the first four random games, and what became of each:
   take/return where both branches stop clean without confirming
   (384). US seat 2/52 — 0.035–0.038 on the fixed bridge across
   r7/r8, against 0/113 before it.
+- **Fourteenth pass, from the r8 traces: one judge fix, two
+  instruments.** The judge fix: `_simulate` no longer blames a choice
+  for the DLL being behind — a branch that ran out of facts with *no
+  state diff at its stop* (stuck answering the other seat's decision,
+  not rejected by the prompt-fit veto, tracked by `_sim_stalled`)
+  makes it return None, so the ordinary retry loop advances the DLL
+  and asks again. R8 seeds 315/323 were this: How I Learned's right
+  DEFCON choice reproduced the state and stalled at the next action
+  round, the premature "none reproduces" fatal blamed the choice, and
+  the header's alarming mil-ops diff (Playdek 5, engine 0) was only
+  the event's own +5, absorbed from the DLL but not yet applied
+  engine-side at the choice. The instruments: China Card ownership
+  joins `state_diffs` — seed 405's root walked back to a China fork
+  (the engine played the USSR's Cultural Revolution as Ops per the
+  influence records while the DLL's USSR apparently took the China
+  Card, and the fork stayed invisible — ownership was never compared
+  — until Nixon's +2-VP-or-take branch and a held-card end); and the
+  illegal-in-Playdek fatal now carries the recent records, without
+  which the 'Place 2 Influence' family (r8 314/379, r7 300 — the DLL
+  asking a two-influence placement the engine has no source for) is
+  untraceable post-hoc. Verified: suite 538, the grain sweep 149/149,
+  hotseat 8/8, the differ 12/12 zero fatals.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
