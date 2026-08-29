@@ -1239,6 +1239,29 @@ SELF-PLAY-ONLY (the easy AI or Greedy as a teacher in the mix),
 which stays what it always was: an explicit review decision, the
 user's call. Raw v3 remains the reported player.
 
+### 2026-08-29 — rules version 6 (the bridge as the arm)
+
+The review chose the bridge over the last training rung. The eval's
+grain traces pinned the family (WOPR.md, tenth pass): the DLL's AI
+*declines* event-granted Operations, which the engine made mandatory
+against every granting card's "may then conduct Operations" — seed
+390's Grain Sales return stalled both simulations at the granted-Ops
+decision with no fact to spend and no state diff. Rules version 6
+makes the grant declinable (a `pass` on the pushed `OPS_TYPE`;
+Missile Envy's taken-card Ops stay mandatory), riding the layout's
+`other` flag — no layout bump, every checkpoint loads. The bridge
+bounds the grant's facts at the seat's next queued card play and
+reads an empty bound as the decline; the mis-attribution that bound
+removes is the likely mechanism of the family's silent drifts.
+
+The decision points' re-rating on the new engine: **r3-bid2/v3 vs
+Greedy 0.939** over 400 at bid 2 (standing 0.940 — unmoved), **Greedy
+against itself 0.500** over 200 (0.59/0.41 by seat, within noise of
+v5's 0.52/0.48). The `r3-bid2` ladder stands, the bump noted.
+Verified against the DLL: the grain sweep 149/149, hotseat 8/8, the
+differ 12/12, known families only. Open: the hand-drift family
+(seeds 338/405's traces recorded), by the next eval's volume.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

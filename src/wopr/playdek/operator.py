@@ -606,7 +606,10 @@ class PlaydekOperator(Bridge):
         Created, ...): no use record names the type, the dice or the
         influence that followed do."""
         # The earliest fact not yet accounted for: an Ops granted before the
-        # seat's own action round must not take the dice of that round.
+        # seat's own action round must not take the dice of that round. A
+        # fact recorded after a queued card play of the seat's is that
+        # play's, not the grant's -- the grant resolved before it.
+        later = next((m.seq for m in self.moves[self.other] if m.meaning.meaning is T.Meaning.CARD), None)
         firsts: list[tuple[int, str]] = []
         for r in self.rolls:
             if r.side in (None, self.other) and r.kind in (DecisionKind.COUP_ROLL, DecisionKind.REALIGNMENT_ACTOR_ROLL):
@@ -615,7 +618,14 @@ class PlaydekOperator(Bridge):
             seq = self.first_change(c, self.other, "place")
             if seq is not None:
                 firsts.append((seq, "influence"))
+        if later is not None:
+            firsts = [f for f in firsts if f[0] < later]
         if not firsts:
+            # Nothing followed the grant: the AI declined it (a "may" spend,
+            # rules version 6). Without a pass option (Missile Envy's
+            # mandatory Ops) this stays the old "not done yet".
+            if any(a.payload["type"] == "pass" for a in d.options):
+                return self._pick(d, lambda a: a.payload["type"] == "pass", "granted ops declined (no fact followed)")
             return None
         want = min(firsts)[1]
         return self._pick(d, lambda a: a.payload["type"] == want, f"ops type {want} (from what followed)")
@@ -993,7 +1003,7 @@ class PlaydekOperator(Bridge):
                 self._auto_declined -= 1
                 self._declined_for_dll = d
                 return dataclasses.replace(d, options=decline[:1])
-        if prompt is None or d.kind not in COUNTRY_KINDS | CARD_KINDS | {DecisionKind.EVENT_CHOICE} or self.prompt_side(prompt) is not self.side:
+        if prompt is None or d.kind not in COUNTRY_KINDS | CARD_KINDS | {DecisionKind.EVENT_CHOICE, DecisionKind.OPS_TYPE} or self.prompt_side(prompt) is not self.side:
             return d
         if self.outgoing or self._un_target is not None:
             return d  # the prompt is for an earlier action still to be told
@@ -1007,6 +1017,19 @@ class PlaydekOperator(Bridge):
             if any(T.meaning(o).meaning is T.Meaning.STOP for o in prompt.visible):
                 theirs.add("stop")
             options = tuple(a for a in d.options if a.payload["country"] in theirs)
+        elif d.kind is DecisionKind.OPS_TYPE:
+            # Granted Operations are declinable in the engine (a "may" spend,
+            # rules version 6) but the DLL's use prompt has no decline entry
+            # for the human seat ('Select Use For Operations': Cancel only)
+            # even though its AI does decline: the bot's pass is cut unless
+            # the prompt carries a stop.
+            if T.Meaning.STOP in meanings:
+                return d
+            options = tuple(a for a in d.options if a.payload["type"] != "pass")
+            if len(options) < len(d.options):
+                self.known["granted Ops: the DLL's use prompt has no decline; the engine's pass is cut"] += 1
+                return dataclasses.replace(d, options=options) if options else d
+            return d
         elif d.kind is DecisionKind.EVENT_CHOICE:
             if self._grain_card(prompt) is not None:
                 return d  # take/return: both always there
@@ -1187,6 +1210,10 @@ class PlaydekOperator(Bridge):
             return T.find_use(prompt, mode="ops", ops_type=ops_type)
         if kind is DecisionKind.OPS_TYPE:
             self.outgoing.popleft()
+            if p["type"] == "pass":
+                # The bot declines granted Operations: the DLL's prompt for a
+                # "may" spend carries a pass entry (STOP meaning).
+                return T.find_stop(prompt)
             return T.find_use(prompt, mode="ops", ops_type=p["type"])
         if kind is DecisionKind.EVENT_OPS_ORDER:
             self.outgoing.popleft()  # consumed with its PLAY_MODE normally; on its own it has no prompt

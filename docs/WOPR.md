@@ -1366,6 +1366,36 @@ Findings from the first four random games, and what became of each:
   real hint so the pick can consume it exactly (hotseat; against the
   AI no prompt exists and a tie stays a diagnosable divergence).
   After: the sweep 149/149, hotseat 8/8, the differ 12/12.
+- **Tenth pass, from the counter1 easy eval** (6 desyncs + 3 void over
+  120 games; the ninth pass's evidence lines delivered — every grain
+  trace carried the taken card's location history and every failed
+  simulation its per-option stop point). The decisive trace, seed 390:
+  a Grain Sales return where *neither* choice reproduced the DLL with
+  **no state diff** — both simulations stalled at the granted-Ops
+  decision with no fact to spend, i.e. the AI declined the 2 Ops the
+  engine made mandatory. Every granting card's text says "may then
+  conduct Operations": **rules version 6** makes the grant declinable
+  (`push_event_operations` pushes a `pass` alongside the spends;
+  Missile Envy's taken card played for Ops is a card play and stays
+  mandatory). The payload rides the layout's `other` flag like
+  realignment's "stop" — no layout bump, checkpoints load. Bridge:
+  `_answer_ops_type` now bounds its facts at the seat's next queued
+  card play (a fact after it is that play's, not the grant's — the
+  mis-attribution that plausibly seeded the family's silent drifts,
+  seeds 354/386) and reads an empty bound as the decline; the bot's
+  own pass is cut by `narrow` when the DLL's use prompt carries no
+  stop entry ('Select Use For Operations' offers only Cancel — the
+  DLL's AI declines but its human seat cannot; counted under
+  `known`), and told as the stop entry where one exists. Greedy
+  scores `pass` at 0: declining only beats an actively harmful spend.
+  Yardsticks re-rated on the bump (the decision point): v3 vs Greedy
+  0.939 over 400 at bid 2 (standing 0.940 — unmoved), Greedy against
+  itself 0.500 over 200 (0.59/0.41 by seat, within noise of v5's
+  0.52/0.48); the `r3-bid2` ladder stands. Verified: the grain sweep
+  149/149, hotseat 8/8, the differ 12/12, known families only. The
+  hand-drift family stays open (seeds 338/405's traces: a turn-deal
+  differing in one card, unaccounted exits recorded) — next eval's
+  volume, same instruments.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

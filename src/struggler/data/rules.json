@@ -1,5 +1,5 @@
 {
-  "rules_version": 5,
+  "rules_version": 6,
   "scoring": {
     "EUROPE": [3, 7, null],
     "ASIA": [3, 7, 9],

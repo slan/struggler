@@ -250,6 +250,8 @@ N_FOCUS = len(FOCUS_SLOTS)
 # Closed vocabulary of non-country, non-card payload values. A value outside
 # it lands in "other" (plus its position), so an engine addition degrades to
 # "pick by position" instead of crashing -- but it should be added here.
+# Riding "other" until the next layout bump: realignment's "country: stop"
+# and the granted-Operations decline "type: pass" (rules version 6).
 OPTION_VOCAB: tuple[str, ...] = (
     "mode:ops",
     "mode:event",

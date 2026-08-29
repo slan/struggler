@@ -136,7 +136,11 @@ enemy-controlled country adjacent to the target; only Arab-Israeli War
 **Events that conduct Operations** (`push_event_operations`). CIA Created,
 Lone Gunman, ABM Treaty. Glasnost (4 Ops if The Reformer is active) and
 Soviets Shoot Down KAL-007 (4 Ops if the US controls South Korea) restrict
-those Operations to Influence/Realignment, never Coup.
+those Operations to Influence/Realignment, never Coup. Every granting
+card's text says "may then conduct Operations": the pushed `OPS_TYPE`
+carries a `pass` option that lets the grant lapse (rules version 6).
+Missile Envy's taken card played for Ops is a card play, not a grant, and
+stays mandatory (`may=False`).
 
 **Free operations confined to a region** (`push_free_coup_or_realign`,
 `push_free_realignment`). Ortega Elected in Nicaragua (a free Coup against

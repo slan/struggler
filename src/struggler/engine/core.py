@@ -1436,10 +1436,15 @@ class Engine:
         self._push_ops_type(side, ops, china=(cid == RULES["china_card_id"]))
 
     def _push_ops_type(
-        self, side: Side, ops: int, china: bool = False, allow_coup: bool = True
+        self, side: Side, ops: int, china: bool = False, allow_coup: bool = True, may: bool = False
     ) -> None:
+        options = self._ops_type_options(side, ops, allow_coup)
+        if may:
+            # Event-granted Operations are optional on every granting card's
+            # text ("may then conduct Operations"): a card play's Ops are not.
+            options = (*options, Action(DecisionKind.OPS_TYPE, {"type": "pass"}))
         self._push(
-            side, DecisionKind.OPS_TYPE, self._ops_type_options(side, ops, allow_coup),
+            side, DecisionKind.OPS_TYPE, options,
             {"side": side.value, "ops": ops, "bonus": self._ops_bonus_regions(side, china)},
         )
 
@@ -1494,6 +1499,8 @@ class Engine:
         ops = decision.context["ops"]
         bonus = decision.context.get("bonus")
         ops_type = action.payload["type"]
+        if ops_type == "pass":
+            return  # granted Operations declined ("may"): they simply lapse
         if ops_type == "influence":
             if bonus:
                 # A region-bonus play's +1 applies only if every Op is spent in
@@ -1876,13 +1883,16 @@ class Engine:
 
     # -- events that grant "conduct Operations" -----------------------------
 
-    def push_event_operations(self, side: Side, ops: int, allow_coup: bool = True) -> None:
+    def push_event_operations(self, side: Side, ops: int, allow_coup: bool = True, may: bool = True) -> None:
         """An event that has its beneficiary conduct `ops` Operations (CIA
         Created, Lone Gunman, ABM Treaty, ...). `allow_coup=False` restricts
         the spend to Influence/Realignment only (Glasnost, KAL-007's printed
-        text names only those two, never Coup)."""
+        text names only those two, never Coup). Every granting card's text
+        says "may": the spend is declinable (rules version 6) unless
+        `may=False` (Missile Envy's taken card played for Ops -- a card
+        play, not a grant)."""
         if ops > 0:
-            self._push_ops_type(side, self._modified_ops(side, ops), allow_coup=allow_coup)
+            self._push_ops_type(side, self._modified_ops(side, ops), allow_coup=allow_coup, may=may)
 
     def set_defcon(self, level: int, caused_by: Side) -> None:
         """Set DEFCON to `level` (How I Learned to Stop Worrying, ...). Routed
@@ -2844,7 +2854,7 @@ class Engine:
         else:  # ops
             self._log_card_exit(taker, cid)
             self.discard_pile.append(cid)
-            self.push_event_operations(taker, card.ops)
+            self.push_event_operations(taker, card.ops, may=False)
 
     # -- Bear Trap / Quagmire — a persistent per-player operating lock ------
     #

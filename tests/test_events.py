@@ -1535,6 +1535,33 @@ def test_grain_sales_return_leaves_the_card_and_gives_two_ops():
     assert engine.pending_decision.context["ops"] == 2  # Grain Sales' own Ops
 
 
+def test_granted_operations_are_declinable_but_a_card_play_s_are_not():
+    # Every granting card's text says "may then conduct Operations" (rules
+    # version 6): the OPS_TYPE it pushes carries a "pass" that spends
+    # nothing. A card play's Ops (Missile Envy's taken card) stay mandatory.
+    engine = _bare(seed=4)
+    engine.hands["USSR"] = ["Fidel"]
+    engine._fire_event(Side.US, "Grain_Sales_to_Soviets")
+    engine.step(engine.pending_decision.options[0])  # reveal
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "return"}))
+    d = engine.pending_decision
+    assert d.kind is DecisionKind.OPS_TYPE
+    assert "pass" in {a.payload["type"] for a in d.options}
+    before = engine.serialize()["board"]
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "pass"}))
+    assert engine.serialize()["board"] == before  # the grant lapsed
+    assert engine.pending_decision is None or engine.pending_decision.kind is not DecisionKind.OPS_TYPE
+
+    engine = _bare(seed=4)
+    engine.hands["US"] = ["Missile_Envy"]
+    engine.hands["USSR"] = ["Nuclear_Test_Ban"]
+    engine._fire_event(Side.US, "Missile_Envy")
+    while engine.pending_decision is not None and engine.pending_decision.kind is not DecisionKind.OPS_TYPE:
+        engine.step(engine.pending_decision.options[0])
+    if engine.pending_decision is not None:  # the taken card played for Ops
+        assert "pass" not in {a.payload["type"] for a in engine.pending_decision.options}
+
+
 def test_ask_not_discards_chosen_cards_and_redraws_the_same_number():
     engine = _bare(seed=5)
     engine.draw_pile = ["Blockade", "Defectors", "Quagmire"]

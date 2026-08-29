@@ -423,6 +423,10 @@ def _score_ops_type(weights: GreedyWeights, board: Board, observation: Observati
     bonus = ctx.get("bonus")
     ops_type = action.payload["type"]
 
+    if ops_type == "pass":
+        # Declining granted Operations (rules version 6): right only when
+        # every spend scores negative -- a real spend at 0 or better wins.
+        return 0.0
     if ops_type == "influence":
         return weights.influence_base + _best_influence_value(weights, board, side, ops)
     if ops_type == "coup":
