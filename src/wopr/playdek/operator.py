@@ -910,6 +910,15 @@ class PlaydekOperator(Bridge):
                     # and judge at the next point the DLL stopped at. (Not
                     # the bot's Ops: the DLL asks those, and they fan out.)
                     return self._try_each(d)
+                prompt = self.game.prompt
+                if (prompt is not None and not self.outgoing and self.prompt_side(prompt) is self.side
+                        and not self._fits(d, {T.meaning(o).meaning for o in prompt.visible})):
+                    # The DLL is waiting on the bot for something this branch
+                    # never asks: a state match is a false confirmation (the
+                    # getters lag the records -- a Grain Sales take whose
+                    # event needs the bot's input leaves both hands looking
+                    # untouched, tenth pass, seed 354).
+                    return False
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
             if a is None or self.stop:

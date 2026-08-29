@@ -1396,6 +1396,27 @@ Findings from the first four random games, and what became of each:
   hand-drift family stays open (seeds 338/405's traces: a turn-deal
   differing in one card, unaccounted exits recorded) — next eval's
   volume, same instruments.
+- **Eleventh pass, from the v3-easy-r6 batch** (the tenth pass's own
+  decider: 120 easy games on the fixed bridge — 6 desyncs + 1 void,
+  the silent-decline subfamily gone, and the surviving grain traces
+  share a *second* root). Seed 354: the AI takes the Grain Sales
+  card and plays a USSR event that needs the *bot's* input (Muslim
+  Revolution's removals) — the DLL stops at the bot's prompt with no
+  records emitted and its hand getters lagging, so both take and
+  return reproduce the visible state and the location read picks
+  return, one action round before the fatal. The fix is a
+  prompt-fit veto in `_run_copy`'s judgment: a branch that stops at
+  a bot decision the DLL's live prompt cannot answer (`_fits` over
+  the prompt's meanings, only when the prompt is the bot's and
+  nothing is left untold) is a false confirmation and fails — the
+  take branch stops at the removal decision the prompt is asking,
+  the return branch at an action-round play it is not. Verified:
+  the grain sweep 149/149, hotseat 8/8, the differ 12/12, suite
+  537. Still open, traces recorded: the one-card hand/deal drift
+  (seed 315: 'Play Latin American Death Squads?' against an engine
+  asking the other seat, hand 7 v 8; seed 391: a 1-VP drift walking
+  from turn 7), and a trap-discard prompt against a bot event
+  choice (seed 348).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

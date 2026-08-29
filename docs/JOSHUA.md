@@ -1262,6 +1262,22 @@ Verified against the DLL: the grain sweep 149/149, hotseat 8/8, the
 differ 12/12, known families only. Open: the hand-drift family
 (seeds 338/405's traces recorded), by the next eval's volume.
 
+The arm's decider ran the same day (`runs/playdek/v3-easy-r6`: raw
+v3, 120 easy games, seeds 300+, bid 2, on the fixed bridge):
+**6 desyncs + 1 void** — headline attrition unmoved from counter1's
+6+3, but the composition shifted: the silent-decline subfamily is
+gone and the surviving grain traces exposed a second root (the AI
+taking a card whose event needs the bot's input; WOPR.md, eleventh
+pass — fixed the same day, a prompt-fit veto in the simulation
+judge, all sweeps clean). Still open with traces: the one-card
+hand/deal drift (seeds 315, 391) and a trap-discard corner (348).
+The batch also re-baselined v3 on v6: USSR **0.089** [0.04, 0.19],
+US **0.000** [0.00, 0.06] (0/57), mean **0.044** — the USSR seat at
+its standing value, the US seat's zero either a ~1–5% tail of the
+standing 0.05–0.078 or a real shift; one batch does not move the
+standing number, the next eval (which will also carry the eleventh
+pass's fix) arbitrates.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
