@@ -1153,6 +1153,52 @@ attack intact — seeding it into a counter-run no longer waives much
 of the bar the gate protected. Options 2 (v3-init) and 4 (relaxing
 SELF-PLAY-ONLY) stand as before.
 
+### 2026-08-29 — the counter-run on exploit1 as-is (pre-registered)
+
+**The review decision** (user, 2026-08-29, round two): option 3. The
+deviation from the parent entry is explicit and accepted: run B
+starts although the exploiter's gate was **missed** (worst seed
+0.520 vs the pre-registered 0.6) — the waiver is justified by what
+the gate was *for* (guaranteeing the counter-run a teacher that
+actually punishes the champion), which a 0.582-mean both-seats
+near-peer provides.
+
+**Question.** Does counter-training against the line's own exploiter
+— the first opponent-distribution change the champion has ever seen
+— move the easy-AI number where state priors and search did not?
+
+**Setup.** `runs/counter1`: `--init` from r3-bid2/v3, recipe v11
+unchanged (self-play 0.5 / vs-pool 0.5, snapshots every 5 updates),
+bid 2, 8,000 games, the pool seeded with the exploiter
+(`--pool-seed exploit1=runs/exploit1/joshua.pt`) beside its own
+snapshots — PFSP makes the exploiter's share self-adjusting: sampled
+most while it still beats the learner, fading as the defense lands.
+No scenario bank (the parent spec: the exploiter itself carries the
+attack states). Evaluation stays at the printed game.
+
+**Metrics and decision rule** (written before training, inherited
+from the parent entry): *internal gate before any DLL spend* —
+`wopr.diagnose` on counter1: vs Greedy ≥ 0.9 (v3: 0.940) and the
+USSR edge in family; a collapse voids the eval and closes the arm.
+Watched beside it (mechanism, not a gate): counter1 vs exploit1 and
+counter1 vs v3, argmax, seed 0 × 200 — the defense metric (v3 loses
+to exploit1 at 0.418 mean; the counter-run should push its own
+number against exploit1 up without falling below even against v3).
+*Decider*: the standing easy eval (120 games, 60 a seat, bid 2,
+argmax, seeds 300+) against raw v3's 0.086 — **mean ≥ 0.136**
+(+0.05) makes counter1 the reported player and the loop continues
+with an exploiter slot in the mix. Mechanism metrics as always: the
+USSR DEFCON-loss share (raw v3 ~0.4) and the US blowout share. Both
+flat → the opponent-distribution lever as constructed (one
+exploiter, one counter-run) joins the negatives, and option 4
+(relaxing SELF-PLAY-ONLY) is the remaining rung — still a review
+decision. The eval's desyncs are mined first (the `grain` /
+`hand-drift` evidence lines). Ledger: `wopr.ab --existing`.
+
+**Budget.** 8k games (~50 min) + diagnose + the head-to-heads + one
+DLL easy eval (120 games, ~140 min). Nothing else without a new
+entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
