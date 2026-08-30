@@ -1568,6 +1568,21 @@ Findings from the first four random games, and what became of each:
   Governments removals itself (325), Marshall-Plan-vs-engine target
   lists (373), and the deep-drift pair (323, 404). Verified: suite
   538, sweep 149/149, hotseat 8/8, differ 12/12 zero fatals.
+  Measured (`v3-easy-r10`): desyncs 10/120, void 0, the defuse cut
+  fired once cleanly and the 348/416 shape is gone. The count's noise
+  band over the five identical-seed batches is 7–14; what the r10 mix
+  says is that the **small-VP-drift family now dominates** — four or
+  five of the ten are games that ran to a ±20 VP end with the two
+  programs one or two VP apart (323, 339, 345, 412, and 315's DEFCON
+  twin), so the drift roots (Alliance-for-Progress/UN's 1 VP, the
+  China fork's Nixon +2, whatever else) are what volume converts into
+  desyncs now. Also seen: the deal/pool drift again (330,
+  Southeast Asia Scoring dealt but not in the pool — r6b 402's
+  shape), a reveal-drift held-card end again (350), the
+  multi-country +1-US grain blocker again (396), and one new corner:
+  the DLL's AI **headlined The China Card** (388) — the engine
+  refuses (7.2.2 bars it), worth its own trace before deciding who
+  is right. US seat 1/56 (batch noise; r7–r10 pooled ≈ 0.04).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
