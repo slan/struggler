@@ -406,8 +406,14 @@ def _evil_empire(engine: "Engine", side: Side) -> None:
 
 @event("U2_Incident")
 def _u2_incident(engine: "Engine", side: Side) -> None:
-    # (The extra VP if UN Intervention is later played this turn is not modeled.)
+    # "If UN Intervention is played later this turn, the USSR gains 1
+    # additional VP": the rider is armed here and paid at UN Intervention's
+    # action-round play (`_handle_action_round_play`). The DLL pays it too
+    # (v3-easy-r10 seed 323: a U2 headline then a USSR un_intervention play
+    # left the engine one VP short the rest of the game).
     engine._award_vp(Side.USSR, 1)
+    if not engine.is_terminal:
+        engine.turn_effects["u2_incident"] = True
 
 
 @event("Cultural_Revolution")

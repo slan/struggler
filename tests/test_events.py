@@ -37,6 +37,30 @@ REPLAY_DIR = Path(__file__).parent / "replays"
 # -- tier 1: immediate state change -----------------------------------------
 
 
+def test_u2_incident_arms_the_un_intervention_rider():
+    # "If UN Intervention is played later this turn, the USSR gains 1
+    # additional VP" -- paid on UN Intervention's action-round play itself,
+    # whatever mode follows.
+    engine = _bare()
+    engine._fire_event(Side.USSR, "U2_Incident")
+    assert engine.vp == -1  # the USSR's 1 VP
+    assert engine.turn_effects.get("u2_incident")
+    engine.hands["US"] = ["UN_Intervention"]
+    engine.phase = "action_rounds"
+    engine._push_action_round_play(Side.US)
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "UN_Intervention"}))
+    assert engine.vp == -2  # the rider, on the play
+    assert not engine.turn_effects.get("u2_incident")
+
+    # Without U2 this turn, the play pays nothing.
+    engine = _bare()
+    engine.hands["US"] = ["UN_Intervention"]
+    engine.phase = "action_rounds"
+    engine._push_action_round_play(Side.US)
+    engine.step(Action(DecisionKind.ACTION_ROUND_PLAY, {"card": "UN_Intervention"}))
+    assert engine.vp == 0
+
+
 def test_duck_and_cover_degrades_defcon_and_scores_us():
     engine = _bare()
     engine.defcon = 5

@@ -720,7 +720,7 @@ class PlaydekOperator(Bridge):
                 if card is not None:
                     self._from_discard.remove(card)
                     return self._pick(d, lambda a: a.payload["choice"] == card, f"Star Wars copies {card}")
-                if self.game.prompt is None:
+                if self.game.prompt is None and self.game.result is None:
                     return None
                 return next((a for a in d.options if a.payload["choice"] in DECLINES), None)  # at rest with nothing pushed: declined
             # A card taken back from the discard pile (SALT Negotiations):
@@ -734,7 +734,7 @@ class PlaydekOperator(Bridge):
                 seq, card = max(taken)
                 self._reclaims.remove((seq, card, HAND_LOCATION[self.other]))
                 return self._pick(d, lambda a: a.payload["choice"] == card, f"took back {card}")
-            if d.context.get("event") == "Salt_Negotiations" and self.game.prompt is None:
+            if d.context.get("event") == "Salt_Negotiations" and self.game.prompt is None and self.game.result is None:
                 # The DLL may still be resolving SALT: its recovery record has
                 # not arrived, and "no record" is not yet a decline. Pump it
                 # to its next prompt first (the Star Wars guard above, same
@@ -764,6 +764,14 @@ class PlaydekOperator(Bridge):
                 return d.options[0]
             decline = next((a for a in d.options if a.payload["choice"] in DECLINES), None)
             if decline is not None:
+                if self.game.prompt is None and self.game.result is None:
+                    # The DLL may still be resolving: a discard record on
+                    # its way is not a decline (the SALT guard above,
+                    # generalized -- an Ask Not's third discard arriving
+                    # after the engine stopped at two left the hidden hand
+                    # one card up for the rest of the game, r10 seed 388).
+                    # A finished DLL game is at rest, whatever its prompt.
+                    return None
                 return decline  # the DLL is at rest and no card left the hand: it declined
         if all(c in ids.INDEX_BY_COUNTRY or c in DECLINES for c in choices):
             # Countries: a removal's source (De-Stalinization, the Cuban

@@ -653,8 +653,16 @@ class Bridge:
             # The hand as the DLL has it, plus what it dealt this turn: a
             # card dealt, headlined and resolved in one pump is in the
             # discard pile by the time the engine gets to deal it. A deal
-            # undone at commit and not re-dealt is back in the deck.
-            dll_hand = {c for c, loc in self.card_loc.items() if loc == HAND_LOCATION[side]}
+            # undone at commit and not re-dealt is back in the deck. Only
+            # cards whose last move came out of the deck count -- a card
+            # that entered the hand another way (Missile Envy's exchange,
+            # SALT's reclaim) is the replaying event's to apply, and
+            # counting it here dealt the hand one slot too many (seed 315's
+            # turn-4 drift, every batch: the DLL was pumped through deal,
+            # headline and exchange in one chunk before the engine dealt).
+            deck = int(ffi.ECardLocation.DECK)
+            dll_hand = {c for c, loc in self.card_loc.items() if loc == HAND_LOCATION[side]
+                        and self._last_moves.get(c, (deck, 0, 0))[0] == deck}
             dll_hand |= {c for c in self._dealt[side] if self.card_loc.get(c) != int(ffi.ECardLocation.DECK)} - self._engine_dealt[side]
             dll_hand.discard(CHINA)
             missing = dll_hand - set(self.engine.hands[side.value])

@@ -1264,6 +1264,13 @@ class Engine:
         cid = action.payload["card"]
         if cid == PASS_ROUND:
             return  # the extra round is declined: nothing is played, the turn goes on
+        if cid == "UN_Intervention" and self.events_enabled and self.turn_effects.pop("u2_incident", None):
+            # U2 Incident's rider: the USSR gains 1 VP when UN Intervention
+            # is played later the same turn -- on the play itself, whatever
+            # mode follows (the DLL pays it here too).
+            self._award_vp(Side.USSR, 1)
+            if self.is_terminal:
+                return
         if cid == "Missile_Envy" and self.game_effects.get("missile_envy_forced") == side.value:
             self._handle_missile_envy_forced_play(side, cid)
             return

@@ -153,6 +153,12 @@ RELOCATED: dict[str, str] = {"we_will_bury_you": "turn"}
 # (Tear Down This Wall prevents Willy Brandt's event: the card is then never
 # offered "for its event"). A slot for one would bump LAYOUT_VERSION.
 UNENCODED_GAME_EFFECTS: frozenset[str] = frozenset({"tear_down_this_wall"})
+# Turn-effect keys the layout does not encode: U2 Incident's armed rider
+# (the USSR's extra VP if UN Intervention is played later this turn) is
+# transient bookkeeping whose payoff the bot sees land as VP; a slot for
+# it would bump LAYOUT_VERSION -- queued for the next bump, with the
+# OPTION_VOCAB fold.
+UNENCODED_TURN_EFFECTS: frozenset[str] = frozenset({"u2_incident"})
 GAME_EFFECTS: dict[str, str] = {
     "formosan_resolution": "flag",
     "degaulle_france": "flag",
@@ -415,7 +421,7 @@ def encode_into(observation: Observation, buffers: dict[str, np.ndarray], i: int
     g[GLOBAL_INDEX["their_military_ops"]] = observation.military_ops.get(their, 0) / 5.0
     g[GLOBAL_INDEX["china_mine"]] = 1.0 if china_mine else 0.0
     g[GLOBAL_INDEX["china_available"]] = 1.0 if observation.china_card_available else 0.0
-    turn_fx = dict(observation.turn_effects)
+    turn_fx = {k: v for k, v in observation.turn_effects.items() if k not in UNENCODED_TURN_EFFECTS}
     game_fx = {}
     for key, value in observation.game_effects.items():
         if key in UNENCODED_GAME_EFFECTS:

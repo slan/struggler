@@ -1583,6 +1583,37 @@ Findings from the first four random games, and what became of each:
   the DLL's AI **headlined The China Card** (388) — the engine
   refuses (7.2.2 bars it), worth its own trace before deciding who
   is right. US seat 1/56 (batch noise; r7–r10 pooled ≈ 0.04).
+- **Sixteenth pass: three roots from the r10 traces.** (1) **The 1-VP
+  family was U2 Incident's rider**: seed 323's stable one-VP gap
+  starts the moment the USSR plays a card under UN Intervention with
+  U2 headlined the same turn — "if UN Intervention is played later
+  this turn, the USSR gains 1 additional VP", which the engine
+  carried as an explicit unmodeled simplification and the DLL pays.
+  Modeled now (`turn_effects["u2_incident"]`, paid at UN
+  Intervention's action-round play, whatever mode follows; the key is
+  layout-unencoded — `UNENCODED_TURN_EFFECTS`, no LAYOUT_VERSION
+  bump, queued for the next bump with the vocab fold). This is also
+  r6 seed 391's t7-AR5 fork (the `un_intervention` Alliance for
+  Progress thread) and r6b 379's. Yardstick after: v3 vs Greedy
+  0.945/400 at bid 2 — unmoved, the ladder stands. (2) **Seed 315's
+  every-batch turn-4 drift was the deal counting non-deal arrivals**:
+  the engine deals the hidden hand from the DLL's *current* hand
+  contents, and a card that entered by the Missile Envy exchange
+  (pumped through deal + headline in one chunk before the engine
+  dealt) counted as a card to deal — one slot too many. Only cards
+  whose last move came out of the deck count now. (3) **The
+  hand-one-up-with-a-revealed-scoring-card family (r10 388/350, r8
+  405, r7 330) feeds from premature declines**: seed 388's Ask Not
+  discarded three, the engine's replay stopped at two ('stop' taken
+  while the third record was still on its way) — the thirteenth
+  pass's Salt-specific pump guard is generalized to the whole
+  card-choice decline path (and 388's "China headline" fatal was
+  this drift's leftover queued play, not a Playdek China-headline
+  rule). One regression caught by the sweep and fixed in the same
+  pass: the guards must stand down when the DLL's game is over (a
+  finished game is at rest whatever its prompt; sweep seed 37).
+  Verified: suite 539, the grain sweep 149/149, hotseat 8/8, the
+  differ 12/12 zero fatals.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
