@@ -725,3 +725,53 @@ def test_backend_drops_a_replacement_game_that_ends_before_a_learner_decision(tm
     assert records[0].mover is Side.USSR
     assert arena.mover(0) is Side.USSR  # the slot sits at episode 2's learner row
     assert arena.engine(0).defcon == 2 and not arena.is_terminal(0)
+
+
+# -- the distilled teacher (wopr/distill.py) -----------------------------------
+
+import json  # noqa: E402
+
+from wopr import distill  # noqa: E402
+from wopr.train import seed_pool  # noqa: E402
+
+REPLAYS = Path(__file__).parent / "replays"
+
+
+def test_distill_harvest_labels_the_ai_choice_and_rebuilds_the_hand():
+    log = json.loads((REPLAYS / "physical_basic.json").read_text(encoding="utf-8"))
+    arrays, counts = distill.harvest_game(log, game_hash=1)
+    rows = len(arrays["label"])
+    assert rows > 0 and counts["rows"] == rows
+    for i in range(rows):
+        label = arrays["label"][i]
+        assert arrays["n_options"][i] >= 2
+        assert arrays["opt_mask"][i, label] == 1  # the label is a legal option
+        assert arrays["opt_mask"][i].sum() == arrays["n_options"][i]
+        # the determinized hand is internally consistent: the my-hand slots in
+        # card_loc are exactly the hand the size feature was encoded from
+        in_hand = int((arrays["card_loc"][i] == F.LOC_MY_HAND).sum())
+        assert np.isclose(arrays["globals"][i, F.GLOBAL_INDEX["my_hand_size"]] * 9.0, in_hand)
+    again, _ = distill.harvest_game(log, game_hash=1)
+    assert all(np.array_equal(arrays[k], again[k]) for k in arrays)  # seeded: reproducible
+
+
+def test_distill_train_fits_a_pool_ready_checkpoint(tmp_path):
+    from struggler.bots.joshua.model import load_checkpoint
+
+    log = json.loads((REPLAYS / "physical_basic.json").read_text(encoding="utf-8"))
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    val, _ = distill.harvest_game(log, game_hash=distill.VAL_FOLDS)  # % VAL_FOLDS == 0: held out
+    train_rows, _ = distill.harvest_game(log, game_hash=7)
+    np.savez_compressed(corpus / "shard0000.npz", **{k: np.concatenate([val[k], train_rows[k]]) for k in val})
+    out = tmp_path / "falken"
+    distill.main(["train", "--corpus", str(corpus), "--out", str(out),
+                  "--hidden", "32", "--epochs", "2", "--patience", "5", "--batch-size", "8", "--device", "cpu"])
+
+    net, extra = load_checkpoint(out / "joshua.pt")
+    assert net.config.hidden == 32 and 0.0 <= extra["val_top1"] <= 1.0
+    report = json.loads((out / "distill.json").read_text(encoding="utf-8"))
+    assert len(report["history"]) == 2 and report["val_rows"] == len(val["label"])
+    pool = CheckpointPool(tmp_path / "pool")
+    seed_pool(pool, [f"falken={out / 'joshua.pt'}"])  # what --pool-seed does
+    assert "falken" in pool.stats and len(pool) == 1

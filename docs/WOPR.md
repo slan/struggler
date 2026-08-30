@@ -1779,6 +1779,28 @@ interval, the endings, the desyncs, the void games by reason, the
 deterministic for a seed, so it is a sample, not a replay; `--policy
 greedy|random|first` give the yardsticks.
 
+### The distilled teacher (`wopr/distill.py`)
+
+The one sanctioned way the DLL's AI teaches (the relaxing-SELF-PLAY-ONLY
+entry, docs/JOSHUA.md 2026-08-30): not as a live opponent — one game per
+process at 15 s a decision rules that out — but distilled from the games
+it already played. Every eval batch's `<out>/games/` logs are replayable
+engine records with the AI's decisions in them. `wopr.distill harvest`
+replays them on the current engine and records, at each AI-seat decision
+with at least two options, the encoded observation and the chosen option
+index; `wopr.distill train` fits a fresh `JoshuaNet` to the rows by
+cross-entropy and saves an ordinary checkpoint that `--pool-seed` can
+place in the training mix.
+
+The engine's physical-mode mirror does not know most of the AI's hand,
+so `harvest` determinizes it in hindsight before encoding: known cards
+kept, the chosen card and the AI's later same-turn card plays forced in,
+the rest sampled from the cards the observation leaves unseen, seeded by
+(game seed, step index). Desynced and void games are excluded; logs that
+no longer replay under the current rules are skipped and counted in the
+corpus `manifest.json`. The clone's value head is untrained — a pool
+opponent's `choose` reads only the logits.
+
 ## What Joshua cannot do yet
 
 See [LIMITATIONS.md](LIMITATIONS.md#bots).

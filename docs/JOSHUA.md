@@ -1278,6 +1278,140 @@ standing 0.05–0.078 or a real shift; one batch does not move the
 standing number, the next eval (which will also carry the eleventh
 pass's fix) arbitrates.
 
+### 2026-08-30 — relaxing SELF-PLAY-ONLY: the DLL as teacher, by distillation (pre-registered)
+
+**The review decision** (user, 2026-08-30, round three): relax
+SELF-PLAY-ONLY. The constraint is amended, not repealed: live DLL
+games stay evaluation-only — throughput rules them out as sparring
+(the AI spends 15 s per decision, a real game is 30–50 minutes of
+one core, one game per process; WOPR.md) — and what enters the mix
+is the easy AI's *policy*, distilled from the bridge's logged games
+into a pool opponent. The bridge arc's dividend is the corpus: every
+easy eval batch already wrote replayable engine logs.
+
+**The argument past arm 1.** Arm 1's lesson was "coverage comes from
+opponents that *exploit*, not opponents that differ" — a Greedy
+share washed because Greedy never takes the gifted coup. The easy AI
+does: the DEFCON gift is ~40% of v3's USSR-seat losses at every
+strength measured (21/52 in arm 1's own eval, 27/48 at counter1's).
+A clone that inherits that habit is the first pool opponent that
+punishes the gift. The premise is falsifiable and gated before any
+training spend: a clone that does not convert the gift closes the
+arm at the gate.
+
+**Question.** Does sparring against the easy AI's own habits —
+distilled from the bridge's logs into a pool opponent — move the
+easy-AI number where four internal-transfer arms did not?
+
+**Setup.** Three phases.
+
+1. *Harvest* (`wopr.distill harvest`, zero DLL hours): replay every
+   easy **bid-2** batch's game logs on the current engine
+   (v3-easy-r6…r12, counter1-easy, scen1-easy, r4b2v4-easy and
+   -histmask, search4-easy-\*, r3bid2v1/v3-easy-bid2-\*,
+   gshare-easy-bid2-\* — ~2,100 games; a log that no longer replays
+   under the current rules is skipped and counted). At every AI-seat
+   decision with ≥ 2 options, encode `observe(ai)` in the current
+   layout and record the chosen option index. The AI's own hand is
+   mostly hidden in the engine's physical-mode mirror (median ~5 of
+   8 cards), so the hand is **determinized in hindsight**: known
+   cards kept, the chosen card and the AI's later same-turn card
+   plays forced in, the remainder sampled uniformly from the unseen
+   pool with an RNG seeded by (game seed, step index). Physical-mode
+   option lists are kept as-is — forcing the chosen card into the
+   hand keeps "play from your hand" learnable, and non-hand options
+   are labeled negatives. Rows that exceed the layout's K_MAX are
+   skipped and counted.
+2. *Distill* (`wopr.distill train`): **falken1** — a fresh JoshuaNet
+   at v11 capacity (hidden 256), cross-entropy of the option logits
+   against the chosen index, rows held out by game (10%), stopped
+   when held-out top-1 stops improving; `runs/falken1/joshua.pt`.
+   The value head is untrained: a pool opponent's `choose` never
+   reads it.
+3. *The counter-run* (`runs/teach1`, only after the exploit gate):
+   `--init` from r3-bid2/v3, recipe v11 unchanged, bid 2, 8,000
+   games, `--pool-seed falken=runs/falken1/joshua.pt` — the counter1
+   wiring, PFSP making the teacher's share self-adjusting.
+
+**Metrics and decision rule** (written before training).
+
+- *The exploit gate, before teach1 starts*: v3 vs falken1, 200 games
+  argmax (`wopr.diagnose --vs`): of v3's USSR-seat losses, the
+  DEFCON-loss share must be **≥ 0.15** (the easy AI: ~0.4–0.56;
+  Greedy: ~0, arm 1's wash). Below it the clone did not inherit the
+  exploit and the arm closes with no training and no DLL spend.
+  Reported beside it, context not gates: held-out top-1 accuracy
+  against the legal-uniform floor, falken1 vs Greedy, falken1 vs v3.
+- *Internal gate before DLL spend* (inherited from counter1):
+  `wopr.diagnose` on teach1 — vs Greedy ≥ 0.9 (v3: 0.940); a
+  collapse voids the eval and closes the arm.
+- *Decider*: the standing easy eval (120 games, 60 a seat, bid 2,
+  argmax, seeds 300+) against raw v3's standing 0.086 — **mean ≥
+  0.136** (+0.05) makes teach1 the reported player and the teacher
+  slot stays in the mix. Mechanism metrics as always: the USSR
+  DEFCON-loss share (raw v3 ~0.4) and the US blowout share. Both
+  flat → distillation-of-the-teacher joins the negatives, and the
+  remaining relaxation (live DLL games as sparring) stays priced at
+  30–50 minutes a game and would need its own entry. The eval's
+  desyncs are mined first, as always.
+
+**Budget.** Harvest + distill: local compute only, zero DLL hours.
+teach1: 8k games (~50 min). One DLL easy eval (120 games, ~140 min).
+Nothing else without a new entry.
+
+**Result, phases 1–2 and the exploit gate** (2026-08-30,
+`runs/falken1`). Harvest: **265,683 rows from 1,853 clean games** (33
+shards; 11 logs failed to replay across all rules eras, 0 option
+mismatches, 0 over K_MAX). Distill: held-out top-1 **0.610** against
+a 0.178 legal-uniform floor, best at epoch 15 of 18 (the teacher is a
+15 s search with a stochastic policy scored on determinized hands — a
+ceiling well below 1.0 was expected). The exploit gate — measured
+with seats *fixed* per half (`runs/falken1/gate.py`, 100 games a
+seat, argmax, bid 2; `wopr.diagnose --vs` alternates seats and cannot
+split endings by which policy sat where, so the pre-registered metric
+kept its definition but not its harness — **passed**: of v3's 34
+USSR-seat losses to falken1, **17 are DEFCON losses, share 0.50** —
+inside the easy AI's 0.4–0.56 band, where Greedy sits at ~0. The
+clone inherited the exploit. Context: v3 vs falken1 0.66 as USSR /
+0.55 as US (v3 vs Greedy is 0.940); falken1 vs Greedy 0.540 over
+200, even by seat. teach1 launched on the gate.
+
+**Result, teach1 and the decider** (2026-08-30, `runs/teach1`,
+`runs/playdek/teach1-easy`). The mechanism the arm predicted did not
+happen in training: falken1 is *weaker* than the learner (0.395 vs
+v3), so PFSP — built to keep opponents the learner loses to
+prominent — faded it to **205 of ~4,000 pool games (5.1%)**, the
+learner winning 0.844 of them; exploit1 stayed at 409 by beating the
+learner. The internal ladder still moved, as it has for every arm:
+internal gate passed (vs Greedy **0.958**, USSR edge 0.567, in
+family), teach1 over v3 **0.580** (0.51 US / 0.65 USSR) and over
+falken1 **0.655** — the learner defends falken1's attack better than
+v3 does (0.720 vs 0.620 on the USSR seat). Then the decider: easy
+AI, 120 games, seeds 300+, USSR **1/54 = 0.019** [0.00, 0.10], US
+**0/55 = 0.000** [0.00, 0.07], mean **0.009** — not only under the
+0.136 bar but under raw v3's 0.086. Mechanism metric worse, not
+halved: the USSR DEFCON-loss share is 31/53 = **0.58** (raw v3 ~0.4,
+counter1 0.56), the US mix 32 blowouts + 10 Europe-control of 55,
+mean final turn 4.4 both seats. Batch quality normal: 11/120
+desyncs (the standing 7–14 band), void 0, known families only
+(granted-Ops 66×, Defectors-event-first 21×, Junta 19×; the fatals
+are the parked decision-mismatch and end-of-game shapes).
+
+**Decision.** The question closes **negative** — the fifth
+internal-transfer negative, and the sharpest: training against the
+teacher's *imitation* taught the learner to beat a 0.395-strength
+copy of the AI's habits, and what it learned is punished harder by
+the real thing (the counter1 story again: internal wins bought USSR
+aggression the AI converts into DEFCON deaths). Two named reasons
+the arm's construction, not its premise, may be at fault: the clone
+is far below teacher strength (0.610 top-1 on determinized hands),
+and PFSP structurally fades a weaker teacher — a fixed-share anchor
+slot or a stronger clone (more corpus, DAgger against the live DLL)
+would each need a new entry. The other relaxation — live DLL games
+as sparring — stays priced at 30–50 minutes a game. **Raw v3
+remains the reported player**; the distill tooling and the corpus
+stay aboard.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
@@ -1289,7 +1423,13 @@ line's own weights, but not *naive* self-play) is a reserve, not a
 next step. Superseded along the way: opponent diversity as the lead
 question (arm 1 closed it — a Greedy share is a wash and cannot
 punish the gift; the easy-AI-as-sparring candidate is banned by the
-constraint).
+constraint). **Amended 2026-08-30** (round-3 review, the user's
+call): the easy AI's policy may enter the pool through a clone
+distilled from the bridge's logged games (the entry above); live
+DLL games stay evaluation-only. The first use of the relaxation
+closed negative the same day (teach1: 0.009 vs the AI, the fifth
+internal-transfer negative); the amendment and the tooling stand
+for a differently constructed teacher arm.
 
 1. **Search over the learned value head** — done 2026-08-26 (the
    entry above): the gift is suppressed and hard mode is measured,
