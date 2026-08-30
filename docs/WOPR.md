@@ -1637,6 +1637,27 @@ Findings from the first four random games, and what became of each:
   differ 12/12 zero fatals. Parked with traces: r11's SAU stop (317,
   a ±2 VP transient at a turn boundary the sim judge cannot yet see
   past), Wargames (304), the grain +1-US blocker (324, recurring).
+- **Eighteenth pass, from the r11 read: the judge learns to wait.**
+  R11 (the sixteenth pass measured): desyncs 10/120, void 0, **seed
+  315 clean for the first time in six batches** (the deal fix held),
+  the U2 rider held (no recurrence of its shape), and the rates
+  recovered to the pre-flag baseline — USSR 7/55 = 0.127, US 2/55 =
+  0.036, both 0.082 (the standing v6 baseline was 0.089). Four of
+  the ten desyncs were South African Unrest simulations failing on
+  *transient* diffs of the DLL's lead — a whole play (a Space Race
+  play's +2 VP, seeds 317/361) whose records had not yet been
+  absorbed when every branch was judged, so "none reproduces" fired
+  while all the evidence was still in flight. `_simulate` now
+  remembers where the DLL stood on an all-branch failure, returns
+  None so the ordinary loop advances the DLL, and fatals only when a
+  retry fails with nothing new absorbed since the last one (nested
+  simulations just stall their branch). The rest of r11: end-of-game
+  turbulence around the DLL's DEFCON-1/±20 endings (324, 332, 382),
+  a granted-Ops face (369), a How-I-Learned chooser mismatch (390),
+  Wargames (304), and a fresh 1-VP shape near a U2 headline with UN
+  Intervention never played (393) — one to watch, not yet a root.
+  Verified: suite 539, sweep 149/149, hotseat 8/8, differ 12/12
+  zero fatals.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

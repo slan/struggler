@@ -889,6 +889,7 @@ class PlaydekOperator(Bridge):
         matches = []  # (facts left unconsumed, option order, option)
         fails = []  # each option's failure, for the divergence report
         stalled_clean = False  # some option ran out of facts with no diff: advance the DLL, retry
+        nested = bool(self._simulating)  # called from inside another branch's copy
         for i, option in enumerate(d.options):
             real, queues = self.engine, self._queues()
             divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
@@ -924,8 +925,20 @@ class PlaydekOperator(Bridge):
             if ok:
                 matches.append((left, i, option))
         if not matches:
+            if nested:
+                return None  # inside another branch: this line just stalls there
             if stalled_clean and self.game.result is None:
                 return None  # not wrong, just early: the DLL advances and the choice is asked again
+            if self._sim_fail != (id(d), self._seq) and self.game.result is None:
+                # Every branch failed, but the DLL has not been drained for
+                # this decision yet: its lead -- a whole play whose records
+                # are still arriving -- fails every branch transiently (the
+                # opponent's Space Race play ahead of a South African
+                # Unrest, r11 seeds 317/361). Remember where the DLL stood,
+                # advance it, and try again; the fatal comes only when a
+                # retry fails with nothing new absorbed since the last one.
+                self._sim_fail = (id(d), self._seq)
+                return None
             self.diverge("choice", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: none of {[dict(a.payload) for a in d.options]} "
                          f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}"
                          f"; tried: {' | '.join(fails)}", fatal=True)
@@ -996,6 +1009,7 @@ class PlaydekOperator(Bridge):
 
     _trying_bot = False  # inside `_try_each`: one level, no fan-out of fan-outs
     _sim_stalled = False  # the last `_run_copy` stopped for lack of facts, not on a rejection
+    _sim_fail: tuple[int, int] = (0, -1)  # (decision id, record seq) of the last all-branch simulation failure: the retry-then-fatal marker
 
     def _records_left(self) -> bool:
         return bool(self.rolls) or any(self.moves.values())
