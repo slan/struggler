@@ -412,10 +412,11 @@ class PlaydekOperator(Bridge):
             return True
         option = self._reply(prompt)
         if option is None:
+            tried = f"; last simulation tried: {self._sim_fail_tried}" if self._sim_fail[0] == id(decision) else ""
             self.diverge("decision mismatch", f"engine asks {decision.actor.value} {decision.kind.value} (context {dict(decision.context)}); "
                          f"the DLL asks {self.prompt_side(prompt).value} {prompt.text!r} {[o.text for o in prompt.visible]} and nothing of the bot's is left to answer it "
                          f"(queued for {self.other.value}: {[m.option.text for m in self.moves[self.other]]}, rolls {list(self.rolls)}; "
-                         f"state: {'; '.join(self.state_diffs(hands=True)) or 'no difference'}; recent records: {list(self.recent)})", fatal=True)
+                         f"state: {'; '.join(self.state_diffs(hands=True)) or 'no difference'}; recent records: {list(self.recent)}{tried})", fatal=True)
             return False
         self._choose(prompt, option)
         return True
@@ -938,6 +939,7 @@ class PlaydekOperator(Bridge):
                 # advance it, and try again; the fatal comes only when a
                 # retry fails with nothing new absorbed since the last one.
                 self._sim_fail = (id(d), self._seq)
+                self._sim_fail_tried = " | ".join(fails)  # kept for the drain's own fatal, which loses the per-branch detail otherwise
                 return None
             self.diverge("choice", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: none of {[dict(a.payload) for a in d.options]} "
                          f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}"
@@ -1010,6 +1012,7 @@ class PlaydekOperator(Bridge):
     _trying_bot = False  # inside `_try_each`: one level, no fan-out of fan-outs
     _sim_stalled = False  # the last `_run_copy` stopped for lack of facts, not on a rejection
     _sim_fail: tuple[int, int] = (0, -1)  # (decision id, record seq) of the last all-branch simulation failure: the retry-then-fatal marker
+    _sim_fail_tried = ""  # that failure's per-branch detail, re-attached to the drain's own fatal
 
     def _records_left(self) -> bool:
         return bool(self.rolls) or any(self.moves.values())

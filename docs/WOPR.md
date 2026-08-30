@@ -1657,7 +1657,21 @@ Findings from the first four random games, and what became of each:
   Wargames (304), and a fresh 1-VP shape near a U2 headline with UN
   Intervention never played (393) — one to watch, not yet a root.
   Verified: suite 539, sweep 149/149, hotseat 8/8, differ 12/12
-  zero fatals.
+  zero fatals. Measured (`v3-easy-r12`, all seven passes aboard):
+  desyncs 11/120, void 0 — the seven identical-seed batches band at
+  7–14 (9, 7, 14, 7, 10, 10, 11) and the SAU-transient cluster is
+  gone, though the retry drains some of those corners into
+  decision-mismatch fatals at the same spots (the per-branch detail
+  is now re-attached to that fatal, so the trace quality is kept).
+  **The bridge arc is review-ready**: voids retired since rules v7,
+  rates at the standing baseline, and every surviving desync is a
+  named family with traces — the hard core is hidden-seat inference
+  drift surfacing at HIL/Grain simulations (315/411, 314/384/412),
+  the granted-Ops attribution face (369/390), 388's hand-one-up
+  China-leftover, and end-of-game turbulence (379). Seven bridge
+  passes (twelfth–eighteenth) and rules v7 landed from six batches
+  in two days; the remaining families are one-per-batch corners
+  whose next roots want fresh instruments, not more volume.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
