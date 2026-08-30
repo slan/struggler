@@ -145,6 +145,7 @@ class PlaydekOperator(Bridge):
         self._plays_seen: set[str] = set()  # the other seat's cards seen played: they left its hand, but not as a discard
         self._play_seq: dict[str, int] = {}  # card -> record seq of its latest play animation, dropped when it is dealt again
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
+        self._china_log: list[tuple[int, str | None]] = []  # every CHINA_CARD record: (record seq, holder) -- the fork instrument
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
         self._from_discard: list[str] = []  # cards an event played out of the discard pile (Star Wars), not yet accounted for
         self._auto_declined = 0  # lone "Pass" prompts of the bot's answered before the engine asked the choice
@@ -176,6 +177,8 @@ class PlaydekOperator(Bridge):
             print(f"  EV  {ev}")
         if ev.kind == EventType.CHINA_CARD:
             self._china = {1: Side.USSR, 2: Side.US}.get(f["player"])
+            self._china_log.append((self._seq, self._china.value if self._china else None))
+            self.recent.append(f"CHINA_CARD -> {self._china.value if self._china else None}")
         elif ev.kind == EventType.PUSH_REVEAL_CARD:
             try:
                 self._revealed.append(ids.card_id(f["card"]))
@@ -1081,6 +1084,24 @@ class PlaydekOperator(Bridge):
             if keep and len(d.options) > 1:
                 self.known["trapped scoring card: the DLL's own seat cannot play it; the bot keeps it"] += 1
                 return dataclasses.replace(d, options=keep)
+        if (d.kind is DecisionKind.EVENT_INFLUENCE and prompt is not None and not self.outgoing
+                and not self._fits(d, {T.meaning(o).meaning for o in prompt.visible})):
+            # The DLL resolved this choice of the bot's itself (Truman
+            # Doctrine played by the AI: the removal is the bot's choice,
+            # but the DLL never asks its local seat and picks internally --
+            # r9 seed 325, the bot's pick stuck against its next play
+            # prompt): the DLL's influence records name the resolution, and
+            # the bot's decision is cut to it (one option: the telling loop
+            # then drops it as a forced step the DLL did not ask about).
+            op, inf = d.context.get("op"), d.context.get("inf_side")
+            if op in ("place", "remove") and inf:
+                done = sorted((seq, i, a) for i, a in enumerate(d.options)
+                              if a.payload.get("country") in ids.INDEX_BY_COUNTRY
+                              and (seq := self.first_change(a.payload["country"], Side(inf), op)) is not None)
+                if done and len(d.options) > 1:
+                    self.known[f"{d.context.get('event')}: the DLL resolved the bot's influence choice itself; the bot follows it"] += 1
+                    return dataclasses.replace(d, options=(done[0][2],))
+            return d
         if prompt is None or d.kind not in COUNTRY_KINDS | CARD_KINDS | {DecisionKind.EVENT_CHOICE, DecisionKind.OPS_TYPE} or self.prompt_side(prompt) is not self.side:
             return d
         if self.outgoing or self._un_target is not None:
@@ -1131,6 +1152,23 @@ class PlaydekOperator(Bridge):
             theirs = T.cards_offered(prompt)
             options = tuple(a for a in d.options if a.payload["card"] in theirs
                             or (a.payload["card"] == PASS_ROUND and _pass_option(prompt) is not None))
+        if not options and d.kind in (DecisionKind.EVENT_CHOICE, DecisionKind.EVENT_INFLUENCE):
+            # None of the bot's candidates appears in the DLL's prompt at
+            # all: the prompt belongs to something else entirely, and the
+            # DLL resolved this choice itself (Independent Reds with one
+            # country worth choosing, auto-picked while the engine offers
+            # all five -- r9 seed 373, the bot's Hungary stuck against
+            # Marshall Plan's list): follow the DLL's recorded resolution.
+            # One option: the telling loop drops it as a forced step.
+            key = "choice" if d.kind is DecisionKind.EVENT_CHOICE else "country"
+            done = sorted((seq, i, a) for i, a in enumerate(d.options)
+                          if a.payload.get(key) in ids.INDEX_BY_COUNTRY
+                          and (seq := (self.first_change(a.payload[key], self.side, "place")
+                                       or self.first_change(a.payload[key], self.side, "remove"))) is not None)
+            if done and len(d.options) > 1:
+                self.known[f"{d.context.get('event')}: the DLL resolved the bot's choice itself; the bot follows it"] += 1
+                return dataclasses.replace(d, options=(done[0][2],))
+            return d
         if not options or len(options) == len(d.options):
             return d
         dropped = [dict(a.payload) for a in d.options if a not in options]

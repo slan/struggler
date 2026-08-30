@@ -917,8 +917,10 @@ class Bridge:
         if china is not None and china.value != e.china_card_owner:
             # Ownership forks silently (a Cultural Revolution mode misread)
             # and only surfaces turns later (Nixon's +2-VP-or-take branch,
-            # v3-easy-r8 seed 405): compared here so the drift is located.
-            diffs.append(f"China Card Playdek {china.value}, engine {e.china_card_owner}")
+            # v3-easy-r8 seed 405): compared here so the drift is located,
+            # with the DLL's full transfer log to pin the missed one.
+            diffs.append(f"China Card Playdek {china.value}, engine {e.china_card_owner} "
+                         f"(DLL transfers {getattr(self, '_china_log', [])})")
         if hands:
             for side in (Side.USSR, Side.US):
                 pd_count = self.game.hand_count(self._player_of[side])

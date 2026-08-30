@@ -1614,6 +1614,29 @@ Findings from the first four random games, and what became of each:
   finished game is at rest whatever its prompt; sweep seed 37).
   Verified: suite 539, the grain sweep 149/149, hotseat 8/8, the
   differ 12/12 zero fatals.
+- **Seventeenth pass: the DLL resolving the bot's own choices, from
+  the r9 singletons.** Two faces of one behavior — Playdek sometimes
+  resolves a choice that belongs to the *bot's* seat without ever
+  prompting it. Seed 325: the AI played Truman Doctrine event-first;
+  the removal is the US's (the bot's) choice, the engine asked its
+  policy, and the answer stuck against the DLL's next play prompt —
+  the DLL had picked internally. Seed 373: the bot's own Independent
+  Reds with one country worth choosing was auto-resolved by the DLL
+  while the engine offered all five, and the bot's different pick
+  (Hungary) hit Marshall Plan's list. `narrow` now follows the DLL's
+  recorded resolution in both shapes: a bot `EVENT_INFLUENCE` whose
+  DLL prompt cannot express it, and a bot country `EVENT_CHOICE`
+  whose candidates share nothing with the DLL's prompt, are cut to
+  the option whose country the DLL's influence records already show
+  changed (a `known`; one option, so the telling loop drops it as a
+  forced step). Instrument: every `CHINA_CARD` record now lands in a
+  `_china_log` (seq, holder) printed with the China state diff and in
+  `recent` — seed 306's fork (the engine played the AI's Ussuri as
+  Ops while the DLL's China moved to the US) gets pinned to a record
+  seq next time. Verified: suite 539, sweep 149/149, hotseat 8/8,
+  differ 12/12 zero fatals. Parked with traces: r11's SAU stop (317,
+  a ±2 VP transient at a turn boundary the sim judge cannot yet see
+  past), Wargames (304), the grain +1-US blocker (324, recurring).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
