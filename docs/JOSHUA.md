@@ -1597,6 +1597,102 @@ v3-init with an auxiliary distillation loss toward the harvested
 corpus (kickstarting), the corpus already on disk. Raw v3 remains
 the reported player.
 
+### 2026-08-31 — kickstarting: the lesson into the champion (pre-registered)
+
+**The review decision** (user, 2026-08-31): invert the teacher arms'
+direction. teach2 proved the corpus carries a transferable lesson
+(the gift class, held through 32k games) but self-play from the
+clone prior cannot buy strength; v3 has the strength and not the
+lesson. This arm trains **kick1**: v3-init, ordinary recipe-v11
+self-play, plus an **auxiliary distillation pull toward the
+harvested corpus** — kickstarting. Constructed as *interleaved*
+cross-entropy steps on the policy's own optimizer (a few corpus
+minibatches after every PPO update, gradients clipped like PPO's),
+not a joint loss: SB3's update stays untouched and the dose is two
+flags. The corpus is the one already on disk (265,683 rows,
+`runs/falken1/corpus`); its held-out fold is never trained on and
+doubles as the absorption metric.
+
+**Question.** Can the champion absorb the teacher's decision
+distribution while self-play maintains its strength — and does the
+combination finally move the Playdek number?
+
+**Setup.** `--run kick1 --init baselines/r3-bid2/v3/joshua.pt
+--games 8000 --recipe v11 --bid 2 --kickstart runs/falken1/corpus
+--kickstart-coef 1.0 --kickstart-batches 4 --kickstart-batch-size
+512` — about 4×512 CE rows per update, ~2.7 corpus epochs
+interleaved across the run's ~320 updates. New wiring:
+`KickstartCallback` (wopr/callback.py), corpus plumbing shared with
+`wopr.distill`, plus a `wopr.distill top1` subcommand measuring a
+checkpoint's held-out corpus top-1.
+
+**Metrics and decision rule** (written before training).
+
+- *Absorption* (reported, not a gate): held-out corpus top-1 —
+  raw v3 before (baseline, measured pre-launch), kick1 after;
+  falken1's 0.610 is the pure-BC reference.
+- *Strength gate, before DLL spend* (counter1's bar — this is a v3
+  continuation): `wopr.diagnose` vs Greedy ≥ **0.9** (v3: 0.940),
+  no USSR-edge collapse. A kickstart dose that costs the champion
+  its strength fails here cheaply; the dose, not the idea, is the
+  first suspect and a re-dose needs only a new entry line.
+- *Mechanism probe, before DLL spend* (reported): kick1 as USSR vs
+  falken1, 100 games argmax fixed seats — the DEFCON share of
+  kick1's USSR-seat losses against v3's 0.50 baseline (falken1
+  punishes gifts; a champion that absorbed the lesson should stop
+  handing it the coup).
+- *Decider*: the standing easy eval (120 games, 60 a seat, bid 2,
+  argmax, seeds 300+). **Mean ≥ 0.136** → kick1 is the reported
+  player. Mean > 0.086 with the mechanism moved (USSR DEFCON-loss
+  share ≤ 0.25 vs raw v3's ~0.4) → the construction works and the
+  line continues on review (dose up, longer run). Mean flat with
+  the mechanism moved → the lesson lands but does not convert even
+  at champion strength — a deep negative worth the notebook.
+  Mechanism unmoved → the dose was too light against PPO's
+  gradient; re-dose is the follow-on. Desyncs mined first.
+
+**Budget.** The wiring + tests. 8k games (~1 h with the interleaved
+steps). diagnose, the mechanism probe, two `top1` measurements. One
+decider eval (120 games, ~140 min DLL). Nothing else without a new
+entry.
+
+**Result** (2026-08-31→09-01, `runs/kick1`,
+`runs/playdek/kick1-easy`). The construction did what it promised
+internally: absorption **0.335 → 0.507** held-out top-1 (falken1's
+pure-BC 0.610 the reference) at **zero strength cost** — the Greedy
+curve rode 0.96–0.995 all run, diagnose 0.958 (v3: 0.940), gate
+passed with one flag (USSR edge 0.708; v3 0.575). The mechanism
+probe was already equivocal: kick1-as-USSR beats falken1 0.81
+(v3: 0.66) with the absolute gifted-death rate down (13/100 vs
+17/100) but the share of losses up (0.684). The decider: USSR
+**8/56 = 0.143** [0.07, 0.26] — the best single-seat number ever
+measured against the easy AI — US 2/57 = 0.035, mean **0.088**,
+exactly raw v3's standing 0.086; games noticeably longer (mean turn
+5.6 vs teach1/2's ~4.3). But the mechanism did not move where it
+counts: the USSR DEFCON-loss share is 29/48 = **0.604** (raw v3
+~0.4) — kick1 absorbed the teacher's choices on the corpus and
+still hands the AI the gift on Playdek's board. Desyncs 7/120,
+void 0, known families only.
+
+**Decision.** Negative on the bar — but not the pre-registered
+"dose too light" branch: absorption was real (0.507), so the dose
+landed and was then *selectively unlearned*. The coherent reading
+across the three teacher arms: **a lesson survives training only
+where self-play reward agrees with it.** teach2 kept the gift
+lesson through 32k games because its pool — its own falken-descended
+snapshots — punishes gifting; kick1's v3-lineage pool never
+punishes it, so PPO's gradient quietly reverses the pull exactly in
+the reward-shadowed states while keeping it everywhere else (hence
+0.507 absorption, longer games, the best USSR seat yet, and an
+unmoved gift share). Kickstarting itself is cheap, safe, and
+strength-preserving — the missing piece is a training signal that
+*prices the gift*: the kickstart pull plus an opponent that punishes
+it, held at a fixed share PFSP cannot fade (falken1 as anchor), or
+gift-scenario starts against punishing opponents. That combined
+construction is a new entry, the user's call. Raw v3 remains the
+reported player — kick1 at 0.088 mean ties, not beats, the
+standing number, though its USSR seat is the line to watch.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

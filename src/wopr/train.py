@@ -127,6 +127,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--bid", type=int, default=0, help="the tournament bid (11.1.4): this much extra US influence placed after setup, in every training game and in --eval-every's evaluations")
     p.add_argument("--scenarios", default=None, help="a scenario bank (wopr.scenarios): start --scenario-frac of training games from its states; evaluation stays at the printed game")
     p.add_argument("--scenario-frac", type=float, default=0.25, help="fraction of training games started from --scenarios (ignored without it)")
+    p.add_argument("--kickstart", default=None, help="a harvested corpus (wopr.distill): after every PPO update, pull the policy toward the teacher's choices with --kickstart-batches cross-entropy minibatches (kickstarting, docs/JOSHUA.md)")
+    p.add_argument("--kickstart-coef", type=float, default=1.0, help="weight on the kickstart cross-entropy")
+    p.add_argument("--kickstart-batches", type=int, default=4, help="corpus minibatches per PPO update")
+    p.add_argument("--kickstart-batch-size", type=int, default=512)
     p.add_argument("--device", default="auto", help="auto | cpu | cuda")
     p.add_argument("--precision", choices=list(PRECISIONS), default="bf16", help="bf16 autocast for the network (default; halves the update) or plain fp32")
     p.add_argument("--torch-threads", type=int, default=None)
@@ -379,6 +383,13 @@ def run(
     print(f"[wopr] device={device} n_envs={args.n_envs} n_steps={args.n_steps} params={sum(p.numel() for p in model.policy.parameters())}")
     try:
         extra = [] if callbacks is None else list(callbacks(tracker))
+        if getattr(args, "kickstart", None):
+            from wopr.callback import KickstartCallback
+
+            extra.insert(0, KickstartCallback(
+                args.kickstart, coef=args.kickstart_coef, batches_per_update=args.kickstart_batches,
+                batch_size=args.kickstart_batch_size, seed=args.seed,
+            ))
         model.learn(total_timesteps=2**62, callback=[tracker, StopAtGames(tracker), *extra], reset_num_timesteps=not model_path.exists())
     finally:
         env.close()  # collector processes, if any

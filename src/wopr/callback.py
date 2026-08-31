@@ -390,3 +390,60 @@ class StopAtGames(BaseCallback):
 
     def _on_step(self) -> bool:
         return self._tracker.games < self._tracker.target_games
+
+
+class KickstartCallback(BaseCallback):
+    """Kickstarting: after every PPO update, a few cross-entropy minibatches
+    from a harvested corpus (`wopr.distill`) pull the policy toward the
+    teacher's choices on the teacher's states -- constructed as interleaved
+    steps on the policy's own optimizer (gradients clipped like PPO's), not
+    a joint loss, so SB3's update loop stays untouched. Only the corpus's
+    training fold is drawn; the held-out fold stays the absorption metric
+    (`wopr.distill top1`). The kickstarting entry, docs/JOSHUA.md 2026-08-31.
+    """
+
+    def __init__(self, corpus: str, *, coef: float = 1.0, batches_per_update: int = 4,
+                 batch_size: int = 512, seed: int = 0) -> None:
+        super().__init__()
+        from wopr.distill import shard_paths
+
+        self.shards = shard_paths(corpus)
+        self.coef = coef
+        self.batches_per_update = batches_per_update
+        self.batch_size = batch_size
+        self._rng = np.random.default_rng(seed)
+        self._queue: list[dict[str, np.ndarray]] = []
+        self.steps = 0
+        self.last_loss: float | None = None
+
+    def _refill(self) -> None:
+        from wopr.distill import training_batches
+
+        shard = self.shards[int(self._rng.integers(len(self.shards)))]
+        self._queue.extend(training_batches(shard, self.batch_size, self._rng))
+
+    def _on_step(self) -> bool:
+        return True
+
+    def on_rollout_start(self) -> None:
+        from struggler.bots.joshua import features as F
+        from struggler.bots.joshua.model import to_tensors
+
+        policy = self.model.policy
+        max_grad_norm = getattr(self.model, "max_grad_norm", 0.5)
+        for _ in range(self.batches_per_update):
+            if not self._queue:
+                self._refill()
+            batch = self._queue.pop()
+            obs = to_tensors({k: v for k, v in batch.items() if k in F.LAYOUT}, policy.device)
+            logits, _ = policy.net(obs)
+            labels = torch.as_tensor(batch["label"], device=policy.device)
+            loss = torch.nn.functional.cross_entropy(logits, labels) * self.coef
+            policy.optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(policy.parameters(), max_grad_norm)
+            policy.optimizer.step()
+            self.steps += 1
+            self.last_loss = loss.item()
+        if self.steps % 200 < self.batches_per_update:
+            print(f"[kickstart] {self.steps} distill steps, last CE {self.last_loss:.4f}", flush=True)

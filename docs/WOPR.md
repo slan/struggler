@@ -1801,6 +1801,16 @@ no longer replay under the current rules are skipped and counted in the
 corpus `manifest.json`. The clone's value head is untrained — a pool
 opponent's `choose` reads only the logits.
 
+A corpus can also pull a *training run* directly — kickstarting
+(`train.py --kickstart <corpus> --kickstart-coef/-batches/-batch-size`):
+after every PPO update, `KickstartCallback` (wopr/callback.py) runs a few
+cross-entropy minibatches from the corpus's training fold on the policy's
+own optimizer, gradients clipped like PPO's — interleaved steps, not a
+joint loss, so SB3's update stays untouched. The held-out fold is never
+trained on by either path and is the absorption metric: `wopr.distill
+top1 <checkpoint> --corpus <dir>` reports any checkpoint's held-out
+top-1 against the legal-uniform floor.
+
 ## What Joshua cannot do yet
 
 See [LIMITATIONS.md](LIMITATIONS.md#bots).

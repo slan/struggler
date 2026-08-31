@@ -775,3 +775,53 @@ def test_distill_train_fits_a_pool_ready_checkpoint(tmp_path):
     pool = CheckpointPool(tmp_path / "pool")
     seed_pool(pool, [f"falken={out / 'joshua.pt'}"])  # what --pool-seed does
     assert "falken" in pool.stats and len(pool) == 1
+
+
+def _tiny_corpus(tmp_path):
+    """A corpus whose train and held-out folds carry the same game's rows
+    (identical content, different fold hashes), so cross-entropy on the
+    train fold must raise held-out top-1."""
+    log = json.loads((REPLAYS / "physical_basic.json").read_text(encoding="utf-8"))
+    val, _ = distill.harvest_game(log, game_hash=distill.VAL_FOLDS)
+    train_rows, _ = distill.harvest_game(log, game_hash=7)
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    np.savez_compressed(corpus / "shard0000.npz", **{k: np.concatenate([val[k], train_rows[k]]) for k in val})
+    return corpus
+
+
+def test_kickstart_pulls_the_policy_toward_the_corpus(tmp_path):
+    from struggler.bots.joshua.model import save_checkpoint
+    from wopr import train
+    from wopr.callback import KickstartCallback
+
+    torch.manual_seed(3)
+    corpus = _tiny_corpus(tmp_path)
+    save_checkpoint(JoshuaNet(SMALL), tmp_path / "joshua.pt")
+    args = train.parse_args(["--run", "x", "--games", "1", "--n-envs", "2", "--n-steps", "4", "--batch-size", "8",
+                             "--init", str(tmp_path / "joshua.pt")])
+    env = WoprVecEnv(Arena(2, seed=1, seat_assigner=self_play), lambda policy_id: None)
+    model = train.init_from_checkpoint(args, env, "cpu")
+
+    before, floor, rows = distill.held_out_top1(model.policy.net, distill.shard_paths(corpus), batch_size=8, device="cpu")
+    assert rows > 0 and 0.0 < floor < 1.0
+    cb = KickstartCallback(str(corpus), coef=1.0, batches_per_update=4, batch_size=8, seed=0)
+    cb.init_callback(model)
+    cb.on_rollout_start()
+    first_loss = cb.last_loss
+    for _ in range(30):
+        cb.on_rollout_start()
+    after, _, _ = distill.held_out_top1(model.policy.net, distill.shard_paths(corpus), batch_size=8, device="cpu")
+
+    assert cb.steps == 31 * 4
+    assert cb.last_loss < first_loss  # the pull is learning the corpus
+    assert after > before  # and it shows on the held-out fold (same game's rows)
+
+
+def test_distill_top1_measures_a_checkpoint_on_the_held_out_fold(tmp_path):
+    from struggler.bots.joshua.model import save_checkpoint
+
+    corpus = _tiny_corpus(tmp_path)
+    save_checkpoint(JoshuaNet(SMALL), tmp_path / "small.pt")
+    value = distill.top1([str(tmp_path / "small.pt"), "--corpus", str(corpus), "--batch-size", "8"])
+    assert 0.0 <= value <= 1.0

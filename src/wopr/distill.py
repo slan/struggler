@@ -232,6 +232,66 @@ def _batches(arrays: dict[str, np.ndarray], batch_size: int, rng: np.random.Gene
         yield {name: array[index] for name, array in arrays.items()}
 
 
+def shard_paths(corpus: str | Path) -> list[Path]:
+    paths = sorted(Path(corpus).glob("shard*.npz"))
+    if not paths:
+        raise ValueError(f"{corpus}: no shards")
+    return paths
+
+
+def training_batches(shard: Path, batch_size: int, rng: np.random.Generator) -> list[dict[str, np.ndarray]]:
+    """The shard's training-fold rows as shuffled minibatches (the held-out
+    fold stays out: it is the absorption metric)."""
+    arrays = _split(dict(np.load(shard)), val=False)
+    if not len(arrays["label"]):
+        return []
+    return list(_batches(arrays, batch_size, rng))
+
+
+def held_out_top1(net, paths: Sequence[Path], *, batch_size: int, device) -> tuple[float, float, int]:
+    """The net's top-1 on the corpus's held-out fold, with the legal-uniform
+    floor and the row count."""
+    import torch
+
+    from struggler.bots.joshua.model import to_tensors
+
+    net.eval()
+    hits = floor = rows = 0
+    with torch.no_grad():
+        for path in paths:
+            arrays = _split(dict(np.load(path)), val=True)
+            if not len(arrays["label"]):
+                continue
+            for batch in _batches(arrays, batch_size, None):
+                logits, _ = net(to_tensors({k: v for k, v in batch.items() if k in LAYOUT_KEYS}, device))
+                labels = torch.as_tensor(batch["label"], device=device)
+                hits += int((logits.argmax(-1) == labels).sum())
+                floor += float((1.0 / batch["n_options"]).sum())
+                rows += len(batch["label"])
+    return (hits / rows if rows else 0.0, floor / rows if rows else 0.0, rows)
+
+
+LAYOUT_KEYS = frozenset(F.LAYOUT)
+
+
+def top1(argv: Sequence[str]) -> float:
+    from struggler.bots.joshua.model import load_checkpoint
+    from wopr.train import resolve_device
+
+    p = argparse.ArgumentParser(prog="wopr.distill top1",
+                                description="A checkpoint's top-1 on a corpus's held-out fold.")
+    p.add_argument("checkpoint")
+    p.add_argument("--corpus", required=True)
+    p.add_argument("--batch-size", type=int, default=512)
+    p.add_argument("--device", default="cpu")
+    args = p.parse_args(argv)
+    device = resolve_device(args.device)
+    net, _ = load_checkpoint(args.checkpoint, device=device)
+    value, floor, rows = held_out_top1(net, shard_paths(args.corpus), batch_size=args.batch_size, device=device)
+    print(f"[top1] {args.checkpoint}: held-out top-1 {value:.4f} (uniform floor {floor:.4f}, {rows} rows)")
+    return value
+
+
 def train(argv: Sequence[str]) -> None:
     import torch
 
@@ -257,29 +317,13 @@ def train(argv: Sequence[str]) -> None:
         torch.set_num_threads(args.torch_threads)
     device = resolve_device(args.device)
     torch.manual_seed(args.seed)
-    shard_paths = sorted(Path(args.corpus).glob("shard*.npz"))
-    if not shard_paths:
-        raise SystemExit(f"{args.corpus}: no shards")
+    paths = shard_paths(args.corpus)
     net = JoshuaNet(JoshuaConfig(hidden=args.hidden)).to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
     rng = np.random.default_rng(args.seed)
 
     def evaluate() -> tuple[float, float, int]:
-        """Held-out (top-1, legal-uniform floor, rows)."""
-        net.eval()
-        hits = floor = rows = 0
-        with torch.no_grad():
-            for path in shard_paths:
-                arrays = _split(dict(np.load(path)), val=True)
-                if not len(arrays["label"]):
-                    continue
-                for batch in _batches(arrays, args.batch_size, None):
-                    logits, _ = net(to_tensors({k: v for k, v in batch.items() if k in F.LAYOUT}, device))
-                    labels = torch.as_tensor(batch["label"], device=device)
-                    hits += int((logits.argmax(-1) == labels).sum())
-                    floor += float((1.0 / batch["n_options"]).sum())
-                    rows += len(batch["label"])
-        return (hits / rows if rows else 0.0, floor / rows if rows else 0.0, rows)
+        return held_out_top1(net, paths, batch_size=args.batch_size, device=device)
 
     best = (-1.0, -1)  # (top-1, epoch)
     best_state: dict | None = None
@@ -288,7 +332,7 @@ def train(argv: Sequence[str]) -> None:
     for epoch in range(args.epochs):
         net.train()
         losses: list[float] = []
-        for path in rng.permutation(shard_paths):
+        for path in rng.permutation(paths):
             arrays = _split(dict(np.load(path)), val=False)
             if not len(arrays["label"]):
                 continue
@@ -329,9 +373,10 @@ def main(argv: Sequence[str] | None = None) -> None:
     import sys
 
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in ("harvest", "train"):
-        raise SystemExit("usage: python -m wopr.distill {harvest|train} ...")
-    (harvest if argv[0] == "harvest" else train)(argv[1:])
+    commands = {"harvest": harvest, "train": train, "top1": top1}
+    if not argv or argv[0] not in commands:
+        raise SystemExit("usage: python -m wopr.distill {harvest|train|top1} ...")
+    commands[argv[0]](argv[1:])
 
 
 if __name__ == "__main__":

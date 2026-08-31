@@ -1,3 +1,20 @@
+# KICK1 (KICKSTARTING): NEGATIVE ON THE BAR, BEST USSR SEAT EVER, AND A THEORY (2026-09-01)
+
+v3-init + interleaved corpus pull (`--kickstart`, new wiring in
+train.py/callback.py, `wopr.distill top1`): absorption 0.335→0.507
+at zero strength cost (Greedy 0.958), decider mean **0.088** — ties
+v3's standing 0.086, bar missed — with USSR **0.143**, the best
+single-seat number ever vs the easy AI, and longer games (turn 5.6).
+But the gift share stayed at 0.604: absorbed on-corpus, unlearned
+on-board. **The three teacher arms now support one theory: a lesson
+survives only where self-play reward agrees with it** (teach2's
+falken-descended pool punishes gifting and kept the lesson; kick1's
+v3-lineage pool doesn't and PPO reversed the pull in exactly those
+states). Evidence-pointed next construction (user's call, new
+entry): kickstart pull + a punishing opponent at a fixed share PFSP
+cannot fade (falken1 as anchor), and/or gift-scenario starts — make
+the reward price the gift.
+
 # TEACH2 EXTENSION TO 32K: THE LINE PARKS (2026-08-31)
 
 The pre-registered third branch fired: decider **0.027** (flat with
