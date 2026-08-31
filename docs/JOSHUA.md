@@ -1522,6 +1522,81 @@ long past 8k and re-measure whether strength recovers while the
 mechanism holds — needs a new entry and is the user's call. Raw v3
 remains the reported player.
 
+### 2026-08-31 — the student trains on: teach2 to 32k (pre-registered)
+
+**The review decision** (user, 2026-08-31): the extension the parent
+arm's own data points at. teach2 was still climbing at its 8k cap
+(last Greedy tick 0.805) and its mechanism number is the program's
+first — the question is whether the two can coexist at scale.
+
+**Question.** Does continued self-play on the falken1-init line
+recover strength while the inherited gift lesson holds — or does
+the lesson decay with training distance from the prior?
+
+**Setup.** Resume `runs/teach2` in place to **32,000 games** — one
+segment, recipe v11 unchanged, bid 2, the Greedy eval curve on
+(`--eval-every 500 --eval-games 200`), no other flag touched. No
+early stop: the exploit1 budget lesson says read the cap, not the
+dip.
+
+**Metrics and decision rule** (written before training).
+
+- *Mechanism-hold gate, before DLL spend*: the retention harness
+  (`runs/falken1/gate.py`, teach2@32k as punisher, 100 a seat,
+  argmax, bid 2) — v3's USSR-seat DEFCON-loss share **≥ 0.15**.
+  Washout at scale closes the arm with no DLL spend, and *is* the
+  finding: the prior's lesson decays with training distance.
+- *Credibility floor, before DLL spend* (inherited): vs Greedy ≥
+  0.75 by `wopr.diagnose` — already passed at 8k, must not regress.
+  The decider is otherwise authorized regardless of internal
+  strength: six arms say internal numbers do not predict the AI
+  number, and this line's question is the mechanism and the trend.
+- *Decider*: the standing easy eval (120 games, 60 a seat, bid 2,
+  argmax, seeds 300+). Read in order: **mean ≥ 0.136** → teach2 is
+  the reported player. Mean **> 0.086** (raw v3's standing) with the
+  mechanism held (USSR DEFCON-loss share ≤ 0.25) → the line
+  continues on review — strength is converting. Mean at ~0.035 with
+  the mechanism held → the lesson survives but self-play strength
+  does not convert; the line parks. Mechanism lost → the line
+  closes. Reported beside: the trend from 8k's 0.035, the US blowout
+  share, mean final turn, teach2@32k vs v3 and vs falken1 (context).
+  Desyncs mined first, as always.
+
+**Budget.** 24k more games (~2.5 h). The retention harness, a
+diagnose, one head-to-head batch. One decider eval (120 games,
+~140 min DLL). Nothing else without a new entry.
+
+**Result** (2026-08-31, `runs/teach2` at 32k,
+`runs/playdek/teach2-32k-easy`). Both gates passed: mechanism-hold
+**0.562** (18/32 of v3's USSR-seat losses to teach2@32k are DEFCON
+deaths — no decay at all from 8k's 0.60), Greedy **0.792** (floor
+0.75, down from 8k's 0.817). But the internal curve told the story
+before the DLL did: the Greedy evals plateaued at 0.66–0.79 for the
+whole extension, teach2 vs v3 moved 0.335 → 0.360 and vs its own
+prior falken1 *fell* 0.510 → 0.415 — 24k games churned, not
+climbed. The decider: USSR **1/55 = 0.018**, US **2/58 = 0.034**,
+mean **0.027** [0.01, 0.08] — flat with 8k's 0.035, raw v3's 0.086
+not reached. The mechanism **held on the board**: the USSR
+DEFCON-loss share is 10/54 = **0.185** (8k: 0.135; raw v3 ~0.4;
+teach1 0.58), losses still dominated by ≥20-VP track blowouts
+(42/54 USSR, 36/56 US) at mean turn ~4.2. Desyncs 7/120, void 0,
+known families only.
+
+**Decision.** The pre-registered third branch: **the line parks.**
+The inherited gift lesson survives 32k games of self-play — the
+first durable mechanism transfer in the program — but self-play on
+this prior does not convert it into strength: the falken1-init
+policy sits in a basin (~0.36 vs v3, ~0.79 vs Greedy) that 24k
+games did not leave. What the two teacher arms establish together:
+the *prior* lever moves mechanisms where five opponent-distribution
+levers moved nothing, and the missing half is champion-level
+strength on top of the inherited lesson. The evidence-pointed next
+construction — a new entry, the user's call — is to put the lesson
+*into the champion* rather than strength into the student:
+v3-init with an auxiliary distillation loss toward the harvested
+corpus (kickstarting), the corpus already on disk. Raw v3 remains
+the reported player.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

@@ -1,3 +1,21 @@
+# TEACH2 EXTENSION TO 32K: THE LINE PARKS (2026-08-31)
+
+The pre-registered third branch fired: decider **0.027** (flat with
+8k's 0.035, v3's 0.086 unreached) with the mechanism **held** —
+USSR DEFCON-loss share 0.185 on the board (baseline ~0.4),
+retention 0.562 internally after 32k games. The lesson is durable;
+self-play on the falken1-init prior sits in a basin (0.360 vs v3,
+0.792 vs Greedy, vs falken1 *fell* to 0.415) that 24k extra games
+did not leave. Full entry + decision in docs/JOSHUA.md.
+
+**Evidence-pointed next construction (user's call, new entry):**
+put the lesson into the champion instead of strength into the
+student — v3-init with an auxiliary distillation loss toward the
+harvested corpus (kickstarting; corpus at `runs/falken1/corpus`,
+265,683 rows). Needs a small train.py aux-loss wiring. Alternatives:
+stronger clone, anchor slot, the article (six arms + one mechanism
+win of story now).
+
 # TEACHER ARM 2 (falken1-init): NEGATIVE ON THE BAR, FIRST MECHANISM WIN (2026-08-31)
 
 The teacher-as-prior line (entry in docs/JOSHUA.md, 2026-08-31):
