@@ -1,3 +1,19 @@
+# TEACHER ARM 2 (falken1-init): NEGATIVE ON THE BAR, FIRST MECHANISM WIN (2026-08-31)
+
+The teacher-as-prior line (entry in docs/JOSHUA.md, 2026-08-31):
+clone probe falken1 vs its own teacher **0/39** (the clone is a
+caricature — habits without the 15 s search); teach2 (falken1-init,
+8k self-play) passed retention (v3's USSR DEFCON-loss share vs it
+0.60) and strength (0.817 vs Greedy); decider **0.035** (bar 0.136,
+v3 0.086) — sixth transfer negative, BUT the USSR DEFCON-loss share
+vs the real AI fell to **0.135** (raw v3 ~0.4, teach1 0.58) at the
+same game length: the gift-blunder class is gone for the first
+time, replaced by uniform ≥20-VP track blowouts (the student is
+just weak: 0.335 vs v3). Evidenced follow-on, needs the user's call
++ a new entry: continue the teach2 line well past 8k (still
+climbing at the cap) and re-measure whether strength recovers while
+the mechanism holds. Raw v3 stays the reported player.
+
 # ROUND-3 OPTION A RAN AND CLOSED NEGATIVE (2026-08-30)
 
 The user chose option A: relax SELF-PLAY-ONLY, the DLL as teacher.

@@ -1412,6 +1412,116 @@ as sparring — stays priced at 30–50 minutes a game. **Raw v3
 remains the reported player**; the distill tooling and the corpus
 stay aboard.
 
+### 2026-08-31 — the teacher as prior: the falken1-init line (pre-registered)
+
+**The review decision** (user, 2026-08-31): the reconstructed teacher
+arm, built on the lever no arm has touched. Every transfer negative —
+gshare, the exploiter, counter1, teach1 — changed the *opponent
+distribution* around a v3-lineage prior and watched the improvement
+stay internal. This arm changes the **prior**: the learner starts as
+the teacher's student — initialized from falken1 — and trains by
+ordinary self-play, with no teacher in the mix at all. One lever, so
+whatever moves is attributable. (DAgger proper is off the table: the
+DLL cannot be set to an arbitrary state and asked what it would do —
+it only plays its own games. A stronger clone and a fixed-share
+anchor remain separate future constructions.)
+
+**Question.** Does a learner that begins with the easy AI's habits —
+the distilled prior, gift-punishing included — and self-plays from
+there transfer to the real AI where five opponent-distribution arms
+did not?
+
+**Setup.**
+
+1. *The clone probe* (first DLL spend, diagnostic not gate):
+   falken1 itself against the easy AI — 40 games, 20 a seat, seeds
+   300+, bid 2, argmax (`runs/playdek/falken1-easy`). It sizes the
+   fidelity suspect directly: a clone near 0 against its own teacher
+   is a caricature and the notebook should know; a clone that holds
+   its own relocates the transfer problem. It also calibrates what
+   internal strength means for this lineage (falken1 is 0.540 vs
+   Greedy; v3's 0.940 buys 0.086 vs the AI).
+2. *teach2*: `--run teach2 --init runs/falken1/joshua.pt --games
+   8000 --recipe v11 --bid 2 --workers 8 --eval-every 500
+   --eval-games 200` — recipe v11 unchanged (0.5 self-play, 0.5 its
+   own PFSP pool), no falken slot, no scenario bank. The clone's
+   value head was never trained, so the first updates run on a
+   value estimate that must relearn; accepted, not patched. The
+   Greedy eval curve is on for the extension rule below.
+
+**Metrics and decision rule** (written before training).
+
+- *Retention gate, before DLL spend*: the exploit-gate harness with
+  teach2 as the punisher (`runs/falken1/gate.py`, 100 games a seat,
+  argmax, bid 2): of v3's USSR-seat losses to teach2, the
+  DEFCON-loss share must be **≥ 0.15** — the student must still
+  punish the gift after 8k games of self-play. Below it, self-play
+  washed the teacher out and the premise fails; the arm closes with
+  no DLL spend and that washout is the finding.
+- *Strength gate, before DLL spend*: teach2 vs Greedy (the training
+  curve's last rolling mean, or `wopr.diagnose`) ≥ **0.75** both
+  seats' mean — not v3's 0.9 bar (this is not a v3 continuation) but
+  the bootstrap target, a floor of credibility for reading a DLL
+  batch. If it is missed while the Greedy curve is still climbing,
+  one extension to 16k games is pre-authorized (the exploit1 budget
+  lesson); missed flat, the arm closes.
+- *Decider*: the standing easy eval (120 games, 60 a seat, bid 2,
+  argmax, seeds 300+) — **mean ≥ 0.136** makes teach2 the reported
+  player. Reported beside it: teach2 against the probe's falken1
+  number (did the student beat the teacher on the teacher's own
+  exam?), the USSR DEFCON-loss share (raw v3 ~0.4, teach1 0.58),
+  the US blowout share, mean final turn. Desyncs mined first, as
+  always. Internal context, not gates: teach2 vs v3, vs falken1.
+
+**Budget.** The probe (40 games, ~50 min DLL). teach2 8k games
+(~50 min), one pre-authorized extension to 16k. The head-to-heads.
+One decider eval (120 games, ~140 min DLL). Nothing else without a
+new entry.
+
+**Result, the clone probe** (2026-08-31,
+`runs/playdek/falken1-easy`): **0/39** (USSR 0/19, US 0/20), mean
+final turn 4.2, 19 of the 39 losses by DEFCON — the clone dies by
+the very mechanism it punishes in v3, 1 desync, void 0. The
+fidelity suspect is confirmed: distillation carried the teacher's
+habit shapes (0.610 top-1) and none of the 15 s search that makes
+them safe. Calibration: the internal-vs-AI correlation is now
+broken in both directions — v3 at 0.940 Greedy buys 0.086, teach1
+at 0.958 buys 0.009, falken1 at 0.540 buys 0.000. Probe is
+diagnostic, not gate: teach2 continues under the standing rule.
+
+**Result, teach2 and the decider** (2026-08-31, `runs/teach2`,
+`runs/playdek/teach2-easy`). Both gates passed: *retention* — of
+v3's USSR-seat losses to teach2 the DEFCON share is **0.60** (21/35;
+falken1's own 0.50) — 8k games of self-play kept and sharpened the
+teacher's habit; *strength* — vs Greedy **0.817** at argmax (bar
+0.75; the training curve climbed 0.540 → 0.805, dipping to 0.43
+around 2k while the untrained value head relearned). Internal
+context: teach2 vs v3 0.335, vs its own prior falken1 only 0.510 —
+the Greedy number rose without the internal ladder following. The
+decider: USSR **3/55 = 0.055** [0.02, 0.15], US **1/58 = 0.017**
+[0.00, 0.09], mean **0.035** — the bar (0.136) missed, raw v3's
+0.086 not reached. Desyncs 7/120, void 0, known families only.
+
+**And the first mechanism win of the program**: the USSR-seat
+DEFCON-loss share is **7/52 = 0.135** — raw v3 ~0.4, counter1 0.56,
+teach1 0.58 — at the *same* mean game length as teach1's batch
+(turn ~4.5), so it is not an artifact of dying earlier by other
+means. The gift-blunder class the search arc, the scenario prior
+and two counter-runs could not touch is gone in the student. What
+replaced it is uniform positional weakness: 44/52 USSR-seat and
+46/57 US-seat losses are ≥20-VP track blowouts.
+
+**Decision.** The question closes **negative on the bar** — the
+sixth transfer negative — but unlike the five before it, the
+mechanism metric moved against the real AI for the first time: the
+teacher's prior carries the gift lesson through self-play and onto
+Playdek's board. The trade was strength: the student starts 0.395
+below the champion and 8k games did not close that (still climbing
+at the cap). The evidenced follow-on — continue the teach2 line
+long past 8k and re-measure whether strength recovers while the
+mechanism holds — needs a new entry and is the user's call. Raw v3
+remains the reported player.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
