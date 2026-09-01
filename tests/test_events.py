@@ -1497,8 +1497,25 @@ def test_wargames_only_playable_at_defcon_two_and_can_end_the_game():
     assert {a.payload["choice"] for a in engine.pending_decision.options} == {
         "end_game", "decline"
     }
+    # A board a final scoring would hand to the US (Asia controlled: +9 VP)
+    # and a track the 6-VP gift hands to the USSR: the printed text ends the
+    # game "without Final Scoring", so the gift decides it (rules version 8).
+    for country, amount in (("Japan", 4), ("South_Korea", 3), ("Thailand", 2), ("India", 3), ("Pakistan", 2)):
+        engine.add_influence(country, Side.US, amount)
+    engine.vp = 3
     engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "end_game"}))
-    assert engine.is_terminal  # the US gave the USSR 6 VP and the game was scored
+    assert engine.is_terminal and engine.winner is Side.USSR
+    assert engine.vp == -3  # the gift alone: no region was scored
+    assert engine.serialize()["game_over_reason"] == "wargames"
+
+
+def test_wargames_ending_on_a_level_track_is_a_draw():
+    engine = _bare(seed=1)
+    engine.defcon = 2
+    engine.vp = 6  # the US leads by exactly the gift
+    engine._fire_event(Side.US, "Wargames")
+    engine.step(Action(DecisionKind.EVENT_CHOICE, {"choice": "end_game"}))
+    assert engine.is_terminal and engine.winner is None and engine.vp == 0
 
 
 # -- revealing / taking cards from the opponent's hand -----------------------

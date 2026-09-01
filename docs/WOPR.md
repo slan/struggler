@@ -1805,7 +1805,15 @@ Findings from the first four random games, and what became of each:
   Olympic Games for Ops while the engine's take branch stalled on a
   board the DLL was already ahead of), 312, 367. Verified: suite 548,
   the grain sweep 149/149 (desyncs 0), hotseat 8/8, the differ 12/12
-  zero fatals, known only. Measured by the next AI batch.
+  zero fatals, known only. Spot-checked live on the two Grain seeds
+  (330/372, two games each against the easy AI, `runs/playdek/spot21`):
+  three ran to their ends in sync; the fourth's fatal carried the new
+  VP trail and read the Wargames family's root off it on the spot --
+  the engine's `end_game` final-scored every region where the printed
+  card ends the game "without Final Scoring", as the DLL does (the
+  compose batch's four Wargames endings were this): **rules version
+  8** (docs/JOSHUA.md), re-rated and re-verified the same night.
+  Measured by the next AI batch.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

@@ -919,15 +919,21 @@ def _summit_defcon_choice(engine: "Engine", side: Side, choice: str, context: di
 @event("Wargames", eligible=lambda engine, side: engine.defcon <= 2)
 def _wargames(engine: "Engine", side: Side) -> None:
     # Only at DEFCON 2: the player may give the opponent 6 VP and end the game
-    # (final scoring), or decline.
+    # at once, or decline.
     engine.push_event_choice("Wargames", side, ("end_game", "decline"))
 
 
 def _wargames_choice(engine: "Engine", side: Side, choice: str, context: dict) -> None:
     if choice == "end_game":
+        # The printed text: "you may immediately end the game (without Final
+        # Scoring) after giving opponent 6 Victory Points". The game is decided
+        # on the VP total as it stands after the gift -- no region is scored
+        # (rules version 8; until then the engine final-scored here, and the
+        # official AI's Wargames endings desynced on the difference: docs/WOPR.md,
+        # twenty-first pass). A total of exactly 0 is a draw, as at turn 10.
         engine._award_vp(side.opponent, 6)
         if not engine.is_terminal:
-            engine._finish_game()
+            engine._end_on_vp_total("wargames")
 
 
 # Per-event follow-ups after a dice contest resolves (see push_dice_contest).

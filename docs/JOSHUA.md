@@ -2243,6 +2243,30 @@ one decider batch (~2.5 h DLL), one compose batch only on a
 double-clear (~2.5 h), one confirmation batch only if the compose
 clears 0.308. Nothing else without a new entry.
 
+### 2026-09-02 — rules version 8: the ladder stands
+
+Found by the twenty-first bridge pass's new instrument on its first
+outing (WOPR.md): a spot-check game against the easy AI ended by
+Wargames, and the fatal's VP trail read the DLL at +1 where the engine
+stood at −12 after the same choice — the engine's `end_game` gave the
+6 VP and then **final-scored every region**; the printed card ends the
+game "immediately … (without Final Scoring)", and the DLL does. Rules
+version 8 ends Wargames on the VP total as it stands after the gift
+(a 0 total is a draw, as at turn 10). The compose batch's four
+"Wargames endgame" desyncs (2026-09-01) were this family: a strong
+player's long games reach DEFCON 2 in the Late War, where the AI
+plays the card.
+
+The decision points' re-rating on the new engine: **r3-bid2/v3 vs
+Greedy 0.945** over 400 at bid 2 (W378 D0 L22; US 0.950 / USSR 0.940
+— the standing 0.940, unmoved), **Greedy against itself 0.500** over
+200 at bid 2 (0.52/0.48 by seat, v5's and v6's split exactly). The `r3-bid2` ladder stands, the bump noted; no
+checkpoint is affected (Wargames' ending is not a layout matter).
+Verified against the DLL on the new engine: the grain sweep 149/149
+(desyncs 0), hotseat 8/8, the differ 12/12 zero fatals; suite 549.
+Measured by the next AI batch (kick5's decider, if falken2 promotes,
+carries both the pass and the bump).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

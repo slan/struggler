@@ -184,7 +184,10 @@ war-card play, via `_maybe_flower_power`, cancelled by An Evil Empire).
 `CONTEST_ROLL`). Olympic Games (opponent boycotts, or a +2 contest with
 ties rerolled), Summit (regional-domination modifiers, winner takes 2 VP
 then adjusts DEFCON; ties are *not* rerolled here), Wargames (only at
-DEFCON 2: give the opponent 6 VP and final-score the game).
+DEFCON 2: give the opponent 6 VP and end the game on the VP total as it
+then stands — "without Final Scoring", the printed text; a 0 total is a
+draw. Rules version 8; before it the engine final-scored here, and the
+official AI's Wargames endings desynced on the difference).
 
 **Reclaim from the discard pile** (`push_take_from_discard`). SALT
 Negotiations (also DEFCON +2) — the player takes one non-scoring card from

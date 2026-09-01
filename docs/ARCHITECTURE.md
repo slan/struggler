@@ -296,7 +296,15 @@ terms — its named countries and the DEFCON-geography exemption — for
 every roll, not just the first; and a war card whose event is
 prevented (Arab-Israeli War under Camp David Accords) no longer
 triggers Flower Power — the official AI's reading, adopted over the
-card's bare "for Ops or for Event".
+card's bare "for Ops or for Event". Version 6 makes event-granted
+Operations declinable (every granting card's "may"; the official AI
+declines them). Version 7 is the DLL's reading of the traps: a seat
+still in Bear Trap or Quagmire is exempt from the held-scoring-card
+loss at the turn's end and carries the card over. Version 8: Wargames
+ends the game on the VP total as it stands after the 6-VP gift —
+"without Final Scoring", the printed text — where the engine had
+final-scored every region (docs/WOPR.md, the twenty-first pass: the
+official AI's Wargames endings desynced on exactly that difference).
 
 ## Opening deal order
 

@@ -760,10 +760,16 @@ class Engine:
             self._change_vp_by(self._score_region_net(region))
             if self.is_terminal:  # a VP-20 swing or Europe control ends it here
                 return
+        self._end_on_vp_total("final_vp")
+
+    def _end_on_vp_total(self, reason: str) -> None:
+        """End the game on the VP total as it stands: the US ahead wins, the
+        USSR ahead wins, exactly 0 is a draw (terminal with no winner). Final
+        scoring's last step, and Wargames' whole ending (no scoring there)."""
         if self.vp > 0:
-            self._win(Side.US, "final_vp")
+            self._win(Side.US, reason)
         elif self.vp < 0:
-            self._win(Side.USSR, "final_vp")
+            self._win(Side.USSR, reason)
         else:
             self.phase = "complete"  # draw: terminal with no winner
             self._decision_stack.clear()
