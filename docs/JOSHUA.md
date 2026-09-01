@@ -2115,6 +2115,134 @@ under 0.25 ever measured) and pointing training at the *other*
 loss classes. kick2 stays the reported raw checkpoint; kick2+veto
 the standing player (pooled 0.258); the bar 0.308.
 
+### 2026-09-02 — falken2: a stronger clone for the punisher slot, and kick5 on its promotion (pre-registered)
+
+**The review decision** (user, 2026-09-02): the gift line parked on a
+bracket — 10% falken1 without the states buys share 0.489 at 0.140,
+32% falken1 in the states buys 0.465 at 0.091 — and the first of the
+recorded review candidates is *a punisher that is actually strong*.
+Live-DLL sparring stays ruled out by the arena's shape (one game per
+process, 15 s a decision); the affordable construction is a better
+clone. Two facts make one worth trying now: the corpus falken1 was
+distilled from predates every kick-family batch, so it never saw the
+AI answering a kickstarted, anchored or veto-wrapped opponent in the
+long games those players reach (USSR mean turn 7 under the veto), and
+falken1 was fit at v11 capacity with no regularization, its held-out
+curve still creeping (+0.004 an epoch) when patience stopped it. This
+entry is a conditional two-stage arm: stage 1 builds the clone at
+zero DLL hours and decides whether it is materially a better clone;
+stage 2 (kick5) runs only on that promotion.
+
+**Question 1 (falken2).** Does more of the AI — every clean easy
+bid-2 game since falken1's harvest — plus capacity and regularization
+produce a materially more faithful clone, scored on the same held-out
+rows as falken1?
+
+**Question 2 (kick5, conditional).** kick2's construction with the
+anchor slot swapped to falken2 and nothing else changed: does the
+stronger punisher lower the on-board gift share where falken1's dose
+floored at 0.45–0.5?
+
+**Setup, stage 1.**
+
+- *Corpus.* falken1's 33 shards are kept as they are: the engine has
+  not changed since they were harvested (`git log 3fd64ea..HEAD --
+  src/struggler/` is empty, layout v1 unchanged), so a replay would be
+  byte-identical. Added: the harvest of every easy bid-2 batch played
+  since — teach1-easy, teach2-easy, teach2-32k-easy, falken1-easy,
+  kick1-easy, kick1-veto-easy, kick2-easy, kick2-veto-easy,
+  kick2-veto-easy-s500, kick3-easy, kick4-easy — 1,240 games, of
+  which 96 desyncs and 1 void are excluded (~1,140 clean; against
+  falken1's 1,853). The held-out fold keeps its construction (game
+  hash mod 10), so falken1 never trained on any row of the merged
+  fold and both clones are scored on identical rows. Tooling:
+  `wopr.distill harvest --workers` (parallel replay; the shards are
+  the same rows in the same order).
+- *The sweep* (three fits on the merged corpus, CPU, concurrently;
+  `runs/falken2/{a,b,c}`):
+  - **A** — falken1's recipe on the new corpus: hidden 256, 2 GNN
+    layers, option head 128, Adam 3e-4, batch 512, patience 3, cap 30
+    epochs. The data effect alone.
+  - **B** — hidden 384, 3 GNN layers, option head 256, AdamW with
+    weight decay 0.01, label smoothing 0.05, the learning rate halved
+    on every epoch without a new best, patience 3, cap 30. Capacity
+    plus regularization.
+  - **C** — A's architecture with B's regularization. Separates the
+    two levers.
+  New flags in `wopr.distill train`: `--gnn-layers`,
+  `--option-hidden`, `--weight-decay`, `--label-smoothing`,
+  `--lr-decay` (mechanics in WOPR.md).
+
+**Metrics and promotion rule, stage 1** (written before anything runs).
+
+- *Fidelity* (the decider of stage 1): held-out top-1 on the merged
+  corpus's fold, `wopr.distill top1`, for falken1 and each candidate
+  — same rows, so the comparison is exact. falken1's 0.610 on the old
+  fold is a reference, not the comparator.
+- *The exploit gate* (`runs/falken1/gate.py 100 0 <candidate>`): the
+  DEFCON share of v3's USSR-seat losses against the candidate ≥ 0.15
+  (falken1 0.50). The punisher must still punish the gift; a more
+  faithful clone that stopped taking the coup is no use in the slot.
+- *Reported, not gating:* candidate vs falken1 head-to-head
+  (`wopr.eval`, 400 games, bid 2, argmax), candidate vs Greedy, and
+  v3's win rate vs the candidate (falken1: v3 wins 0.66 as USSR /
+  0.55 as US). The clone-vs-its-teacher probe (falken1 0/39) is not
+  repeated; the decider is the test.
+- **Promotion:** the best candidate by held-out top-1 becomes
+  **falken2** (`runs/falken2/joshua.pt`) if its top-1 is at least
+  **falken1's on the same fold + 0.02** and the exploit gate passes.
+  The fold is ~43k rows (a standard error near 0.0024), so 0.02 is
+  far outside noise; it is also five of falken1's late-epoch
+  increments — the smallest step that makes a different clone rather
+  than a re-seeded falken1. Below it the line closes at zero DLL
+  hours: the clone's ceiling is its construction (behavior cloning of
+  a 15 s search under a determinized hand), not its corpus, and the
+  review moves to the remaining candidates.
+
+**Setup, stage 2 (kick5), only on promotion.** kick2's flags with one
+change — the anchor: `--run kick5 --init baselines/r3-bid2/v3/joshua.pt
+--games 8000 --recipe v11 --bid 2 --vs-pool 0.4 --anchor
+falken2=runs/falken2/joshua.pt --kickstart runs/falken1/corpus
+--kickstart-coef 1.0 --kickstart-batches 4 --kickstart-batch-size 512`.
+The kickstart pull stays on falken1's corpus so that the arm moves one
+lever (the punisher's strength) and its absorption number stays
+comparable to kick2's 0.505. No scenario starts (kick3/kick4 closed
+those). Evaluation at the printed game.
+
+**Metrics and decision rule, stage 2.**
+
+- *Gates before DLL spend* (kick2's): absorption on falken1's corpus
+  (expect ≈ 0.50), `wopr.diagnose` vs Greedy ≥ **0.9**, no seat
+  collapse; the anchor curve (`win_rate_vs_anchor`) reported — a
+  stronger anchor should read lower than kick2's 0.6–1.0. The
+  mechanism probe, twice: kick5 as gifter vs **falken1** (the
+  comparable read: kick2 6/100, kick3 11, kick4 14, v3 17) and vs
+  falken2 (reported).
+- *Decider*: the standing easy eval (120 games, seeds 300+, bid 2,
+  argmax), desyncs mined first. Success = **mean ≥ 0.140** (kick2's
+  raw standing) **and** USSR gift share ≤ **0.25** (kick2 0.489,
+  kick4 0.465). Readings: both → the theory closes positive at
+  champion strength and the punisher's strength was the missing dose;
+  the compose runs. Share under 0.465 but over 0.25 → the punisher's
+  strength is a lever and the dose is still short — the next dose is
+  a new entry. Share at or above 0.465 → the clone's strength was not
+  what floored the share; the floor belongs to the construction (8k
+  games of PPO against a mostly non-punishing pool), and the review
+  moves to longer runs, the layout bump, or accepting the veto as the
+  gift's answer.
+- *The compose* (veto over kick5): one 120-game batch, seeds 300+,
+  only if raw kick5 clears both reads; its bar as a candidate standing
+  player is **0.308** (the pooled construction). A single batch that
+  clears it is re-measured on seeds 500+ before it stands, as the
+  compose entry did.
+
+**Budget.** Stage 1: the harvest (~1 h CPU, parallel), the sweep (~5 h
+CPU, the three fits concurrent), the gate/eval runs (~30 min); zero
+DLL hours. Stage 2, only on promotion: 8k games (~1.5 h), the gates,
+one decider batch (~2.5 h DLL), one compose batch only on a
+double-clear (~2.5 h), one confirmation batch only if the compose
+clears 0.308. Nothing else without a new entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
