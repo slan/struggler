@@ -671,14 +671,27 @@ class PlaydekOperator(Bridge):
                 firsts.append((seq, "influence"))
         if later is not None:
             firsts = [f for f in firsts if f[0] < later]
+
+        def evidence(read: str) -> None:
+            # The granted-Ops attribution family (r11 369/390; kick1-veto
+            # 382's three orphaned placements): one non-fatal line per real
+            # resolution, so the next batch's drifts carry what the read
+            # was based on -- the pattern that cracked the grain family.
+            if not self._simulating:
+                self.diverge("granted-ops", f"granted Ops ({d.actor.value}, {d.context.get('ops')} ops): read {read}; "
+                             f"bound seq {later}, facts {sorted(firsts)}, rolls {len(self.rolls)}, "
+                             f"queued {[m.option.text for m in self.moves[self.other]][:4]}")
+
         if not firsts:
             # Nothing followed the grant: the AI declined it (a "may" spend,
             # rules version 6). Without a pass option (Missile Envy's
             # mandatory Ops) this stays the old "not done yet".
             if any(a.payload["type"] == "pass" for a in d.options):
+                evidence("declined (no fact followed)")
                 return self._pick(d, lambda a: a.payload["type"] == "pass", "granted ops declined (no fact followed)")
             return None
         want = min(firsts)[1]
+        evidence(f"'{want}' (from what followed)")
         return self._pick(d, lambda a: a.payload["type"] == want, f"ops type {want} (from what followed)")
 
     def _answer_country(self, d: Decision) -> Action | None:

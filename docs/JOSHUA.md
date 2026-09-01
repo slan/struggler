@@ -2024,6 +2024,66 @@ double-clear failed). kick2 remains the reported raw checkpoint;
 kick2+veto the standing player at pooled 0.258; the bar for the
 next training arm is 0.308.
 
+### 2026-09-01 — kick4: the punisher seated in the scenario games (pre-registered)
+
+**The review decision** (user, 2026-09-01): run kick3's named
+follow-on. kick3 sharpened the theory to a point: gift-*states*
+without gift-*punishment* teach the gift harder (share 0.489 →
+0.659), because ~90% of the opponents met in those states never
+take the coup. The missing construction seats the punisher in the
+scenario games themselves: every training game that opens at a
+DEFCON-2/gift-in-hand state puts the learner in the gift-holder's
+seat (the bank records the mover) and **falken1 in the other** — the
+gift is priced in exactly the states where it keeps being unlearned.
+
+**Question.** Does punishment delivered in the gift states push the
+on-board gift share under 0.25 at champion strength?
+
+**Setup.** New wiring first: `Arena(scenario_seats=(mover_id,
+opponent_id))` — a scenario-started game seats the bank entry's
+mover as the learner and the given policy opposite, overriding the
+seat assigner for those games; carried through `ArenaSpec` to the
+collectors; `train.py --scenario-vs-anchor` builds it from the
+(single, fixed) `--anchor`. Then kick4 = kick2's flags + the bank +
+the new flag: `--run kick4 --init baselines/r3-bid2/v3/joshua.pt
+--games 8000 --recipe v11 --bid 2 --vs-pool 0.4 --anchor
+falken1=runs/falken1/joshua.pt --kickstart runs/falken1/corpus
+--kickstart-coef 1.0 --kickstart-batches 4 --kickstart-batch-size
+512 --scenarios scenarios/defcon2-gift-v3.jsonl --scenario-frac
+0.25 --scenario-vs-anchor`. Mix note: falken1's total share becomes
+~0.25 (scenario) + 0.075 (the remainder's anchor slot) ≈ **0.32**,
+and every scenario game is learner-in-the-gift-seat vs the
+punisher; self-play/pool cover the remaining 0.75×0.9. Evaluation
+stays at the printed game.
+
+**Metrics and decision rule** (written before training).
+
+- *Gates before DLL spend* (kick2/kick3's): absorption reported
+  (expect ≈ 0.50), `wopr.diagnose` vs Greedy ≥ **0.9**, no seat
+  collapse — a real risk this time: a third of training against a
+  weak clone can cost strength, and that failure is cheap here.
+  The mechanism probe (kick4 as gifter vs falken1, 100 a seat):
+  the arm's internal prediction is gifted deaths **< kick2's
+  6/100**; kick3's 11 was the warning that fired before its
+  decider — the probe is the go/no-go mood, not a gate.
+- *Decider*: the standing easy eval (120 games, seeds 300+, bid 2),
+  desyncs mined first. Success = **mean ≥ 0.140** (the raw standing)
+  **and** USSR gift share ≤ **0.25** (kick1 0.604, kick2 0.489,
+  kick3 0.659). Readings: both → the theory closes positive; share
+  under kick2's 0.489 but over 0.25 → the lever is right and the
+  dose still short — dose options (scenario-frac, a stronger
+  punisher) are new entries; share ≥ kick2's → seating the punisher
+  in the states adds nothing over the anchor alone, and the theory's
+  practical ceiling at 8k games is reached — the line's next move is
+  a review, not another dose.
+- *The compose* (veto over kick4): one more 120-game batch only if
+  raw kick4 clears both reads; its bar as a candidate standing
+  player is the pooled-number construction, **0.308**.
+
+**Budget.** The wiring + tests. 8k games (~1.5 h). The gates. One
+decider batch (~2.5 h DLL; + one compose batch only on a
+double-clear). Nothing else without a new entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

@@ -289,6 +289,7 @@ class ArenaSpec:
     margin: float = 0.0  # the terminal reward's final-VP weight (`EpisodeRecord.reward`)
     scenario_path: str | None = None  # a scenario bank (wopr.scenarios); each worker loads it
     scenario_frac: float = 0.0  # fraction of games started from the bank
+    scenario_seats: tuple[str, str] | None = None  # (mover id, opponent id): scenario games seated by the arena itself
 
 
 @dataclass(frozen=True)
@@ -368,7 +369,7 @@ def worker_main(
         len(slots), seed=spec.seed, seat_assigner=assign, events=spec.events,
         include_optional=spec.include_optional, slot_offset=lo, total_slots=spec.n_games,
         starting_vp=spec.starting_vp, us_bid=spec.us_bid,
-        scenario_bank=bank, scenario_frac=spec.scenario_frac,
+        scenario_bank=bank, scenario_frac=spec.scenario_frac, scenario_seats=spec.scenario_seats,
     )
     backend = InProcessBackend(
         arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin

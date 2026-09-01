@@ -466,6 +466,17 @@ shapes what is *practiced*, never what is *measured*.
 `tests/test_scenarios.py` pins the predicate, the resampling, the
 slice invariant and the spec check.
 
+`Arena(..., scenario_seats=(mover_id, opponent_id))` additionally
+seats a scenario-started game itself — the bank entry's mover as
+`mover_id`, the other seat as `opponent_id` — overriding the seat
+assigner for those games only (`ArenaSpec.scenario_seats` carries it
+to the collectors). `wopr.train --scenario-vs-anchor` builds the pair
+as (the learner, the single fixed `--anchor`): every scenario game is
+the learner in the at-risk seat against the punisher — the
+punisher-in-the-scenario-games construction (docs/JOSHUA.md, kick4).
+Note the mix shift: the scenario fraction all goes to the anchor
+opponent, on top of the remainder's anchor slot.
+
 ### The pool (`wopr/pool.py`)
 
 A directory of snapshots taken every `--snapshot-every` updates, with
@@ -1715,6 +1726,26 @@ Findings from the first four random games, and what became of each:
   the drift-pick firing 3 times; the kick3 decider beside it read
   9/120 (drift-pick ×6). Both in the standing band with games this
   long — the attrition tax on strong players is roughly halved.
+- **Twentieth pass: instruments for the two deep roots, no behavior
+  change.** Seed 382's dump decodes as: every diff but three was the
+  in-flight play itself (the engine mid-asking Camp David's mode
+  while the DLL races ahead) — the *standing* drift is exactly three
+  orphaned US placements (Panama/Cuba/Guatemala +1 each), the
+  granted-Ops attribution face: a grant the engine read differently
+  than the DLL spent it, unfindable post-hoc because the records had
+  scrolled out of `recent`. Instrument one: `_answer_ops_type` now
+  emits a non-fatal `granted-ops` evidence line on every *real*
+  resolution — side, ops, the read, the bound seq, the facts and the
+  queue — the same pattern that cracked the grain family (diagnostic
+  kind: never counts toward the cap). Instrument two, for the
+  game-over timing family (384/410/413 — 413's coup lists showed a
+  silent one-step DEFCON drift): the bridge keeps a `_defcon_log` of
+  (record seq, level) transitions and the DEFCON state diff now
+  carries its tail, so the transition the engine missed pins to a
+  seq like the China fork does. Verified: suite 545, sweep 149/149
+  (0 desyncs), hotseat 8/8, differ 12/12 zero fatals; the evidence
+  lines fire in hotseat games with correct seqs. The next batch's
+  drifts carry their own diagnosis.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

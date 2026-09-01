@@ -163,6 +163,7 @@ class Bridge:
         self._answered_countries: set[int] = set()
         self.recent: collections.deque[str] = collections.deque(maxlen=24)  # the last records, for diagnostics
         self.loc_history: dict[str, list[str]] = {}  # card -> every CARD_LOCATION transition, for the hand-drift dump
+        self._defcon_log: list[tuple[int, int]] = []  # (record seq, level): the DLL's DEFCON transitions, for the DEFCON state diff
         self._seq = 0  # absorbed records, counted: the arrival order of the facts below
         self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
         self.roll_seq: dict[int, int] = {}  # id(Roll) -> when it arrived
@@ -183,7 +184,7 @@ class Bridge:
 
     #: Purely informational divergence kinds: evidence for later diagnosis,
     #: never a reason to stop the game or to count toward the cap.
-    _DIAGNOSTIC = ("grain", "hand-drift")
+    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops")
 
     @property
     def stop(self) -> bool:
@@ -299,8 +300,14 @@ class Bridge:
                     print(f"  EV  influence {country} {(f['ussr_influence'], f['us_influence'])}")
             self.influence[country] = (f["ussr_influence"], f["us_influence"])
         elif ev.kind == EventType.DEFCON_LEVEL and not f["isSimulating"]:
-            if self.trace and f["defcon_level"] != self.defcon:
-                print(f"  EV  DEFCON {f['defcon_level']}")
+            if f["defcon_level"] != self.defcon:
+                # (seq, level) trail, dumped with any DEFCON state diff: the
+                # game-over timing family (kick2-easy 413) drifts by one
+                # DEFCON step long before it surfaces, and the transition the
+                # engine missed is unfindable post-hoc without the seqs.
+                self._defcon_log.append((self._seq, f["defcon_level"]))
+                if self.trace:
+                    print(f"  EV  DEFCON {f['defcon_level']}")
             self.defcon = f["defcon_level"]
         elif ev.kind == EventType.TURN_NUMBER and f["turn_number"] != self._dll_turn:
             self._dll_turn = f["turn_number"]  # emitted twice per turn (preview, commit): reset once
@@ -918,7 +925,7 @@ class Bridge:
                 diffs.append((f"influence:{country}",
                               f"{country}: Playdek USSR {ussr}/US {us}, engine USSR {mine['USSR']}/US {mine['US']} [Playdek neighbours: {around}]"))
         if e.defcon != self.defcon:
-            diffs.append(("defcon", f"DEFCON Playdek {self.defcon}, engine {e.defcon}"))
+            diffs.append(("defcon", f"DEFCON Playdek {self.defcon}, engine {e.defcon} (DLL transitions {self._defcon_log[-8:]})"))
         if e.vp != self.vp:
             diffs.append(("vp", f"VP Playdek {self.vp} (getter {self.game.score}), engine {e.vp}"))
         if (e.military_ops["USSR"], e.military_ops["US"]) != self.milops:

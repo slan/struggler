@@ -62,6 +62,44 @@ def test_play_out_runs_every_game_to_a_result_with_distinct_seeds():
     assert all(r.decisions[Side.US] > 0 and r.decisions[Side.USSR] > 0 for r in results)
 
 
+def test_scenario_seats_put_the_banks_mover_against_the_given_opponent():
+    """`Arena(scenario_seats=(mover_id, opponent_id))` seats a
+    scenario-started game itself -- the bank entry's mover as the learner,
+    the given policy opposite -- and leaves ordinary games to the seat
+    assigner (the punisher-in-the-scenario-games wiring, docs/JOSHUA.md
+    kick4)."""
+    from struggler.engine import Engine
+    from wopr.scenarios import ScenarioBank
+
+    engine = Engine.new_game(seed=11)
+    mover = engine.pending_decision.actor if engine.pending_decision.actor is not Side.CHANCE else Side.USSR
+    header = {"kind": "scenario-bank", "us_bid": 0, "starting_vp": 0, "events": True, "include_optional": True}
+    bank = ScenarioBank(header=header, entries=(
+        {"mover": mover.value, "state": engine.serialize()},
+        {"mover": mover.opponent.value, "state": engine.serialize()},
+    ))
+
+    arena = Arena(6, seed=4, seat_assigner=_seats("a", "b"),
+                  scenario_bank=bank, scenario_frac=1.0, scenario_seats=("L", "P"))
+    for slot in range(6):
+        seats = arena.seats(slot)
+        assert set(seats.values()) == {"L", "P"}
+        learner_side = next(s for s, p in seats.items() if p == "L")
+        assert seats[learner_side.opponent] == "P"
+
+    # Without scenario_seats the assigner still seats scenario games.
+    plain = Arena(4, seed=4, seat_assigner=_seats("a", "b"), scenario_bank=bank, scenario_frac=1.0)
+    assert all(dict(plain.seats(i)) == {Side.US: "a", Side.USSR: "b"} for i in range(4))
+
+    # And ordinary games are untouched by scenario_seats.
+    none = Arena(4, seed=4, seat_assigner=_seats("a", "b"),
+                 scenario_bank=bank, scenario_frac=0.0, scenario_seats=("L", "P"))
+    assert all(dict(none.seats(i)) == {Side.US: "a", Side.USSR: "b"} for i in range(4))
+
+    with pytest.raises(ValueError, match="scenario_seats needs a scenario_bank"):
+        Arena(1, seed=4, scenario_seats=("L", "P"))
+
+
 def test_arena_rejects_out_of_range_options():
     arena = Arena(1, seed=3)
     with pytest.raises(IndexError):
@@ -756,7 +794,7 @@ def test_backend_drops_a_replacement_game_that_ends_before_a_learner_decision(tm
                near_terminal(Side.US),    # ep 2: the opponent's -- ends pre-learner
                near_terminal(Side.USSR)]  # ep 3: a live learner decision again
     calls = iter(engines)
-    monkeypatch.setattr(Arena, "_new_engine", lambda self, seed: next(calls))
+    monkeypatch.setattr(Arena, "_new_engine", lambda self, seed: (next(calls), None))
 
     arena = Arena(1, seed=3, seat_assigner=_seats("first", LEARNER))
     backend = InProcessBackend(arena, StandardOpponents(str(tmp_path), seed=1))
