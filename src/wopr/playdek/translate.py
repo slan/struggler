@@ -274,9 +274,14 @@ def rolls_from_event(event: GameEvent, side_of: dict[int, Side]) -> list[Roll]:
     Playdek player index/id as the event reports it to a side."""
     f = event.fields
     if event.kind == EventType.COUP_ROLL:
-        return [Roll(DecisionKind.COUP_ROLL, {"value": f["roll"]}, country=ids.country_id(f["country_id"]))]
+        # Whose coup: an event's free coup rolled for the *other* seat (Ortega
+        # Elected in Nicaragua played by the AI) must not pass for the AI's
+        # own Ops, nor be lost when the DLL resolved it without asking.
+        return [Roll(DecisionKind.COUP_ROLL, {"value": f["roll"]}, side=side_of.get(f["coup_player_index"]),
+                     country=ids.country_id(f["country_id"]))]
     if event.kind == EventType.WAR_ROLL:
-        return [Roll(DecisionKind.WAR_ROLL, {"value": f["roll"]}, country=ids.country_id(f["country_id"]))]
+        return [Roll(DecisionKind.WAR_ROLL, {"value": f["roll"]}, side=side_of.get(f["player_index"]),
+                     country=ids.country_id(f["country_id"]))]
     if event.kind == EventType.REALIGNMENT:
         actor = side_of[f["realign_player_index"]]
         by_side = {Side.USSR: f["USSR_roll_result"], Side.US: f["US_roll_result"]}
@@ -291,12 +296,14 @@ def rolls_from_event(event: GameEvent, side_of: dict[int, Side]) -> list[Roll]:
     if event.kind == EventType.TRAP_ROLL:
         return [Roll(DecisionKind.QUAGMIRE_ROLL, {"value": f["roll"]})]
     if event.kind == EventType.EFFECT_ROLL:
-        # A two-sided contest (Olympic Games): one die per side, the modifiers
-        # (`ussr_modify`/`usa_modify`) already known to the engine. Which side
-        # is the sponsor is the bridge's to say (the engine's CONTEST_ROLL
+        # A two-sided contest (Olympic Games, Summit): one die per side, the
+        # modifiers (`ussr_modify`/`usa_modify`) computed by the engine too --
+        # carried along ("modify", after the value the answer is matched on)
+        # so the bridge can report a disagreement over them. Which side is
+        # the sponsor is the bridge's to say (the engine's CONTEST_ROLL
         # context names it); the record does not.
         return [
-            Roll(DecisionKind.CONTEST_ROLL, {"value": f["ussr_roll"]}, side=Side.USSR),
-            Roll(DecisionKind.CONTEST_ROLL, {"value": f["usa_roll"]}, side=Side.US),
+            Roll(DecisionKind.CONTEST_ROLL, {"value": f["ussr_roll"], "modify": f["ussr_modify"]}, side=Side.USSR),
+            Roll(DecisionKind.CONTEST_ROLL, {"value": f["usa_roll"], "modify": f["usa_modify"]}, side=Side.US),
         ]
     return []

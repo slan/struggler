@@ -1746,6 +1746,66 @@ Findings from the first four random games, and what became of each:
   (0 desyncs), hotseat 8/8, differ 12/12 zero fatals; the evidence
   lines fire in hotseat games with correct seqs. The next batch's
   drifts carry their own diagnosis.
+- **Twenty-first pass, from the kick4-easy traces (the first batch
+  that diagnosed itself; full texts in
+  `runs/playdek/desync-mining-2026-09-02.txt`).** Nine desyncs, four
+  roots fixed by static read of the divergence texts against the
+  per-game action logs, no new DLL volume. (1) *The stale "play" of a
+  Grain-handed card* (seeds 330/372, both South African Unrest taken
+  by the AI): the handed card's use is decided on a copy while the AI
+  is still thinking, so its play record arrives after the engine has
+  begun the play -- and the queued "play <card>" move, which nothing
+  will ever consume (the engine never asks for the card again), sat
+  at the head of the queue and starved the Ops-type read of the very
+  use behind it: `_answer_ops_type` bound its facts to the stale
+  move's seq and found none. `_handed_played` marks a handed card
+  whose play the engine has begun; a play record arriving for it is
+  spent, only its use is queued (cleared when the card is dealt into
+  a hand again). In 372 the use was a battleground coup at DEFCON 2
+  during the bot's own round -- the phasing USSR lost by DEFCON, a
+  legitimate gift the engine now reproduces instead of desyncing on.
+  (2) *A stale Grain draw naming a Five Year Plan discard* (366):
+  the draw is reported twice (a reveal and a "fired" animation) and
+  was consumed off the reveal list alone, leaving its fired twin;
+  two turns later Five Year Plan's random discard read that entry
+  as its card (CIA Created, still in the bot's hand, whose US event
+  the engine then fired and spent the AI's coup on) while the DLL
+  had discarded The Reformer. `_forget_shown` clears a consumed card
+  from both lists. (3) *The DLL resolves the bot's free coup itself*
+  (308, Ortega Elected in Nicaragua played by the AI): the free coup
+  is the bot's, but the DLL rolled it in Costa Rica unasked and moved
+  to the bot's play prompt, where the bot's Honduras stuck. Coup and
+  war rolls now carry whose roll they are (`translate.rolls_from_event`,
+  from the record's player index; the granted-Ops read no longer sees
+  the bot's own dice as the AI's), and `narrow` cuts the bot's free
+  Coup/Realignment choice and target to the DLL's roll for its seat
+  when the live prompt is already past them (`_free_ops_resolved_by_dll`,
+  a `known`), the way it already followed the DLL's influence picks.
+  (4) *Narrowed choices told uncut* (370): the bot's decisions went on
+  the telling queue as the engine asked them, not as `narrow` cut
+  them, so a choice cut to one option -- the trapped bot's keep of its
+  scoring card, a trap step the DLL skips for that seat entirely --
+  never counted as the forced step the comments promised and stood
+  two options wide against Liberation Theology's placement prompt.
+  `note` now queues the narrowed decision (the uncut one stays the
+  identity-compared `_last_action`), and a trap prompt's Pass consumes
+  the queued keep. Instruments, for the two roots still open: every
+  fatal now carries the DLL's DEFCON and VP trails plus the engine's
+  levels (312's one-step DEFCON drift and 367's 6-VP swing both
+  surfaced at fatals no state diff preceded -- the trails were there
+  and unprinted), the VP diff carries its transitions as the DEFCON
+  one does (`_vp_log`), and a `contest` evidence line records each
+  dice contest's DLL rolls and modifiers against the engine's
+  (Summit's winner is the modifiers' -- regions Dominated or
+  Controlled -- and 367's Summit went to the US in the DLL, to the
+  USSR in the engine, with a 6-VP drift that also asks whether the
+  DLL's turn-end military-Ops penalty lands before or after the
+  headlines). Still open with better traces: 410 (a Grain take the
+  drift-pick carried as a return: the DLL's US played the taken
+  Olympic Games for Ops while the engine's take branch stalled on a
+  board the DLL was already ahead of), 312, 367. Verified: suite 548,
+  the grain sweep 149/149 (desyncs 0), hotseat 8/8, the differ 12/12
+  zero fatals, known only. Measured by the next AI batch.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

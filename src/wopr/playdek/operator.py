@@ -121,7 +121,7 @@ class _Seat:
         if narrowed is not decision:
             observation = dataclasses.replace(observation, pending_decision=narrowed)
         action = self._player.choose_action(observation, history)
-        self._op.note(decision, action)
+        self._op.note(decision, action, narrowed)
         return action
 
 
@@ -152,6 +152,7 @@ class PlaydekOperator(Bridge):
         self._declined_for_dll: Decision | None = None
         self._taken: dict[str, Side] = {}  # cards shown out of a hand by an event -> that hand's owner (Grain Sales: the opponent then plays it)
         self._handed: set[str] = set()  # cards Grain Sales handed the US that the engine has not played yet (the DLL discards them at once)
+        self._handed_played: set[str] = set()  # handed cards whose play the engine has begun: a "play" record arriving later is spent, not a move
         self._revealed: list[str] = []  # cards shown out of a hand (Grain Sales' draw, CIA Created's hand)
         self._first: tuple[tuple, Option] | None = None  # hotseat: the DLL re-asks the very first prompt and drops the first answer
         self.play_log: list[int] = []  # seq of every card entering the resolve slot: the boundaries between actions
@@ -193,6 +194,8 @@ class PlaydekOperator(Bridge):
                 self._taken.pop(card, None)
             elif self._last_moves.get(card, (None, None, None))[1:] == (f["location"], self._move_seq):
                 self._play_seq.pop(card, None)  # just moved into a hand (dealt, handed, returned): its next exit is a fresh move
+            if f["location"] in HAND_OF:
+                self._handed_played.discard(card)  # back in a hand (dealt again): its next play record is a real move
             if HEADLINE_OF.get(f["location"]) is self.other and self._headlined != (card, self._dll_turn):
                 self._headlined = (card, self._dll_turn)
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"headline {card}"))
@@ -254,7 +257,18 @@ class PlaydekOperator(Bridge):
             self._plays_seen.add(card)
             if self._played != (card, self._dll_turn):
                 self._played = (card, self._dll_turn)
-                self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"play {card}"))
+                if card in self._handed_played:
+                    # The play of a card Grain Sales handed over, reported
+                    # after the engine already began it -- its use was
+                    # decided on a copy while the AI was still thinking, and
+                    # the engine's play never asks for the card again. The
+                    # "play" selection is spent; only the use that follows
+                    # answers anything. Queued, it sat at the head of the
+                    # queue and starved the Ops-type read of the very use
+                    # behind it (kick4-easy seeds 330/372).
+                    self._handed_played.discard(card)
+                else:
+                    self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.CARD, card=card, label=card), f"play {card}"))
             if use is not None:
                 self.queue(self.other, _record_move(self.other, T.OptionMeaning(T.Meaning.USE, use=use, label=f"{hint:#x}"), f"use {use}"))
         return True
@@ -552,6 +566,7 @@ class PlaydekOperator(Bridge):
                 if not self._simulating and (d.kind is DecisionKind.EVENT_OPS_ORDER or action.payload.get("mode") != "ops"
                                              or not self.engine._is_opponent_event(Side.US, self.engine.cards[d.context["card"]])):
                     self._handed.discard(d.context["card"])
+                    self._handed_played.add(d.context["card"])  # a "play" record still to come is spent (`_absorb`)
                 return action
             if d.kind is DecisionKind.OPS_TYPE and not (self.moves[self.other] and self.moves[self.other][0].meaning.meaning is T.Meaning.USE):
                 return self._answer_ops_type(d)
@@ -569,11 +584,12 @@ class PlaydekOperator(Bridge):
                 # moves do not (returned: it never left the hand).
                 card = self._grain_take_from_moves(offered)
                 if card is not None:
+                    self._forget_shown(card)
                     return self._pick(d, lambda a: a.payload["card"] == card, f"Grain Sales drew {card} (its move)")
                 for shown in (self._revealed, self._fired):
                     card = next((c for c in reversed(shown) if c in offered), None)
                     if card is not None:
-                        shown.remove(card)
+                        self._forget_shown(card)
                         return self._pick(d, lambda a: a.payload["card"] == card, f"Grain Sales drew {card}")
                 return None
             if purpose != "grain_sales":
@@ -581,9 +597,21 @@ class PlaydekOperator(Bridge):
                 # the card is discarded: named by its resolve record.
                 card = next((c for c in reversed(self._fired) if c in offered), None)
                 if card is not None:
-                    self._fired.remove(card)
+                    self._forget_shown(card)
                     return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card} (fired)")
         return super()._answer(d)
+
+    def _forget_shown(self, card: str) -> None:
+        """A shown card named and consumed: out of *both* the reveal and the
+        fired lists. Grain Sales' draw is reported twice (a reveal and a
+        "fired" animation), and a draw consumed off the reveal list alone
+        left its fired twin behind -- two turns later a Five Year Plan
+        discard read that stale entry as its card while the DLL discarded
+        another (kick4-easy seed 366: the engine fired CIA Created and spent
+        the AI's coup on it, the DLL had discarded The Reformer)."""
+        for shown in (self._revealed, self._fired):
+            while card in shown:
+                shown.remove(card)
 
     def _resync(self) -> None:
         """Move the inference window (`synced_seq`) up to the latest card
@@ -1190,6 +1218,21 @@ class PlaydekOperator(Bridge):
                     self.known[f"{d.context.get('event')}: the DLL resolved the bot's influence choice itself; the bot follows it"] += 1
                     return dataclasses.replace(d, options=(done[0][2],))
             return d
+        if (d.kind in (DecisionKind.EVENT_CHOICE, DecisionKind.COUP_TARGET, DecisionKind.REALIGNMENT_TARGET) and prompt is not None
+                and not self.outgoing and self.prompt_side(prompt) is self.side
+                and not self._fits(d, {T.meaning(o).meaning for o in prompt.visible})):
+            # The DLL resolved the bot's free Coup/Realignment itself: an
+            # event of the AI's play that hands the bot a free coup (Ortega
+            # Elected in Nicaragua) is rolled by the DLL in a country of its
+            # own choosing, unasked, and it moves on to the bot's next play
+            # prompt (kick4-easy seed 308: the bot's Honduras stuck against
+            # 'Play Your Action Round' while the DLL had couped Costa Rica).
+            # The roll record, now carrying whose coup it was, names the
+            # resolution; the bot's choice and target are cut to it.
+            done = self._free_ops_resolved_by_dll(d)
+            if done is not None and len(d.options) > 1:
+                self.known[f"{d.context.get('event') or d.kind.value}: the DLL resolved the bot's free Coup/Realignment itself; the bot follows it"] += 1
+                return dataclasses.replace(d, options=(done,))
         if prompt is None or d.kind not in COUNTRY_KINDS | CARD_KINDS | {DecisionKind.EVENT_CHOICE, DecisionKind.OPS_TYPE} or self.prompt_side(prompt) is not self.side:
             return d
         if self.outgoing or self._un_target is not None:
@@ -1269,6 +1312,22 @@ class PlaydekOperator(Bridge):
                          f"{prompt.text!r} {[o.text for o in prompt.visible]} does not; the bot chooses among the rest")
         return dataclasses.replace(d, options=options)
 
+    def _free_ops_resolved_by_dll(self, d: Decision) -> Action | None:
+        """The option of the bot's free Coup/Realignment decision `d` that the
+        DLL's own roll for the bot's seat already settled, or None."""
+        coup = next((r for r in self.rolls if r.kind is DecisionKind.COUP_ROLL and r.side is self.side), None)
+        realign = next((r for r in self.rolls if r.kind is DecisionKind.REALIGNMENT_ACTOR_ROLL and r.side is self.side), None)
+        if d.kind is DecisionKind.EVENT_CHOICE:
+            choices = {a.payload.get("choice") for a in d.options}
+            if not choices <= {"none", "coup", "realign"}:
+                return None
+            want = "coup" if coup is not None else "realign" if realign is not None else None
+            return next((a for a in d.options if a.payload.get("choice") == want), None) if want else None
+        roll = coup if d.kind is DecisionKind.COUP_TARGET else realign
+        if roll is None:
+            return None
+        return next((a for a in d.options if a.payload.get("country") == roll.country), None)
+
     def _expressible(self, prompt: Prompt, choice: str, meanings: set[T.Meaning]) -> bool:
         if choice in DECLINES and T.Meaning.STOP in meanings:
             return True
@@ -1278,9 +1337,16 @@ class PlaydekOperator(Bridge):
             return False
         return True
 
-    def note(self, d: Decision, action: Action) -> None:
+    def note(self, d: Decision, action: Action, narrowed: Decision | None = None) -> None:
         """One action of the bot's, as it is made: tell the DLL as far as it
-        can be told yet."""
+        can be told yet. `narrowed` is the decision as `narrow` cut it for
+        the bot: what goes on the telling queue, so a choice cut to the
+        DLL's own resolution counts as the forced step it is there (the
+        engine's uncut decision stays `_last_action`, compared by identity
+        against the engine's pending one). Told uncut, a trapped bot's
+        keep-the-scoring-card -- cut to "none" by `narrow`, never asked by
+        the DLL, which skips that seat's trap step -- stood two options
+        wide against the AI's next placement prompt (kick4-easy seed 370)."""
         if self.trace:
             print(f"  BOT {d.actor.value:6s} {d.kind.value} -> {dict(action.payload)}")
         self.report.engine_steps += 1
@@ -1293,7 +1359,7 @@ class PlaydekOperator(Bridge):
                 and d.context.get("at") != "coup"):
             return  # the DLL lists the defusing among the action round's cards: declining it is playing a card (at a coup it asks, with "Pass")
         self._last_action = (d, action)
-        self.outgoing.append((d, action))
+        self.outgoing.append((narrowed if narrowed is not None else d, action))
         self.flush()
 
     def flush(self) -> None:
@@ -1360,6 +1426,9 @@ class PlaydekOperator(Bridge):
                 # cut down to it when it comes (`narrow`), or forgotten at
                 # the bot's next card play.
                 self._auto_declined += 1
+            elif (self.outgoing[0][0].kind is DecisionKind.QUAGMIRE_DISCARD and self.outgoing[0][1].payload.get("card") == "none"
+                  and any(o.hint == SelectionHint.TRAP_PASS for o in visible)):
+                self.outgoing.popleft()  # the trap step's "Pass" answers the bot's keep: consumed, not left for the next prompt
             return T.find_stop(prompt)
         if self._un_target is not None:
             if any(o.hint == SelectionHint.PLAY_OPPONENT_CARD for o in visible):

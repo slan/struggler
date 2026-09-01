@@ -164,6 +164,7 @@ class Bridge:
         self.recent: collections.deque[str] = collections.deque(maxlen=24)  # the last records, for diagnostics
         self.loc_history: dict[str, list[str]] = {}  # card -> every CARD_LOCATION transition, for the hand-drift dump
         self._defcon_log: list[tuple[int, int]] = []  # (record seq, level): the DLL's DEFCON transitions, for the DEFCON state diff
+        self._vp_log: list[tuple[int, int]] = []  # (record seq, vp): the DLL's VP transitions, for the VP state diff and every fatal
         self._seq = 0  # absorbed records, counted: the arrival order of the facts below
         self.influence_history: dict[str, list[tuple[int, tuple[int, int]]]] = {}  # country -> [(seq, (ussr, us))] at each change
         self.roll_seq: dict[int, int] = {}  # id(Roll) -> when it arrived
@@ -178,13 +179,23 @@ class Bridge:
     # -- divergences ------------------------------------------------------
 
     def diverge(self, what: str, detail: str, *, fatal: bool = False) -> None:
+        if fatal:
+            # Every fatal carries the DLL's DEFCON and VP trails and the
+            # engine's levels: the game-over timing family drifts by one
+            # DEFCON step (kick4-easy 312) or a few VP (367) long before the
+            # fatal, at a seq only the trails can name -- and the state diff
+            # that would have printed them fires only at the bot's card
+            # prompts, which such games never reach again.
+            e = getattr(self, "engine", None)
+            detail += (f" [DLL DEFCON trail {self._defcon_log[-6:]}, VP trail {self._vp_log[-6:]}"
+                       + (f"; engine DEFCON {e.defcon} VP {e.vp}]" if e is not None else "]"))
         self.report.divergences.append(Divergence(self.report.game, self.report.steps, what, detail, fatal))
         if self.trace:
             print(f"  !!  {self.report.divergences[-1]}")
 
     #: Purely informational divergence kinds: evidence for later diagnosis,
     #: never a reason to stop the game or to count toward the cap.
-    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops")
+    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops", "contest")
 
     @property
     def stop(self) -> bool:
@@ -314,6 +325,8 @@ class Bridge:
             self._dealt = {Side.USSR: set(), Side.US: set()}
             self._engine_dealt = {Side.USSR: set(), Side.US: set()}
         elif ev.kind == EventType.VP_TRACK:
+            if f["vp_track"] != self.vp:
+                self._vp_log.append((self._seq, f["vp_track"]))
             self.vp = f["vp_track"]
             if self.trace:
                 print(f"  EV  VP_TRACK {self.vp}")
@@ -700,6 +713,20 @@ class Bridge:
             roll = next((r for r in self.rolls if r.kind is d.kind and r.side is want), None)
             if roll is None:
                 return None
+            if key == "sponsor_roll" and not getattr(self, "_simulating", 0):
+                # Evidence, once per contest: the DLL's dice and modifiers
+                # against the engine's modifiers. A Summit the DLL scored for
+                # the other side (kick4-easy 367: a 6-VP swing standing
+                # before the winner's DEFCON choice) is decided by the
+                # modifiers -- regions Dominated/Controlled -- and nothing
+                # else records whose count differed.
+                by_side = {r.side: r for r in self.rolls if r.kind is d.kind}
+                theirs = {s: (r.payload["value"], r.payload.get("modify")) for s, r in by_side.items()}
+                mods = {sponsor: d.context.get("sponsor_mod"), sponsor.opponent: d.context.get("defender_mod")}
+                agree = all(theirs.get(s, (None, None))[1] == mods[s] for s in (Side.USSR, Side.US))
+                self.diverge("contest", f"{d.context.get('event')}: DLL USSR {theirs.get(Side.USSR)} / US {theirs.get(Side.US)} "
+                             f"(roll, modifier); engine modifiers USSR {mods[Side.USSR]} / US {mods[Side.US]}"
+                             f"{'' if agree else ' -- the modifiers differ'}")
             self.rolls.remove(roll)
             return self._pick(d, lambda a: a.payload.get(key) == roll.payload["value"], f"roll {roll}")
         if d.kind in ROLL_KINDS:
@@ -927,7 +954,7 @@ class Bridge:
         if e.defcon != self.defcon:
             diffs.append(("defcon", f"DEFCON Playdek {self.defcon}, engine {e.defcon} (DLL transitions {self._defcon_log[-8:]})"))
         if e.vp != self.vp:
-            diffs.append(("vp", f"VP Playdek {self.vp} (getter {self.game.score}), engine {e.vp}"))
+            diffs.append(("vp", f"VP Playdek {self.vp} (getter {self.game.score}), engine {e.vp} (DLL transitions {self._vp_log[-8:]})"))
         if (e.military_ops["USSR"], e.military_ops["US"]) != self.milops:
             diffs.append(("milops", f"mil ops Playdek {self.milops}, engine {(e.military_ops['USSR'], e.military_ops['US'])}"))
         if (e.space_race["USSR"], e.space_race["US"]) != self.space:

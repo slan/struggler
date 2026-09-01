@@ -198,7 +198,9 @@ def test_translate_summit_and_contest_rolls():
     assert [(T.meaning(o).meaning, T.meaning(o).defcon) for o in prompt.options] == [(T.Meaning.CHOICE, n) for n in (5, 4, 3, 2, 1)]
     # Olympic Games: one die per side; the sponsor is the bridge's to say.
     rolls = T.rolls_from_event(GameEvent(EventType.EFFECT_ROLL, (120, 2, 0, 4, 2)), {})
-    assert [(r.kind, r.side, r.payload) for r in rolls] == [(DecisionKind.CONTEST_ROLL, Side.USSR, {"value": 2}), (DecisionKind.CONTEST_ROLL, Side.US, {"value": 4})]
+    assert [(r.kind, r.side, r.payload) for r in rolls] == [(DecisionKind.CONTEST_ROLL, Side.USSR, {"value": 2, "modify": 0}),
+                                                            (DecisionKind.CONTEST_ROLL, Side.US, {"value": 4, "modify": 2})]
+    assert all(next(iter(r.payload)) == "value" for r in rolls)  # the answer is matched on the first key
 
 
 def test_translate_cards_countries_and_fallback_labels():
@@ -225,7 +227,9 @@ def test_translate_roll_events_to_chance_answers():
 
     sides = {0: Side.USSR, 456: Side.US}
     coup = T.rolls_from_event(GameEvent(int(EventType.COUP_ROLL), (0, 30, 4)), sides)
-    assert coup == [T.Roll(DecisionKind.COUP_ROLL, {"value": 4}, country="Iran")]
+    assert coup == [T.Roll(DecisionKind.COUP_ROLL, {"value": 4}, side=Side.USSR, country="Iran")]  # whose coup: the record's player
+    war = T.rolls_from_event(GameEvent(int(EventType.WAR_ROLL), (456, 30, 2)), sides)
+    assert war == [T.Roll(DecisionKind.WAR_ROLL, {"value": 2}, side=Side.US, country="Iran")]
     realign = T.rolls_from_event(GameEvent(int(EventType.REALIGNMENT), (456, 17, 2, 5)), sides)
     assert [(r.kind, r.side, r.payload["value"]) for r in realign] == [
         (DecisionKind.REALIGNMENT_ACTOR_ROLL, Side.US, 5), (DecisionKind.REALIGNMENT_OPPONENT_ROLL, Side.USSR, 2)]
