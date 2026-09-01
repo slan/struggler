@@ -1857,6 +1857,54 @@ on. The bar itself should also be revisited on review: 0.136 was
 set as +0.05 over raw v3 when nothing had ever moved; both new
 players clear it and the next bar should be set from 0.248.
 
+### 2026-09-01 — the compose and the confirmation: veto over kick2, the standing player re-measured, the bar re-set (pre-registered)
+
+**The review decision** (user, 2026-09-01): run the rest of the
+menu short of the article, in this order — the free compose first,
+the desync push while it runs (bridge engineering, documented in
+WOPR.md and the commits, not here), then the confirmation and the
+re-dose. This entry covers the two eval-only questions; the re-dose
+gets its own entry when its construction is fixed.
+
+**Question 1 (the compose).** Veto over kick2. Both deciders say
+kick2's loss mix is even more veto-shaped than kick1's was: 23/47
+USSR-seat and 20/51 US-seat losses are DEFCON deaths, and the veto
+refuses provable losses of exactly that class. If the lifts compose
+the way kick1+veto's did, this is the likeliest new best number.
+Zero training: `wopr.playdek.eval --difficulty easy --games 120
+--seed 300 --bid 2 --policy veto=runs/kick2/joshua.pt --out
+runs/playdek/kick2-veto-easy` — the standing decider's shape, rated
+as the named policy `kick2+veto`.
+
+**Question 2 (the confirmation).** The 0.248 claim rests on one
+120-game batch and the program's numbers are now tight enough to
+care (kick2 cleared the old bar by 0.004). Whichever of kick1+veto
+and kick2+veto stands higher after question 1 is re-measured on
+**fresh seeds** (120 games, seeds 500+, bid 2, same shape) — run
+after the desync push so the batch pays less attrition.
+
+**Metrics and decision rule** (written before anything runs).
+
+- Compose: mean and per-seat rates vs kick1+veto's 0.278/0.218/0.248
+  and kick2 raw's 0.190/0.089/0.140, gift share reported. The higher
+  of the two veto players by mean goes to confirmation. No bar here
+  — both inputs already cleared it; this ranks them.
+- Confirmation: the pooled estimate over the player's two batches
+  (240 games, seeds 300+ and 500+) becomes its standing number. If
+  the fresh batch's mean falls below the old bar 0.136, the original
+  batch was the fluke the interval allowed — the standing player
+  reverts to the pooled best and the notebook says so plainly.
+- The bar, re-set (a decision, applied after confirmation): the next
+  training arm's promotion bar becomes **pooled standing mean +
+  0.05**, the same construction that set 0.136 from raw v3's 0.086.
+- Desyncs mined first in every batch, as always.
+
+**Budget.** Two decider evals (120 games each, ~2.5 h DLL). The
+desync push between them is bridge work with its own harnesses
+(differ / emu / identical-seed wide batches) and no notebook entry;
+its yield shows up here only as lower attrition on the
+confirmation batch. Nothing else without a new entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

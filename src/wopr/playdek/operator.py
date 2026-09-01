@@ -412,6 +412,23 @@ class PlaydekOperator(Bridge):
             return True
         option = self._reply(prompt)
         if option is None:
+            if (decision.actor is self.other and self._sim_fail[0] == id(decision)
+                    and self._sim_fail_pick is not None and self.prompt_side(prompt) is self.side):
+                # The DLL already asks the bot's next decision: the other
+                # seat's chunk is fully absorbed and no further record will
+                # break the simulation's tie. Take its admissible branch --
+                # the one that added no divergence over the drift standing
+                # before the choice -- instead of the deadlock fatal
+                # (Junta's free coup against a one-influence drift,
+                # kick2-easy seeds 358/397).
+                pick = self._sim_fail_pick
+                self._sim_forced = (id(decision), pick)
+                self._sim_fail_pick = None
+                self.known[f"{decision.context.get('event')}: choice carried through standing board drift (no new divergence)"] += 1
+                self.diverge("drift-pick", f"engine asks {decision.actor.value} {decision.kind.value} while the DLL is at the bot's "
+                             f"{prompt.text!r}: {dict(pick.payload)} carried through the standing drift"
+                             f"{'; last simulation tried: ' + self._sim_fail_tried if self._sim_fail_tried else ''}")
+                return True
             tried = f"; last simulation tried: {self._sim_fail_tried}" if self._sim_fail[0] == id(decision) else ""
             self.diverge("decision mismatch", f"engine asks {decision.actor.value} {decision.kind.value} (context {dict(decision.context)}); "
                          f"the DLL asks {self.prompt_side(prompt).value} {prompt.text!r} {[o.text for o in prompt.visible]} and nothing of the bot's is left to answer it "
@@ -462,6 +479,10 @@ class PlaydekOperator(Bridge):
         return option if key == (prompt.player_id, prompt.text, prompt.options) else None
 
     def _answer(self, d: Decision) -> Action | None:
+        if self._sim_forced is not None and self._sim_forced[0] == id(d):
+            action = self._sim_forced[1]  # `_more`'s drift rescue for this very decision
+            self._sim_forced = None
+            return action
         if d.actor is self.other:
             self._resync()
             if d.kind is DecisionKind.ACTION_ROUND_PLAY and not self.moves[self.other] and any(a.payload["card"] == PASS_ROUND for a in d.options):
@@ -891,12 +912,20 @@ class PlaydekOperator(Bridge):
         fails = []  # each option's failure, for the divergence report
         stalled_clean = False  # some option ran out of facts with no diff: advance the DLL, retry
         nested = bool(self._simulating)  # called from inside another branch's copy
+        # Diff keys already standing before the choice: a failing branch
+        # whose residual keys are a subset added no divergence of its own,
+        # only carried the drift -- admissible once every retry is spent
+        # (Junta's free coup judged against a one-influence drift,
+        # kick2-easy seeds 358/397).
+        pre = frozenset(self.state_diff_keys(hands=False))
+        admissible = []  # (residual key count, facts left, option order, option)
         for i, option in enumerate(d.options):
             real, queues = self.engine, self._queues()
             divergences, known, last = len(self.report.divergences), self.known.copy(), self._last_state_diff
             self.engine = Engine.deserialize(real.serialize())
             self._simulating += 1
             self._sim_stalled = False
+            self._sim_residual = None
             try:
                 ok = self._try(option)
                 left = len(self.rolls) + sum(len(q) for q in self.moves.values())
@@ -906,6 +935,8 @@ class PlaydekOperator(Bridge):
                     diffs = "; ".join(self.state_diffs(hands=False))
                     if self._sim_stalled and not diffs:
                         stalled_clean = True
+                    if self._sim_residual and pre and self._sim_residual <= pre:
+                        admissible.append((len(self._sim_residual), left, i, option))
                     fails.append(f"{dict(option.payload)} -> {diffs or 'no diff at its stop point'}"
                                  f" (at {self.engine.pending_decision.kind.value if self.engine.pending_decision else 'the end'})")
                 if self.trace:
@@ -940,7 +971,23 @@ class PlaydekOperator(Bridge):
                 # retry fails with nothing new absorbed since the last one.
                 self._sim_fail = (id(d), self._seq)
                 self._sim_fail_tried = " | ".join(fails)  # kept for the drain's own fatal, which loses the per-branch detail otherwise
+                self._sim_fail_pick = min(admissible)[3] if admissible else None  # ...and its drift rescue, for `_more`'s deadlock
                 return None
+            if admissible:
+                # Retries spent, and a branch exists that added no divergence
+                # over the drift standing before the choice: it is the DLL's
+                # line as far as the drift lets anyone see -- carry on with
+                # it (fewest residual keys, then fewest facts left) instead
+                # of converting standing drift into a fatal. The game still
+                # answers for itself downstream: a wrong carry desyncs later
+                # or fails the finish's winner comparison.
+                admissible.sort()
+                option = admissible[0][3]
+                self.known[f"{d.context.get('event')}: choice carried through standing board drift (no new divergence)"] += 1
+                self.diverge("drift-pick", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: {dict(option.payload)} "
+                             f"adds nothing over the standing drift {sorted(pre)}; tried: {' | '.join(fails)}")
+                self._sim_fail = (0, -1)
+                return option
             self.diverge("choice", f"{d.actor.value} {d.kind.value} {d.context.get('event')}: none of {[dict(a.payload) for a in d.options]} "
                          f"reproduces the DLL's state; {'; '.join(self.state_diffs(hands=False)) or 'no state diff before the choice'}"
                          f"; tried: {' | '.join(fails)}", fatal=True)
@@ -983,7 +1030,9 @@ class PlaydekOperator(Bridge):
                     # state is not this point's. Try the bot's few options,
                     # and judge at the next point the DLL stopped at. (Not
                     # the bot's Ops: the DLL asks those, and they fan out.)
-                    return self._try_each(d)
+                    ok = self._try_each(d)
+                    self._sim_residual = None  # an inner option's residual is not this branch's own
+                    return ok
                 prompt = self.game.prompt
                 if (prompt is not None and not self.outgoing and self.prompt_side(prompt) is self.side
                         and not self._fits(d, {T.meaning(o).meaning for o in prompt.visible})):
@@ -992,13 +1041,16 @@ class PlaydekOperator(Bridge):
                     # getters lag the records -- a Grain Sales take whose
                     # event needs the bot's input leaves both hands looking
                     # untouched, tenth pass, seed 354).
+                    self._sim_residual = None
                     return False
+                self._sim_residual = frozenset(self.state_diff_keys(hands=False))
                 return not self.state_diffs(hands=d.kind is DecisionKind.ACTION_ROUND_PLAY)
             a = self._answer(d)
             if a is None or self.stop:
                 if self.trace:
                     print(f"  SIM   stuck at {d.actor.value} {d.kind.value}: {'no answer' if a is None else self.report.divergences[-1]}")
                 self._sim_stalled = a is None and not self.stop  # out of facts, not rejected: the DLL may just be behind
+                self._sim_residual = None
                 return False
             self.engine.step(a)
         if self.game.result is not None:
@@ -1006,13 +1058,19 @@ class PlaydekOperator(Bridge):
             # it is the same end (a scoring card held past the turn's end
             # stops the engine before the turn end's bookkeeping, the DLL
             # after it -- the military Ops it reset say nothing).
+            self._sim_residual = None
             return self._sides_by_player.get(self.game.result.winner_id) == self.engine.winner
-        return not self.state_diffs(hands=False)
+        residual = frozenset(self.state_diff_keys(hands=False))
+        self._sim_residual = residual
+        return not residual
 
     _trying_bot = False  # inside `_try_each`: one level, no fan-out of fan-outs
     _sim_stalled = False  # the last `_run_copy` stopped for lack of facts, not on a rejection
+    _sim_residual: frozenset | None = None  # the last `_run_copy` diff-judged stop's diff keys (None: it stopped some other way)
     _sim_fail: tuple[int, int] = (0, -1)  # (decision id, record seq) of the last all-branch simulation failure: the retry-then-fatal marker
     _sim_fail_tried = ""  # that failure's per-branch detail, re-attached to the drain's own fatal
+    _sim_fail_pick: "Action | None" = None  # that failure's admissible branch, if one adds no divergence over the standing drift
+    _sim_forced: "tuple[int, Action] | None" = None  # (decision id, action): `_more`'s drift rescue, consumed by the next `_answer`
 
     def _records_left(self) -> bool:
         return bool(self.rolls) or any(self.moves.values())

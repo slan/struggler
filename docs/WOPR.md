@@ -1677,6 +1677,37 @@ Findings from the first four random games, and what became of each:
   passes (twelfth–eighteenth) and rules v7 landed from six batches
   in two days; the remaining families are one-per-batch corners
   whose next roots want fresh instruments, not more volume.
+- **Nineteenth pass, from the kick2-easy/kick1-veto-easy traces: the
+  judge learns to see past standing drift.** The two 2026-09-01
+  decider batches (240 fresh games; full desync texts in
+  `runs/playdek/desync-mining-2026-09-01.txt`) put per-branch detail
+  on the hard core's plurality face: the engine waiting on a
+  hidden-seat `event_choice` the DLL never surfaces. The Junta pair
+  (kick2-easy 358/397) root-caused cleanly — the right branch
+  ('coup', its roll already queued) reproduced everything except a
+  one-influence drift that stood *before* the choice, and the judge's
+  zero-diff bar converted standing drift into a fatal (358: the
+  engine's phantom USSR 1 in Colombia even fed the coup arithmetic,
+  US 5 vs the DLL's 6). The fix: `state_diffs` refactored over keyed
+  pairs (`state_diff_keys` — which dimensions disagree, not by how
+  much), `_run_copy` records each diff-judged stop's keys, and once
+  every retry is spent a failing branch whose residual keys ⊆ the
+  pre-choice keys — no new divergence of its own — is carried
+  (fewest residual keys, then fewest facts left) instead of
+  fataling; the same rescue answers the drain's deadlock, where the
+  DLL already asks the bot's next prompt and nothing more will
+  arrive (`_sim_fail_pick`/`_sim_forced`). Every carry is logged as
+  a `drift-pick` divergence plus a `known`, and the game still
+  answers for itself downstream: a wrong carry desyncs later or
+  fails the finish's winner comparison — strictly no worse than the
+  certain fatal it replaces. The deeper roots stay open with better
+  traces: the multi-country +1-US drift (382's dump: four countries,
+  VP, China ownership and a hand size adrift at once — one missed
+  US play, plausibly), the game-over timing family (384/410/413),
+  and the placement-region mismatch (363). Verified: suite 544, the
+  grain sweep 149/149 (desyncs 0), hotseat 8/8, the differ 12/12
+  zero fatals; the drift-pick fired nowhere in the harnesses — it
+  only replaces fatals. Measured effect: the next 120-game batch.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

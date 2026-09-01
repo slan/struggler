@@ -896,6 +896,17 @@ class Bridge:
         now. `hands`: compare hand sizes and the visible hand's contents too
         (only meaningful between action rounds: headline picks leave the
         hands at different moments)."""
+        return [text for _, text in self._state_diff_pairs(hands=hands)]
+
+    def state_diff_keys(self, *, hands: bool) -> set[str]:
+        """The same comparison as identity keys alone ("influence:Panama",
+        "vp", ...): what dimensions disagree, not by how much. The
+        operator's simulation judge uses it to tell a branch that merely
+        carries drift already standing before a choice from one that adds
+        a new divergence of its own."""
+        return {key for key, _ in self._state_diff_pairs(hands=hands)}
+
+    def _state_diff_pairs(self, *, hands: bool) -> list[tuple[str, str]]:
         e = self.engine
         diffs = []
         for country, (ussr, us) in self.influence.items():
@@ -904,35 +915,38 @@ class Bridge:
                 continue
             if (mine["USSR"], mine["US"]) != (ussr, us):
                 around = ", ".join(f"{n} {self.influence.get(n, (0, 0))}" for n in sorted(e.board.neighbors(country)))
-                diffs.append(f"{country}: Playdek USSR {ussr}/US {us}, engine USSR {mine['USSR']}/US {mine['US']} [Playdek neighbours: {around}]")
+                diffs.append((f"influence:{country}",
+                              f"{country}: Playdek USSR {ussr}/US {us}, engine USSR {mine['USSR']}/US {mine['US']} [Playdek neighbours: {around}]"))
         if e.defcon != self.defcon:
-            diffs.append(f"DEFCON Playdek {self.defcon}, engine {e.defcon}")
+            diffs.append(("defcon", f"DEFCON Playdek {self.defcon}, engine {e.defcon}"))
         if e.vp != self.vp:
-            diffs.append(f"VP Playdek {self.vp} (getter {self.game.score}), engine {e.vp}")
+            diffs.append(("vp", f"VP Playdek {self.vp} (getter {self.game.score}), engine {e.vp}"))
         if (e.military_ops["USSR"], e.military_ops["US"]) != self.milops:
-            diffs.append(f"mil ops Playdek {self.milops}, engine {(e.military_ops['USSR'], e.military_ops['US'])}")
+            diffs.append(("milops", f"mil ops Playdek {self.milops}, engine {(e.military_ops['USSR'], e.military_ops['US'])}"))
         if (e.space_race["USSR"], e.space_race["US"]) != self.space:
-            diffs.append(f"space race Playdek {self.space}, engine {(e.space_race['USSR'], e.space_race['US'])}")
+            diffs.append(("space", f"space race Playdek {self.space}, engine {(e.space_race['USSR'], e.space_race['US'])}"))
         china = getattr(self, "_china", None)  # the operator tracks the DLL's holder; the differ does not
         if china is not None and china.value != e.china_card_owner:
             # Ownership forks silently (a Cultural Revolution mode misread)
             # and only surfaces turns later (Nixon's +2-VP-or-take branch,
             # v3-easy-r8 seed 405): compared here so the drift is located,
             # with the DLL's full transfer log to pin the missed one.
-            diffs.append(f"China Card Playdek {china.value}, engine {e.china_card_owner} "
-                         f"(DLL transfers {getattr(self, '_china_log', [])})")
+            diffs.append(("china", f"China Card Playdek {china.value}, engine {e.china_card_owner} "
+                          f"(DLL transfers {getattr(self, '_china_log', [])})"))
         if hands:
             for side in (Side.USSR, Side.US):
                 pd_count = self.game.hand_count(self._player_of[side])
                 mine = len(e.hands[side.value])
                 if pd_count != mine:
-                    diffs.append(f"{side.value} hand size Playdek {pd_count}, engine {mine} {sorted(e.hands[side.value])}")
+                    diffs.append((f"hand_size:{side.value}",
+                                  f"{side.value} hand size Playdek {pd_count}, engine {mine} {sorted(e.hands[side.value])}"))
                 if side is not e.physical_side:
                     # The hand the engine can see: its contents, card by card.
                     theirs = {c for c, loc in self.card_loc.items() if loc == HAND_LOCATION[side]} - {CHINA}
                     ours = set(e.hands[side.value]) - {CHINA}
                     if theirs != ours:
-                        diffs.append(f"{side.value} hand: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}")
+                        diffs.append((f"hand:{side.value}",
+                                      f"{side.value} hand: only Playdek {sorted(theirs - ours)}, only engine {sorted(ours - theirs)}"))
         return diffs
 
     def _engine_location(self, card: str) -> str:
