@@ -1,3 +1,34 @@
+# THE COMPOSE CONFIRMED AT 0.258, THE BRIDGE'S 19TH PASS, KICK3 NEGATIVE (2026-09-01)
+
+Three entries closed in one session (docs/JOSHUA.md, all
+pre-registered first):
+
+- **kick2+veto is the standing reported player at pooled 0.258**
+  (54/209; USSR 0.330 / US 0.189): the compose read 0.268 on seeds
+  300+ and **replicated at 0.250 on fresh seeds 500+** — both seats
+  lift over kick2 raw both times; gift share 0.188 / 0.081. Next
+  training arm's bar: pooled + 0.05 = **0.308**.
+- **The nineteenth bridge pass** (the judge sees past standing
+  drift): a failing simulation branch whose residual diff keys ⊆
+  the pre-choice diff is carried instead of fataling
+  (`state_diff_keys`, `drift-pick` lines), same rescue at the
+  drain's deadlock. Root-caused on the Junta pair (kick2-easy
+  358/397). Measured: the compose player's old-judge batch 20/120
+  desyncs → fresh-seed new-judge batch **8/120, void 0**; kick3's
+  9/120. Suite 544, sweep 149/149 (0 desyncs), hotseat 8/8, differ
+  12/12.
+- **kick3 (re-dose: gift-scenario starts on kick2's construction)
+  closed negative on the key read**: mean 0.153 (≥ 0.140 met, best
+  raw US seat 0.123) but gift share **0.659** — starting games in
+  gift states where 90% of opponents don't punish teaches the gift
+  harder (the probe warned first: 11/100 vs kick2's 6). The named
+  follow-on, a new entry on the user's call: **seat the punisher in
+  the scenario games** (wiring: scenario starts × forced anchor).
+
+Article facts dossier (no write-up): `runs/article/FACTS.md` —
+timeline, all arms and numbers, bridge passes, infrastructure,
+pointers. The article itself: the user, offline.
+
 # KICK2 + THE VETO RIDER: THE BAR FALLS, TWICE (2026-09-01)
 
 One pre-registered entry, two questions (docs/JOSHUA.md), both over

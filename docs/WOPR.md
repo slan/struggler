@@ -1707,7 +1707,14 @@ Findings from the first four random games, and what became of each:
   and the placement-region mismatch (363). Verified: suite 544, the
   grain sweep 149/149 (desyncs 0), hotseat 8/8, the differ 12/12
   zero fatals; the drift-pick fired nowhere in the harnesses — it
-  only replaces fatals. Measured effect: the next 120-game batch.
+  only replaces fatals. Measured the same day, and the pass paid
+  twice over: the kick2+veto player's old-judge batch hit **20/120**
+  desyncs (its long games — USSR mean turn 7 — pile drift onto the
+  endgame families), and the same player's fresh-seed batch on the
+  new judge came back at **8/120, void 0**, known families only,
+  the drift-pick firing 3 times; the kick3 decider beside it read
+  9/120 (drift-pick ×6). Both in the standing band with games this
+  long — the attrition tax on strong players is roughly halved.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

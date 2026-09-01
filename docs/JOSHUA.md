@@ -1905,6 +1905,125 @@ desync push between them is bridge work with its own harnesses
 its yield shows up here only as lower attrition on the
 confirmation batch. Nothing else without a new entry.
 
+**Result** (2026-09-01, `runs/playdek/kick2-veto-easy`,
+`runs/playdek/kick2-veto-easy-s500`).
+
+The compose, seeds 300+ (protocol note: this batch launched minutes
+before the nineteenth bridge pass landed, so it ran the *old*
+judge): USSR 16/48 = **0.333** [0.22, 0.48], US 10/49 = 0.204
+[0.12, 0.34], mean **0.268** [0.19, 0.36], gift share 6/32 = 0.188
+— the stack composes a second time, both seats again (kick2 raw
+0.190/0.089). Attrition told the other story: **20/120 desyncs**
+(band 7–14) + 3 trapped-scoring-card voids, effective n = 97 — the
+compose player survives deep into games (USSR mean turn 7.0, many
+to turn 10) where drift accumulates, and several fatals were
+exactly the nineteenth pass's shapes (HIL ×2, SAU ×1, ops_type
+deadlocks ×2, Wargames endgame ×4).
+
+The confirmation, fresh seeds 500+, new judge: USSR 18/55 =
+**0.327** [0.22, 0.46], US 10/57 = 0.175 [0.10, 0.29], mean
+**0.250** [0.18, 0.34] — the compose replicates. Gift share 3/37 =
+0.081. And the pass paid on the same player whose old-judge batch
+hit 20: **8/120 desyncs, void 0**, known families only (game-over
+timing ×3, granted-Ops-face ops_type ×3, the r10 deal-drift shape
+×1, illegal-in-Playdek ×1), the drift-pick firing 3 times.
+
+**Decision.** The pooled standing number: **54/209 = 0.258**
+(USSR 34/103 = 0.330, US 20/106 = 0.189). **kick2+veto is the
+standing reported player**, confirmed on two seed blocks; the fresh
+batch's 0.250 sits far above the old bar, so no reversion clause
+fires. The next training arm's promotion bar, per the pre-registered
+construction: pooled mean + 0.05 = **0.308**. kick2 stays the
+reported raw checkpoint.
+
+### 2026-09-01 — kick3: the re-dose — gift-scenario starts on kick2's construction (pre-registered)
+
+**The review decision** (user, 2026-09-01, same review as the compose
+entry): the re-dose runs after the desync push, before the article.
+kick2 read as dose-response: a 10% falken1 anchor moved the on-board
+gift share 0.604 → 0.489 and nearly cleared the gift on its own
+training distribution (probe 6/100) — the reward-pricing lever works
+where training reaches the gift states, and mostly it does not reach
+them. The reserve named in kick1's entry is exactly that lever:
+**gift-scenario starts** — training games opened from harvested
+DEFCON-2/gift-in-hand positions, so every mix component (self-play,
+pool, the anchor) visits the states where the lesson keeps being
+unlearned. The two priors isolate each lever alone: scen1
+(2026-08-28) ran scenario starts with a non-punishing pool and moved
+nothing (0.081, loss mix unmoved); kick2 ran the punisher without
+the states (0.140, share 0.489). kick3 is the combination, one new
+lever on kick2's standing construction.
+
+**Question.** Does concentrating training on the gift states, with
+the kickstart pull and the fixed punisher aboard, push the on-board
+gift share under 0.25 without costing the champion's strength?
+
+**Setup.** kick2's flags plus the bank: `--run kick3 --init
+baselines/r3-bid2/v3/joshua.pt --games 8000 --recipe v11 --bid 2
+--vs-pool 0.4 --anchor falken1=runs/falken1/joshua.pt --kickstart
+runs/falken1/corpus --kickstart-coef 1.0 --kickstart-batches 4
+--kickstart-batch-size 512 --scenarios scenarios/defcon2-gift-v3.jsonl
+--scenario-frac 0.25`. No new wiring: scenario starts are drawn
+independently of the seat mix, so ~2.5% of games are the punisher
+met *in* a gift state, and the kickstart pull covers the same states
+from the corpus side. Evaluation stays at the printed game.
+
+**Metrics and decision rule** (written before training).
+
+- *Gates before DLL spend* (kick2's): absorption reported
+  (`wopr.distill top1`; expect ≈ 0.50 — a large drop says the
+  scenario games fought the pull), `wopr.diagnose` vs Greedy ≥
+  **0.9**, no seat collapse; the mechanism probe (gate.py, kick3 as
+  gifter vs falken1, 100 a seat) against kick2's 6/100 and the
+  in-bank re-measure (`wopr.scenarios` eval on the held-out states,
+  as scen1 measured) reported.
+- *Decider*: the standing easy eval (120 games, seeds 300+, bid 2),
+  desyncs mined first. Success = **mean ≥ 0.140** (kick2's raw
+  standing — the re-dose must not buy the share by selling strength)
+  **and** USSR gift share ≤ **0.25** (v3 ~0.4, kick1 0.604, kick2
+  0.489). Readings: both → the theory closes positive at champion
+  strength; share moved but > 0.25 → dose–response continues, the
+  next dose (anchor share up, or a punisher *seated in* the scenario
+  games) is a new entry; share unmoved from 0.489 → scenario×anchor
+  does not add — the named suspect is that the pool's 90% still
+  answers the gift states with non-punishing opponents, and the
+  reserve becomes seating falken1 in the scenario games themselves.
+- *The compose* (veto over kick3): measured only if raw kick3 clears
+  both reads — one more 120-game batch, seeds 300+, against
+  kick2+veto's numbers.
+
+**Budget.** 8k games (~1.5 h). The gates. One decider batch (~2.5 h
+DLL; + one compose batch only on a double-clear). Nothing else
+without a new entry.
+
+**Result** (2026-09-01, `runs/kick3`, `runs/playdek/kick3-easy`).
+Gates: absorption 0.495 (the pull intact), diagnose 0.958 (USSR
+edge 0.717 — kick1's flag level, noted), and the probe already
+warned: gifted deaths **11/100** against kick2's 6 — the scenario
+starts made the internal gift metric *worse*, not better. The
+decider: USSR 10/54 = 0.185 [0.10, 0.31], US 7/57 = **0.123**
+[0.06, 0.23] (the best raw US seat measured), mean **0.153**
+[0.10, 0.23] — the strength read met (≥ 0.140, though inside
+kick2's interval: a wash, not a lift) — and the key read failed
+hard: gift share **29/44 = 0.659**, above kick2's 0.489 and
+kick1's 0.604. Desyncs 9/120, void 0, known families (game-over
+timing ×4, hidden-seat play_mode leftovers ×3, illegal-in-Playdek
+×2), drift-pick ×6.
+
+**Decision.** Negative on the key read — and informative exactly
+the way the theory predicts: starting a quarter of training in the
+gift states where 90% of opponents do **not** punish the gift
+concentrates learning *of* the gift (scen1's null repeated, now
+with enough strength around it to lift the mean anyway). The dose
+that matters is punishment-in-the-states, not states alone. The
+pre-registered suspect stands as the named follow-on, a new entry
+on the user's call: **seat the punisher in the scenario games**
+(wire scenario starts to force the anchor opponent, or raise the
+anchor share with the bank). No compose batch for kick3 (the
+double-clear failed). kick2 remains the reported raw checkpoint;
+kick2+veto the standing player at pooled 0.258; the bar for the
+next training arm is 0.308.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
