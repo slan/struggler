@@ -1872,8 +1872,23 @@ kept, the chosen card and the AI's later same-turn card plays forced in,
 the rest sampled from the cards the observation leaves unseen, seeded by
 (game seed, step index). Desynced and void games are excluded; logs that
 no longer replay under the current rules are skipped and counted in the
-corpus `manifest.json`. The clone's value head is untrained — a pool
-opponent's `choose` reads only the logits.
+corpus `manifest.json`. `harvest --workers N` replays in a process pool but
+consumes the games in order, so the shards hold the same rows in the same
+order at any worker count; the held-out fold is by game hash (batch name /
+file name, mod 10), so a corpus extended with new batches keeps every old
+game's fold and a clone trained on the old corpus can be scored on the
+extended one's held-out rows without leakage. The clone's value head is
+untrained — a pool opponent's `choose` reads only the logits.
+
+`train`'s recipe knobs (the falken2 sweep, docs/JOSHUA.md 2026-09-02):
+`--hidden`/`--gnn-layers`/`--option-hidden` size the `JoshuaConfig`;
+`--weight-decay` is AdamW's decoupled decay (0 = plain Adam, the falken1
+recipe); `--label-smoothing` spreads target mass over the row's *legal*
+options only — the masked slots carry `finfo.min` logits, so torch's own
+`label_smoothing=` would average their negative log-probabilities into the
+loss; `--lr-decay` multiplies the learning rate after every epoch without
+a new best held-out top-1 (early stopping by `--patience` is unchanged).
+The report `distill.json` records the config and every knob.
 
 A corpus can also pull a *training run* directly — kickstarting
 (`train.py --kickstart <corpus> --kickstart-coef/-batches/-batch-size`):

@@ -161,11 +161,29 @@ def _concat(shard: list[dict[str, np.ndarray]]) -> dict[str, np.ndarray]:
     return {name: np.concatenate([arrays[name] for arrays in shard]) for name in shard[0]}
 
 
+def _harvest_job(job: tuple[str, int]) -> tuple[dict[str, np.ndarray] | None, Counter, str | None]:
+    """One game log, replayed: `(arrays, counts, None)`, or `(None, {},
+    exception name)` for a log that no longer replays under the current
+    rules. Module-level so a process pool can pickle it."""
+    path, game_hash = job
+    log = json.loads(Path(path).read_text(encoding="utf-8"))
+    try:
+        arrays, counts = harvest_game(log, game_hash=game_hash)
+    except Exception as e:
+        return None, Counter(), type(e).__name__
+    return arrays, counts, None
+
+
 def harvest(argv: Sequence[str]) -> None:
+    from concurrent.futures import ProcessPoolExecutor
+
     p = argparse.ArgumentParser(prog="wopr.distill harvest",
                                 description="Replay eval-batch game logs and record the AI seat's decisions.")
     p.add_argument("sources", nargs="+", help="eval batch directories (each with games/ and results.jsonl)")
     p.add_argument("--out", required=True, help="corpus directory for the .npz shards and manifest.json")
+    p.add_argument("--workers", type=int, default=1,
+                   help="replay processes; the games are consumed in order, so the shards hold the same rows "
+                        "in the same order at any count")
     args = p.parse_args(argv)
 
     out = Path(args.out)
@@ -183,27 +201,31 @@ def harvest(argv: Sequence[str]) -> None:
         shards += 1
         pending, pending_rows = [], 0
 
-    for source in map(Path, args.sources):
-        if not (source / "games").is_dir():
-            raise SystemExit(f"{source}: no games/ directory")
-        for path in clean_games(source):
-            game_hash = zlib.crc32(f"{source.name}/{path.name}".encode())
-            log = json.loads(path.read_text(encoding="utf-8"))
-            try:
-                arrays, counts = harvest_game(log, game_hash=game_hash)
-            except Exception as e:
-                totals["replay_failed"] += 1
-                totals[f"replay_failed:{type(e).__name__}"] += 1
-                continue
-            totals["games"] += 1
-            totals.update(counts)
-            if len(arrays["label"]):
-                pending.append(arrays)
-                pending_rows += len(arrays["label"])
-            if pending_rows >= SHARD_ROWS:
-                flush()
-        print(f"[harvest] {source.name}: rows so far {totals['rows']}, games {totals['games']}, "
-              f"failed {totals['replay_failed']}", flush=True)
+    pool = ProcessPoolExecutor(max_workers=args.workers) if args.workers > 1 else None
+    try:
+        for source in map(Path, args.sources):
+            if not (source / "games").is_dir():
+                raise SystemExit(f"{source}: no games/ directory")
+            jobs = [(str(path), zlib.crc32(f"{source.name}/{path.name}".encode())) for path in clean_games(source)]
+            results = pool.map(_harvest_job, jobs, chunksize=4) if pool else map(_harvest_job, jobs)
+            for arrays, counts, failure in results:
+                if failure is not None:
+                    totals["replay_failed"] += 1
+                    totals[f"replay_failed:{failure}"] += 1
+                    continue
+                assert arrays is not None
+                totals["games"] += 1
+                totals.update(counts)
+                if len(arrays["label"]):
+                    pending.append(arrays)
+                    pending_rows += len(arrays["label"])
+                if pending_rows >= SHARD_ROWS:
+                    flush()
+            print(f"[harvest] {source.name}: rows so far {totals['rows']}, games {totals['games']}, "
+                  f"failed {totals['replay_failed']}", flush=True)
+    finally:
+        if pool is not None:
+            pool.shutdown()
     flush()
     manifest = {"sources": [str(s) for s in args.sources], "layout_version": F.LAYOUT_VERSION,
                 "shards": shards, **{k: totals[k] for k in sorted(totals)}}
@@ -274,6 +296,22 @@ def held_out_top1(net, paths: Sequence[Path], *, batch_size: int, device) -> tup
 LAYOUT_KEYS = frozenset(F.LAYOUT)
 
 
+def smoothed_cross_entropy(logits, labels, opt_mask, smoothing: float):
+    """Cross-entropy of the chosen option with `smoothing` of the target mass
+    spread uniformly over the row's legal options. The masked slots carry
+    `finfo.min` logits, so plain `label_smoothing=` would average their
+    (effectively infinite) negative log-probabilities into the loss."""
+    import torch
+
+    log_probs = torch.log_softmax(logits, dim=-1)
+    nll = -log_probs.gather(1, labels.unsqueeze(1)).squeeze(1)
+    if smoothing <= 0.0:
+        return nll.mean()
+    legal = opt_mask.to(torch.bool)
+    uniform = -torch.where(legal, log_probs, log_probs.new_zeros(())).sum(-1) / legal.sum(-1)
+    return ((1.0 - smoothing) * nll + smoothing * uniform).mean()
+
+
 def top1(argv: Sequence[str]) -> float:
     from struggler.bots.joshua.model import load_checkpoint
     from wopr.train import resolve_device
@@ -304,7 +342,14 @@ def train(argv: Sequence[str]) -> None:
     p.add_argument("--corpus", required=True, help="directory of harvest shards")
     p.add_argument("--out", required=True, help="run directory; writes joshua.pt and distill.json")
     p.add_argument("--hidden", type=int, default=256)
+    p.add_argument("--gnn-layers", type=int, default=2)
+    p.add_argument("--option-hidden", type=int, default=128)
     p.add_argument("--lr", type=float, default=3e-4)
+    p.add_argument("--lr-decay", type=float, default=1.0,
+                   help="multiply the learning rate by this after an epoch without a new best (1 = constant)")
+    p.add_argument("--weight-decay", type=float, default=0.0, help="AdamW's decoupled weight decay (0 = plain Adam)")
+    p.add_argument("--label-smoothing", type=float, default=0.0,
+                   help="mass spread uniformly over the row's *legal* options (never the masked slots)")
     p.add_argument("--batch-size", type=int, default=512)
     p.add_argument("--epochs", type=int, default=20, help="the cap; early-stopped by held-out top-1")
     p.add_argument("--patience", type=int, default=2, help="epochs without a new best held-out top-1")
@@ -318,8 +363,9 @@ def train(argv: Sequence[str]) -> None:
     device = resolve_device(args.device)
     torch.manual_seed(args.seed)
     paths = shard_paths(args.corpus)
-    net = JoshuaNet(JoshuaConfig(hidden=args.hidden)).to(device)
-    optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
+    config = JoshuaConfig(hidden=args.hidden, gnn_layers=args.gnn_layers, option_hidden=args.option_hidden)
+    net = JoshuaNet(config).to(device)
+    optimizer = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     rng = np.random.default_rng(args.seed)
 
     def evaluate() -> tuple[float, float, int]:
@@ -338,21 +384,26 @@ def train(argv: Sequence[str]) -> None:
                 continue
             for batch in _batches(arrays, args.batch_size, rng):
                 logits, _ = net(to_tensors({k: v for k, v in batch.items() if k in F.LAYOUT}, device))
-                loss = torch.nn.functional.cross_entropy(logits, torch.as_tensor(batch["label"], device=device))
+                loss = smoothed_cross_entropy(logits, torch.as_tensor(batch["label"], device=device),
+                                              torch.as_tensor(batch["opt_mask"], device=device), args.label_smoothing)
                 optimizer.zero_grad()
                 loss.backward()
                 optimizer.step()
                 losses.append(loss.item())
         top1, floor, val_rows = evaluate()
-        history.append({"epoch": epoch, "loss": sum(losses) / len(losses), "val_top1": top1})
+        lr = optimizer.param_groups[0]["lr"]
+        history.append({"epoch": epoch, "loss": sum(losses) / len(losses), "val_top1": top1, "lr": lr})
         print(f"[distill] epoch {epoch}: loss {history[-1]['loss']:.4f}, held-out top-1 {top1:.4f} "
-              f"(uniform floor {floor:.4f}, {val_rows} rows)", flush=True)
+              f"(uniform floor {floor:.4f}, {val_rows} rows; lr {lr:.2e})", flush=True)
         if top1 > best[0]:
             best = (top1, epoch)
             best_state = {k: v.detach().cpu().clone() for k, v in net.state_dict().items()}
         elif epoch - best[1] >= args.patience:
             print(f"[distill] no new best for {args.patience} epochs; stopping", flush=True)
             break
+        else:
+            for group in optimizer.param_groups:
+                group["lr"] *= args.lr_decay
     assert best_state is not None
     net.load_state_dict(best_state)
     out = Path(args.out)
@@ -361,7 +412,9 @@ def train(argv: Sequence[str]) -> None:
                     extra={"distilled_from": args.corpus, "val_top1": top1, "commit": git_commit()})
     (out / "distill.json").write_text(json.dumps({
         "corpus": args.corpus, "commit": git_commit(), "device": device, "seed": args.seed,
-        "hidden": args.hidden, "lr": args.lr, "batch_size": args.batch_size,
+        "config": config.to_dict(), "hidden": args.hidden, "lr": args.lr, "lr_decay": args.lr_decay,
+        "weight_decay": args.weight_decay, "label_smoothing": args.label_smoothing,
+        "batch_size": args.batch_size, "patience": args.patience,
         "best_epoch": best[1], "val_top1": top1, "uniform_floor": floor, "val_rows": val_rows,
         "train_s": round(time.perf_counter() - started, 1), "history": history,
     }, indent=2), encoding="utf-8")

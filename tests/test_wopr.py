@@ -857,6 +857,61 @@ def test_distill_train_fits_a_pool_ready_checkpoint(tmp_path):
     assert "falken" in pool.stats and len(pool) == 1
 
 
+def test_distill_harvest_workers_write_the_same_shards(tmp_path):
+    """`--workers N` replays in a process pool but consumes the games in
+    order: the shards hold the same rows in the same order at any count."""
+    batch = tmp_path / "batch"
+    (batch / "games").mkdir(parents=True)
+    log = (REPLAYS / "physical_basic.json").read_text(encoding="utf-8")
+    for index in range(3):
+        (batch / "games" / f"{index:04d}_seed{index}_US.json").write_text(log, encoding="utf-8")
+    (batch / "results.jsonl").write_text(
+        '{"index": 0, "desync": false}\n{"index": 1, "desync": true}\n{"index": 2, "desync": false}\n',
+        encoding="utf-8")  # game 1 is excluded either way
+    distill.main(["harvest", "--out", str(tmp_path / "serial"), str(batch)])
+    distill.main(["harvest", "--out", str(tmp_path / "parallel"), "--workers", "2", str(batch)])
+    serial = dict(np.load(tmp_path / "serial" / "shard0000.npz"))
+    parallel = dict(np.load(tmp_path / "parallel" / "shard0000.npz"))
+    assert serial.keys() == parallel.keys() and len(serial["label"]) > 0
+    assert all(np.array_equal(serial[k], parallel[k]) for k in serial)
+    assert len(set(serial["game_hash"])) == 2  # two clean games, hashed by batch/file name
+    manifest = json.loads((tmp_path / "parallel" / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["games"] == 2 and manifest["shards"] == 1
+
+
+def test_distill_train_recipe_flags_shape_the_clone(tmp_path):
+    """The sweep's knobs: a deeper, wider option head, AdamW decay, legal-only
+    label smoothing and a learning rate that halves on a missed epoch all land
+    in the checkpoint's config and the report."""
+    from struggler.bots.joshua.model import load_checkpoint
+
+    corpus = _tiny_corpus(tmp_path)
+    out = tmp_path / "clone"
+    distill.main(["train", "--corpus", str(corpus), "--out", str(out), "--hidden", "32", "--gnn-layers", "3",
+                  "--option-hidden", "16", "--weight-decay", "0.01", "--label-smoothing", "0.1", "--lr-decay", "0.5",
+                  "--epochs", "3", "--patience", "5", "--batch-size", "8", "--device", "cpu"])
+    net, _ = load_checkpoint(out / "joshua.pt")
+    assert (net.config.hidden, net.config.gnn_layers, net.config.option_hidden) == (32, 3, 16)
+    report = json.loads((out / "distill.json").read_text(encoding="utf-8"))
+    assert report["config"] == net.config.to_dict() and report["label_smoothing"] == 0.1
+    assert all(np.isfinite(h["loss"]) for h in report["history"])  # the masked slots stay out of the smoothing term
+    lrs = [h["lr"] for h in report["history"]]
+    assert lrs[0] == 3e-4 and all(b <= a for a, b in zip(lrs, lrs[1:]))  # never rises; halves on a miss
+
+
+def test_smoothed_cross_entropy_ignores_the_masked_slots():
+    logits = torch.tensor([[1.0, 0.5, torch.finfo(torch.float32).min, torch.finfo(torch.float32).min]])
+    labels = torch.tensor([0])
+    mask = torch.tensor([[1, 1, 0, 0]], dtype=torch.int8)
+    plain = distill.smoothed_cross_entropy(logits, labels, mask, 0.0)
+    smoothed = distill.smoothed_cross_entropy(logits, labels, mask, 0.2)
+    expected_plain = torch.nn.functional.cross_entropy(logits, labels)
+    assert torch.isclose(plain, expected_plain)
+    log_probs = torch.log_softmax(logits, -1)[0, :2]
+    expected_smoothed = 0.8 * -log_probs[0] + 0.2 * -log_probs.mean()
+    assert torch.isfinite(smoothed) and torch.isclose(smoothed, expected_smoothed)
+
+
 def _tiny_corpus(tmp_path):
     """A corpus whose train and held-out folds carry the same game's rows
     (identical content, different fold hashes), so cross-entropy on the
