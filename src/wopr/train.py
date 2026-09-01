@@ -14,7 +14,8 @@ Opponent mix per game (`--self-play`, `--vs-pool`, remainder vs `--anchor`):
   snapshot (falls back to self-play while the pool is empty).
   `--pool-seed name=ckpt.pt ...` pre-loads the pool with frozen
   checkpoints -- the exploiter/counter-run wiring (docs/WOPR.md).
-- vs anchor: against `random` or `greedy`, a fixed yardstick.
+- vs anchor: against `random`, `greedy`, or a frozen checkpoint
+  (`name=ckpt.pt`) -- a fixed yardstick whose share PFSP never touches.
 
 `--eval-every N` plays the latest checkpoint against Greedy (`--eval-games`,
 argmax, half on each seat, a fresh deck seed per tick) every N training
@@ -44,7 +45,7 @@ from wopr.arena import Arena
 from wopr.backend import ArenaSpec, Backend, InProcessBackend, SharedMemoryBackend
 from wopr.buffer import AlternatingRolloutBuffer
 from wopr.callback import StopAtGames, WoprCallback
-from wopr.opponents import StandardOpponents
+from wopr.opponents import CKPT_PREFIX, StandardOpponents
 from wopr.policy import PRECISIONS, JoshuaPolicy
 from wopr.pool import AnchorSchedule, CheckpointPool
 from wopr.repo import git_commit
@@ -107,8 +108,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--vs-pool", type=float, default=0.4, help="fraction of games learner vs a pool snapshot")
     p.add_argument(
         "--anchor", default="random",
-        help="opponent for the remaining games: random, greedy, or a schedule such as random,greedy "
-        "(promoted in order once the learner's win rate over --anchor-window anchor games reaches --anchor-promote)",
+        help="opponent for the remaining games: random, greedy, first, a frozen checkpoint as name=ckpt.pt "
+        "(unlike --pool-seed its share is fixed: the anchor slot is never PFSP-reweighted), or a schedule "
+        "such as random,greedy (promoted in order once the learner's win rate over --anchor-window anchor "
+        "games reaches --anchor-promote)",
     )
     p.add_argument("--anchor-promote", type=float, default=0.75, help="win rate that promotes a scheduled anchor to the next")
     p.add_argument("--anchor-window", type=int, default=100, help="anchor games the promotion win rate is measured over")
@@ -146,11 +149,22 @@ def build_parser() -> argparse.ArgumentParser:
 ANCHORS = ("random", "greedy", "first")
 
 
+def resolve_anchor(spec: str) -> str:
+    """One `--anchor` schedule element to its policy id: a built-in name
+    as itself, `name=ckpt.pt` as `ckpt:<path>` (`StandardOpponents` seats
+    it as a frozen sampling `NetOpponent`). Loading the checkpoint now
+    surfaces a bad path or layout before any training happens."""
+    if spec in ANCHORS:
+        return spec
+    name, sep, path = spec.partition("=")
+    if not sep or not name or not path:
+        raise ValueError(f"--anchor: unknown opponent {spec!r}; choose from {ANCHORS} or give name=checkpoint.pt")
+    load_checkpoint(path, device="cpu")
+    return CKPT_PREFIX + path
+
+
 def make_anchor_schedule(args: argparse.Namespace) -> AnchorSchedule:
-    anchors = tuple(name.strip() for name in args.anchor.split(","))
-    unknown = [name for name in anchors if name not in ANCHORS]
-    if unknown:
-        raise ValueError(f"--anchor: unknown opponent(s) {unknown}; choose from {ANCHORS}")
+    anchors = tuple(resolve_anchor(name.strip()) for name in args.anchor.split(","))
     return AnchorSchedule(anchors, promote_at=args.anchor_promote, window=args.anchor_window)
 
 

@@ -1693,6 +1693,170 @@ construction is a new entry, the user's call. Raw v3 remains the
 reported player — kick1 at 0.088 mean ties, not beats, the
 standing number, though its USSR seat is the line to watch.
 
+### 2026-09-01 — kick2: the kickstart pull plus an anchor that prices the gift; and the veto rider (pre-registered)
+
+**The review decision** (user, 2026-09-01): test the three-arm theory
+head-on. kick1 established that the champion absorbs the corpus
+(0.507 held-out top-1) at zero strength cost, and that PPO reverses
+the pull exactly where self-play reward never prices it (the gift
+share stood at 0.604). The theory — *a lesson survives training only
+where self-play reward agrees with it* — makes a prediction: put an
+opponent that punishes the gift into the reward stream at a share
+the sampler cannot fade, and the same dose sticks. One entry, two
+questions.
+
+**Question 1 (kick2).** kick1's construction with the reward stream
+amended: v3-init, recipe v11, bid 2, 8k games, the same kickstart
+dose — plus **falken1 held at a fixed ~10% anchor share**. The pool
+fraction drops 0.5 → 0.4 and the freed remainder goes to the anchor
+slot, which nothing reweights: teach1's PFSP faded the clone to 5.1%
+of pool games once the learner beat it; an anchor's share is the
+mix's, structural, for the whole run. Does the gift lesson now
+survive on the board — and does it convert on Playdek's?
+
+**Question 2 (the veto rider, zero training).** The terminal-probe
+veto (2026-08-25 entry) wrapped around kick1's checkpoint in the
+standing easy eval. kick1 owns the best USSR seat ever measured
+(0.143) with the gift class intact (share 0.604) — exactly the loss
+class the veto refuses. v3+veto's standing numbers: USSR 0.154 / US
+0.038 / mean 0.096. Does inference-time suppression stack with the
+absorbed lesson, or do the two mechanisms overlap?
+
+**Setup.**
+
+- New wiring first: `--anchor` learns checkpoint anchors — a
+  `name=path` element resolves to policy id `ckpt:<path>`, which
+  `StandardOpponents` answers with a sampling `NetOpponent`, the way
+  a pool snapshot plays; the checkpoint is loaded once up front so a
+  bad path or layout fails before training. A single anchor never
+  promotes, so its share is fixed. (`wopr/train.py`,
+  `wopr/opponents.py`; mechanics in WOPR.md.)
+- kick2: `--run kick2 --init baselines/r3-bid2/v3/joshua.pt --games
+  8000 --recipe v11 --bid 2 --vs-pool 0.4 --anchor
+  falken1=runs/falken1/joshua.pt --kickstart runs/falken1/corpus
+  --kickstart-coef 1.0 --kickstart-batches 4 --kickstart-batch-size
+  512` — kick1's flags plus the two changed ones, kick1's machine
+  settings.
+- Rider: `wopr.playdek.eval --difficulty easy --games 120 --seed 300
+  --bid 2 --policy veto=runs/kick1/joshua.pt --out
+  runs/playdek/kick1-veto-easy` — the standing decider's shape,
+  rated as its own named policy (`kick1+veto`), never silently
+  substituted (the search entry's rule).
+
+**Metrics and decision rule** (written before anything runs).
+
+kick2, internal (before DLL spend):
+
+- *Absorption* (reported): held-out corpus top-1 (`wopr.distill
+  top1`) — v3 0.335 and kick1 0.507 the references, falken1's 0.610
+  the pure-BC ceiling. Expected near kick1's; a large drop says the
+  anchor games fought the pull instead of pricing it.
+- *Anchor curve* (reported, new signal): `win_rate_vs_anchor` in
+  metrics.csv — the learner's live record against the punisher.
+- *Strength gate* (kick1's): `wopr.diagnose` vs Greedy ≥ **0.9**, no
+  seat collapse. Fails → the anchor share or the dose is the
+  suspect; a re-dose is a new entry line, not a new idea.
+- *Mechanism probe* (gate.py, kick2 as gifter vs falken1, 100 a seat
+  argmax): gifted deaths as USSR against kick1's 13/100 and v3's
+  17/100 — expected materially down if the anchor priced the gift
+  during training.
+
+Decider: the standing easy eval (120 games, 60 a seat, bid 2,
+argmax, seeds 300+), desyncs mined first. **Mean ≥ 0.136** → kick2
+is the reported player. The key read regardless of the bar: **USSR
+DEFCON-loss share ≤ 0.25** (raw v3 ~0.4; kick1 0.604). Readings:
+
+- Share ≤ 0.25 **and** mean over v3's 0.086 → the theory holds and
+  the reward-priced kickstart is the program's first transferring
+  construction; continue the line (dose, share, games) on review.
+- Share ≤ 0.25, mean flat → the lesson lands at champion strength
+  and *still* does not convert — the deep negative worth the
+  notebook: the gift was never the whole gap.
+- Share unmoved → the theory takes real damage: an unfadeable
+  punisher at 10% plus the pull cannot beat PPO's gradient. The
+  named reserves — gift-scenario starts (`defcon2_gift` bank) or a
+  larger anchor share — are each a new entry.
+
+Rider: mean ≥ **0.136** → kick1+veto becomes the standing reported
+player (as a named policy). Below the bar, the attribution is the
+USSR seat against kick1's 0.143 and v3+veto's 0.154: if absorbed
+lesson and rules-probe suppress the same losses, the stack adds
+nothing (≈0.15 again); if they add, the seat moves past both. The
+gift share of the remaining USSR losses is expected ≈0 mechanically
+(the probe refuses provable losses) — reported, not a finding.
+
+**Budget.** The anchor wiring + tests. 8k games (~1 h). diagnose,
+top1, the 100-game probe. Two decider evals (120 games each, ~2.5 h
+DLL each), rider first — it needs no training and its player already
+exists. Nothing else without a new entry.
+
+**Result** (2026-09-01, `runs/kick2`, `runs/playdek/kick2-easy`,
+`runs/playdek/kick1-veto-easy`). Every internal gate passed.
+Absorption **0.505** — the anchor did not fight the pull (kick1
+0.507). Strength gate 0.983 vs Greedy (kick1 0.958, v3 0.940), USSR
+self-play edge 0.633 — kick1's 0.708 flag gone. The mechanism probe
+moved hard: kick2-as-USSR beats falken1 **0.90** (kick1 0.81, v3
+0.66) with gifted deaths down to **6/100** (kick1 13, v3 17) — on
+its own training distribution the anchor priced the gift. The
+anchor curve rode 0.6–1.0 all run; the Greedy eval curve 0.94–0.99.
+
+The deciders, both over the bar — the program's first, and second,
+positive transfers:
+
+| | USSR | US | mean | USSR gift share |
+| --- | --- | --- | --- | --- |
+| raw v3 (standing) | 0.093 | 0.078 | 0.086 | ~0.4 |
+| kick1 (raw) | 0.143 | 0.035 | 0.088 | 0.604 |
+| v3+veto (2026-08-26) | 0.154 | 0.038 | 0.096 | — |
+| **kick2 (raw)** | **0.190** [.11,.31] | 0.089 [.04,.19] | **0.140** [.09,.22] | **0.489** |
+| **kick1+veto** | **0.278** [.18,.41] | **0.218** [.13,.34] | **0.248** [.18,.34] | **0.179** |
+
+kick2: mean **0.140 ≥ 0.136** — the first *raw checkpoint* over the
+bar, on the best raw USSR seat yet (0.190). The key read is
+half-moved: gift share **0.489** against kick1's 0.604 and the
+≤ 0.25 threshold — the 10% anchor recovered part of the lesson on
+Playdek's board (and nearly all of it on its own distribution, the
+probe's 6/100) but did not clear the read. The US seat sits at v3's
+level (0.089 vs 0.078); its loss mix keeps kick1's inherited ~0.35
+US-side DEFCON-death share — the mirrored blunder the anchor was
+never aimed at. Desyncs 6/120, void 0, known families only.
+
+kick1+veto: mean **0.248** [0.18, 0.34] — the bar cleared outright,
+the interval's floor above every point estimate the program has
+ever reported, and **both** seats lifted: USSR 0.278 (kick1 raw
+0.143, v3+veto 0.154 — the absorbed lesson and the rules-probe
+*add*, they do not overlap), and US 0.218 against kick1 raw's 0.035
+[.01,.12] — non-overlapping intervals, the first US-seat movement in
+the program's history. The attribution: kick1's US-seat losses were
+one-third DEFCON deaths (18/55) — the veto refuses exactly those,
+and the seat's suppressed games reappear as wins rather than VP
+blowouts (US losses under veto: 5/43 DEFCON, the rest the familiar
+VP/Europe mix). USSR gift share 0.179 — the ≤ 0.25 read met, as
+expected mechanically. Games longer (turn 6.5 vs kick1's 5.6).
+Desyncs 11/120 (granted-Ops 6, Defectors-event-first 2, end-of-game
+turbulence seed 324, Grain decision-mismatch 1, hidden-seat drift
+1), void 0 — the standing band, known families only.
+
+**Decision.** Both pre-registered promotion clauses fired; they
+rank themselves. **kick1+veto (0.248) is the standing reported
+player against the Playdek AI**, as a named policy per the search
+entry's rule — never silently substituted for a raw checkpoint in
+gates or baselines. **kick2 (0.140) is the reported raw checkpoint**,
+the first to clear the bar and the strongest raw player measured.
+The theory's verdict is a dose-response, not a clean confirmation:
+the reward-pricing lever moved the gift share in the predicted
+direction at every scale measured (probe 13→6, board 0.604→0.489)
+and bought the bar, but a 10% anchor share does not push the
+on-board share under 0.25 — self-play's other 90% still shadows
+part of the lesson. The evidence-pointed next constructions, each a
+new entry on the user's call: **veto over kick2** (the two positives
+composed — if the lifts add again, both seats move from the 0.140
+base), a larger anchor share or gift-scenario starts (the re-dose,
+`defcon2_gift` bank), and the article, which now has a win to end
+on. The bar itself should also be revisited on review: 0.136 was
+set as +0.05 over raw v3 when nothing had ever moved; both new
+players clear it and the next bar should be set from 0.248.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

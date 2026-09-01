@@ -94,13 +94,20 @@ def masked_argmax(logits: np.ndarray, mask: np.ndarray) -> int:
     return int(np.argmax(np.where(mask.astype(bool), logits, -np.inf)))
 
 
+#: A frozen checkpoint outside the pool: `ckpt:<path>`. The anchor slot
+#: uses it (`--anchor name=path`) -- unlike a `pool:` snapshot it is never
+#: PFSP-sampled, so its share of games is the mix's, fixed for the run.
+CKPT_PREFIX = "ckpt:"
+
+
 @dataclass(frozen=True)
 class StandardOpponents:
     """The opponent resolver `train.py` seats: `random`, `greedy`, `first`,
-    and `pool:<name>` snapshots read from `pool_dir`. Plain data, so a
-    collector process can be handed one; each resolves its opponents
-    itself, seeded by `(seed, salt, policy id)` -- the same stream for the
-    same policy in the same process, distinct across `salt`s."""
+    `pool:<name>` snapshots read from `pool_dir`, and `ckpt:<path>` frozen
+    checkpoints by path. Plain data, so a collector process can be handed
+    one; each resolves its opponents itself, seeded by
+    `(seed, salt, policy id)` -- the same stream for the same policy in
+    the same process, distinct across `salt`s."""
 
     pool_dir: str
     seed: int
@@ -126,4 +133,6 @@ class StandardOpponents:
         if policy_id.startswith(POOL_PREFIX):
             path = Path(self.pool_dir) / f"{policy_id[len(POOL_PREFIX):]}.pt"
             return NetOpponent.from_checkpoint(str(path), seed=opponent_seed, device=self.device)
+        if policy_id.startswith(CKPT_PREFIX):
+            return NetOpponent.from_checkpoint(policy_id[len(CKPT_PREFIX):], seed=opponent_seed, device=self.device)
         raise KeyError(f"unknown opponent {policy_id!r}")

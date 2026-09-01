@@ -400,13 +400,18 @@ sampling by default so it cannot be exploited line by line).
 
 `train.py` draws each game's seating from `--self-play` (both seats the
 learner), `--vs-pool` (learner on a random seat against a pool snapshot),
-and the remainder against `--anchor`: `random`, `greedy`, `first`, or a
-schedule such as `random,greedy` (`pool.AnchorSchedule`), which walks the
-list in order and promotes once the learner's win rate over the last
-`--anchor-window` anchor games reaches `--anchor-promote`; the last
-anchor is kept for good, and `metrics.csv` records the current one. A
-terminal reward against an opponent the learner never beats is a
-constant, and so is one against an opponent it always beats
+and the remainder against `--anchor`: `random`, `greedy`, `first`, a
+frozen checkpoint as `name=ckpt.pt` (policy id `ckpt:<path>`, seated as
+a sampling `NetOpponent`; unlike a `--pool-seed` snapshot its share is
+the mix's remainder, fixed — the anchor slot is never PFSP-reweighted,
+which is the point: an opponent the learner must keep facing whether or
+not it beats it), or a schedule such as `random,greedy`
+(`pool.AnchorSchedule`), which walks the list in order and promotes once
+the learner's win rate over the last `--anchor-window` anchor games
+reaches `--anchor-promote`; the last anchor is kept for good, and
+`metrics.csv` records the current one. A terminal reward against an
+opponent the learner never beats is a constant, and so is one against an
+opponent it always beats
 (docs/archive/JOSHUA-r1.md, v2 and v4). Fractions summing to 1 leave no anchor games at
 all: pure self-play against the pool. While the pool is empty, pool
 games are self-play.

@@ -314,6 +314,48 @@ def test_anchor_schedule_promotes_on_a_windowed_win_rate_and_keeps_the_last():
         AnchorSchedule([], promote_at=0.75)
 
 
+def test_checkpoint_anchors_resolve_to_a_frozen_net_and_reject_bad_specs(tmp_path):
+    """`--anchor name=ckpt.pt` seats a frozen checkpoint outside the pool:
+    the spec resolves to a `ckpt:<path>` policy id (validated by loading,
+    so a bad path fails before training) and `StandardOpponents` answers
+    it with a sampling `NetOpponent` -- the fixed-share punisher wiring
+    (docs/JOSHUA.md, kick2)."""
+    import argparse
+
+    from struggler.bots.joshua.model import save_checkpoint
+    from wopr.opponents import CKPT_PREFIX
+    from wopr.train import make_anchor_schedule
+
+    checkpoint = tmp_path / "punisher.pt"
+    save_checkpoint(JoshuaNet(SMALL), checkpoint)
+
+    def args(anchor: str) -> argparse.Namespace:
+        return argparse.Namespace(anchor=anchor, anchor_promote=0.75, anchor_window=100)
+
+    schedule = make_anchor_schedule(args(f"punisher={checkpoint}"))
+    assert schedule.current == f"{CKPT_PREFIX}{checkpoint}"
+    assert schedule.is_anchor(schedule.current) and not schedule.is_anchor("punisher")
+    for _ in range(200):  # a single anchor never promotes: the share is fixed
+        assert schedule.record(True) is None
+
+    # A schedule can mix built-ins and checkpoints.
+    mixed = make_anchor_schedule(args(f"random,punisher={checkpoint}"))
+    assert mixed.anchors == ("random", f"{CKPT_PREFIX}{checkpoint}")
+
+    with pytest.raises(ValueError, match="unknown opponent"):
+        make_anchor_schedule(args("punisher"))  # a bare unknown name is not a checkpoint spec
+    with pytest.raises(FileNotFoundError):
+        make_anchor_schedule(args(f"gone={tmp_path / 'missing.pt'}"))
+
+    opponent = StandardOpponents(str(tmp_path), seed=1)(schedule.current)
+    assert isinstance(opponent, NetOpponent) and not opponent._deterministic
+    arena = Arena(2, seed=5, seat_assigner=_seats("a", "a"))
+    rows = arena.pending()["a"]
+    choices = opponent.choose(rows)
+    assert len(choices) == len(rows)
+    assert all(0 <= c < len(r.observation.pending_decision.options) for c, r in zip(choices, rows))
+
+
 def test_eval_pairs_are_independent_jobs_and_run_in_a_process_pool():
     """A pair's result depends only on its own job -- the same job played
     alone, in-process, or in a pool beside other pairs gives the same

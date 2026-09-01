@@ -1,3 +1,31 @@
+# KICK2 + THE VETO RIDER: THE BAR FALLS, TWICE (2026-09-01)
+
+One pre-registered entry, two questions (docs/JOSHUA.md), both over
+the 0.136 bar — the program's first positive transfers:
+
+- **kick1+veto 0.248** [0.18, 0.34] (USSR 0.278 / US 0.218, gift
+  share 0.179) — zero training, the veto over kick1's checkpoint.
+  Both seats lifted; the US seat's first movement ever (kick1 raw
+  0.035 → 0.218, non-overlapping intervals): kick1's US losses were
+  one-third DEFCON deaths and the veto refuses exactly those. **The
+  standing reported player**, as a named policy.
+- **kick2 0.140** [0.09, 0.22] (USSR 0.190 / US 0.089, gift share
+  0.489) — kick1's recipe + falken1 at a fixed 10% anchor share
+  (new `--anchor name=ckpt.pt` wiring, `ckpt:` policy ids). First
+  *raw checkpoint* over the bar. All gates passed (absorption 0.505,
+  Greedy 0.983, probe gifted-deaths 6/100 vs kick1's 13); the
+  anchor moved the board gift share 0.604 → 0.489 — the predicted
+  direction, not the ≤ 0.25 read. Theory verdict: dose-response —
+  reward pricing works, 10% is not enough against self-play's 90%.
+
+Desyncs 6/120 and 11/120, void 0, known families only. Raw
+reporting: kick2 is the strongest raw checkpoint measured.
+
+**Evidence-pointed next constructions (user's call, new entries):**
+veto over kick2 (compose the two positives), a larger anchor share
+or gift-scenario starts (the re-dose), the article (now with a win
+to end on), and re-setting the bar from 0.248.
+
 # KICK1 (KICKSTARTING): NEGATIVE ON THE BAR, BEST USSR SEAT EVER, AND A THEORY (2026-09-01)
 
 v3-init + interleaved corpus pull (`--kickstart`, new wiring in
