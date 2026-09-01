@@ -1,3 +1,29 @@
+# KICK4 NEGATIVE — THE GIFT LINE PARKS FOR REVIEW; 20TH-PASS INSTRUMENTS ABOARD (2026-09-01)
+
+- **kick4 (punisher seated in the scenario games; new
+  `--scenario-vs-anchor` / `Arena(scenario_seats=)` wiring) closed
+  negative on both reads**: mean 0.091 (US seat collapsed to 0.034 —
+  a third of training vs the weak clone diluted the signal, the
+  entry's named risk), gift share 0.465 ≈ kick2's 0.489. The probe
+  voted no first (14/100 vs kick2's 6). Two arms now bracket the
+  lever: 10% punisher/no states → 0.489 @ 0.140; 32% punisher in
+  the states → 0.465 @ 0.091. **The gift share has a floor near
+  0.45–0.5 no falken1 dose reaches at 8k games — the line parks for
+  review.** Review candidates (record in the entry): a genuinely
+  strong punisher (live-DLL sparring / deeper clone), longer runs,
+  the layout bump, or accepting the veto as the gift's answer
+  (kick2+veto's 0.081–0.188 shares are the only ≤0.25 ever) and
+  aiming training at the other loss classes.
+- **20th bridge pass (instruments, no behavior change)**: 382's dump
+  decoded — the standing drift was three orphaned US placements, the
+  granted-Ops attribution face. `granted-ops` evidence lines on
+  every real `_answer_ops_type` resolution (diagnostic kind, 140
+  fired in kick4's batch — every desync now carries 1–3) and a
+  `_defcon_log` (seq, level) trail riding the DEFCON state diff for
+  the game-over timing family. Next pass mines these.
+- Standing: kick2+veto 0.258 pooled (bar 0.308), kick2 raw 0.140,
+  suite 545.
+
 # THE COMPOSE CONFIRMED AT 0.258, THE BRIDGE'S 19TH PASS, KICK3 NEGATIVE (2026-09-01)
 
 Three entries closed in one session (docs/JOSHUA.md, all

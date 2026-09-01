@@ -2084,6 +2084,37 @@ stays at the printed game.
 decider batch (~2.5 h DLL; + one compose batch only on a
 double-clear). Nothing else without a new entry.
 
+**Result** (2026-09-01, `runs/kick4`, `runs/playdek/kick4-easy`).
+Gates: absorption 0.502, diagnose 0.967 (USSR edge 0.575 — v3's own
+level, no flag). The probe voted no before the decider did: gifted
+deaths **14/100** vs falken1 (kick2 6, kick3 11, v3 17) — the arm's
+internal prediction (< 6) was dead on arrival. The decider: USSR
+8/52 = 0.154 [0.08, 0.28], US 2/58 = **0.034** [0.01, 0.12], mean
+**0.091** [0.05, 0.16] — under the 0.140 strength read, the US seat
+back at the v3/kick1 floor — with the gift share at 20/43 =
+**0.465**, statistically kick2's 0.489. Desyncs 9/120, void 1,
+known families; the twentieth pass's instruments fired throughout
+(140 granted-ops evidence lines; every desync game carries 1–3).
+
+**Decision.** Negative on both reads — the pre-registered third
+reading fires: seating the punisher in the gift states adds nothing
+over the anchor alone, and it *costs* — a third of training against
+the weak clone diluted the ordinary game's signal (the named risk;
+the US seat paid it). Two arms bracket the lever cleanly now: 10%
+punisher without the states = share 0.489 at strength 0.140; 32%
+punisher concentrated in the states = share 0.465 at strength
+0.091. The gift share has a floor near 0.45–0.5 that no falken1
+dose reaches at 8k games — **the theory's practical ceiling with
+this punisher is reached, and the line's next move is a review, not
+another dose.** Candidate review questions, for the record: a
+punisher that is actually strong (live-DLL sparring, or a deeper
+clone), longer runs, the layout bump (`OPTION_VOCAB` fold +
+`u2_incident` slot), or accepting the veto as the standing answer
+to the gift (kick2+veto's 0.081–0.188 shares are the only ones
+under 0.25 ever measured) and pointing training at the *other*
+loss classes. kick2 stays the reported raw checkpoint; kick2+veto
+the standing player (pooled 0.258); the bar 0.308.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
