@@ -2601,6 +2601,30 @@ kick6's 97 min. Suite 553 with the mask's three unit tests (the suicide
 coup struck and nothing else, all-lost strikes nothing, the granted-coup
 mate proven) and a two-backend equivalence test under the mask.
 
+**Amendment, during the run, before the gates (the raw form is not a
+player).** The in-run evaluations play the raw checkpoint against Greedy
+and they fell from 0.90 at 529 games to 0.34–0.67 from 1,500 on (kick6's
+rose 0.905 → 1.0), while inside the arena the learner beat its pool
+(0.76 → 0.89 by quarter) and the anchor (0.81–0.84) and struck 20–28
+options a game. A raw `wopr.diagnose` of the checkpoint at 5,100 games
+says why: 39 of 40 self-play games ended at DEFCON 1 by turn 3. A struck
+option is excluded from the distribution PPO trains, so nothing ever
+lowers its logit; the shared network keeps or grows v3's liking for the
+battleground coup, and unmasked the policy walks into the deaths the
+mask forbade it. This is the entry's own caveat in a stronger form: the
+raw checkpoint is not a player, only the composed form is. The gates are
+read accordingly, written before they run: the strength gate is the
+**composed player vs Greedy at bid 2 ≥ 0.9** (`wopr.search_eval
+--policy veto=runs/kick7/joshua.pt --opponent greedy --games 200 --bid
+2`); the mask's check is `vetoes_per_game` above zero through the run
+(the raw self-play DEFCON count no longer means what it meant for kick6);
+absorption is reported raw with the caveat that a struck option can be
+the raw argmax in DEFCON ≤ 3 rows (the corpus holds no engine states to
+strike them); the raw diagnose and the raw probes are reported as the
+artifact they are. The decider was already the composed player. If the
+composed gate fails, the arm closes at zero DLL hours: training under
+the mask cost the strength the veto cannot give back.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
