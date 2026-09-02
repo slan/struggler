@@ -2435,6 +2435,24 @@ no-go, one compose batch only on a double-clear (~2.5 h), one
 confirmation batch only if the compose clears 0.308. Nothing else
 without a new entry.
 
+**Amendment, before kick6's probe (2026-09-02, the scale read).**
+kick2 and kick5 probed as gifters against C (100 games a seat, argmax;
+`runs/kick6/scale-*.json`): kick2 **15/100** gifted deaths (wins 0.71),
+kick5 **8/100** (wins 0.80). The scale is inverted against the board:
+kick2's share was the lower (0.489 against 0.622), yet against C kick2
+gifts at nearly twice kick5's rate — and kick2 gifts 2.5× as often
+against C as against falken1 (6), kick5 the same against both (8). The
+tri-state as written assumed kick2's count under kick5's and collapses
+(8–15 would be both go and no-go). Resolved now, blind to kick6's
+number: **go** only under both comparators (≤ 7/100 vs C); **no-go** at
+or above the higher (≥ 15/100), the decider skipped; between (8–14) the
+decider runs with the mood recorded as lukewarm, kick5's 12/100 against
+its own anchor the reference. A finding in its own right: across these
+two arms the 100-game probe against a punisher does not rank the board
+gift share — the intervals overlap (15/100 [0.09, 0.23], 8/100 [0.04,
+0.15]), so the inversion may be noise, and the probe's read is coarser
+than the decider's.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
