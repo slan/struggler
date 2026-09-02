@@ -2279,6 +2279,55 @@ by fidelity with the gate passed, and it is followed: **falken2 = B**
 the inversion is the first suspect and **kick6 with C in the slot** the
 named follow-on, a new entry. Stage 2 (kick5) launched 06:15.
 
+**Result, stage 2 — the gates** (2026-09-02, `runs/kick5`, 8k games in
+~95 min). Absorption **0.5025** on falken1's corpus (kick2 0.505: the
+pull intact). The anchor curve averaged 0.742 over the run, 0.779 over
+its last three quarters, 0.80 at the end (kick2's rode 0.6–1.0 against
+falken1 — the new anchor is not read as harder). Strength gate:
+**0.992** vs Greedy at bid 2 (kick2 0.983), passed; the self-play USSR
+edge **0.742** is the family's highest (kick1's 0.708 was the flag
+level, kick2 0.633, kick4 0.575) — noted against the US seat. The
+mechanism probe: kick5 as USSR vs falken1 wins 0.89 with gifted deaths
+**8/100** (kick2 6, kick3 11, kick4 14, v3 17) — kick2's neighbourhood,
+not under it — and vs its own anchor falken2 wins 0.87 with gifted
+deaths **12/100**: the gift is still walked into against the very
+opponent meant to price it, at twice the rate kick2 walked into
+falken1's. The mood is lukewarm; the decider runs as pre-registered.
+
+**Result, stage 2 — the decider** (2026-09-02, `runs/playdek/kick5-easy`,
+120 easy games, seeds 300+, bid 2, on the twenty-first pass and rules
+version 8). USSR 12/57 = **0.211** [0.12, 0.33], US 4/57 = 0.070
+[0.03, 0.17], mean 16/114 = **0.140** [0.09, 0.22] — kick2's number to
+the third decimal (kick2 0.190 / 0.089 / 0.140), the strength read met
+on the line. The key read failed: USSR gift share **28/45 = 0.622**
+(kick2 0.489, kick4 0.465, kick3 0.659), the USSR seat's losses 28
+DEFCON deaths, 12 VP, 4 Wargames, 1 final scoring; the US seat's 35
+VP, 10 DEFCON, 6 Europe, 1 Wargames, 1 final. Games to turn 5.8 / 5.2.
+**Attrition: 4 desyncs in 120**, void 2 (both the trapped
+held-scoring-card known) — under the 7–14 band for the first time,
+and every fatal carries its DEFCON and VP trails (WOPR.md, the
+twenty-first pass, measured).
+
+**Decision.** Negative on the key read — the pre-registered third
+reading: **the clone's fidelity was not what floored the share.** But
+the arm did not test the punisher's *strength*, and the stage-1 record
+says why: the rule promoted the most faithful clone, and fidelity ran
+against punishment — falken2 (B) punishes v3's gift 17 times per 100
+games, exactly falken1's rate, where C punishes 27 and A 19. A slot
+filled with falken1's punishment density at higher fidelity bought
+falken1's result. Two things are settled: more data and a bigger net
+make a *more faithful* clone (+0.053 top-1), and a more faithful clone
+is not a stronger punisher — the strongest punishers of the sweep were
+the smaller nets, which also beat the champion head-to-head. What the
+theory now needs is the arm this one was meant to be: **kick6 = kick2's
+construction with C in the anchor slot** (punishment density 1.6×
+falken1's; v3 loses to it 0.529), a new entry on the user's call, with
+the probe's vs-anchor gifted-deaths as its go/no-go mood. The wider
+review candidates stand (longer runs, the layout bump, the veto as the
+gift's answer). kick2 stays the reported raw checkpoint; kick2+veto the
+standing player at pooled 0.258; the bar 0.308. Budget spent: one
+decider batch, no compose (the double-clear failed).
+
 ### 2026-09-02 — rules version 8: the ladder stands
 
 Found by the twenty-first bridge pass's new instrument on its first

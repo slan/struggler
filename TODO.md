@@ -1,3 +1,44 @@
+# FALKEN2 BUILT, KICK5 NEGATIVE ON THE KEY READ; BRIDGE PASS 21 + RULES V8; ATTRITION 4/120 (2026-09-02)
+
+- **falken2 (stage 1, zero DLL hours; docs/JOSHUA.md 2026-09-02)**: merged
+  corpus = falken1's shards + the eleven later easy batches (57 shards,
+  2,973 games, 458,525 rows); falken1 on the merged fold 0.6008, line
+  0.6208. Three fits, all over it: A (falken1's recipe) **0.6341**, C (A +
+  AdamW 0.01, smoothing 0.05, lr halving) **0.6449**, B (hidden 384, 3 GNN
+  layers, option 256 + C's regularization) **0.6536**. Every gate passed.
+  Two findings: the clones **beat v3 head-to-head** at bid 2 (0.476 / 0.471
+  for v3 vs A / C) while only ~0.65 vs Greedy — specialist punishers; and
+  **fidelity inverts punishment** — top-1 B > C > A, but v3's DEFCON deaths
+  per 100 games C 27 > A 19 > B 17 = falken1 17. Rule followed: falken2 = B.
+- **kick5 (stage 2) closed negative on the key read**: gates passed
+  (absorption 0.5025, Greedy 0.992; flag: USSR self-play edge 0.742; probe
+  8/100 vs falken1, 12/100 vs its own anchor), decider mean **0.140**
+  [0.09, 0.22] (USSR 0.211 / US 0.070 — kick2's number exactly), gift share
+  **0.622** (kick2 0.489, kick4 0.465). The clone's fidelity was not the
+  lever; its punishment density was falken1's. **Named follow-on (new
+  entry, user's call): kick6 = kick2's construction with C in the slot.**
+  No compose. Standing unchanged: kick2+veto 0.258 pooled (bar 0.308),
+  kick2 raw 0.140.
+- **Bridge pass 21** (kick4-easy's texts, no DLL volume): four roots — the
+  stale "play" record of a Grain-handed card (330/372), a stale Grain draw
+  misnaming a Five Year Plan discard (366), the DLL resolving the bot's
+  Ortega free coup itself (308; coup/war rolls carry their side), the bot's
+  narrowed decisions told uncut (370). Instruments: DEFCON + VP trails on
+  every fatal, a `contest` evidence line (Summit modifiers).
+- **Rules version 8**: Wargames ends on the VP total after the 6-VP gift,
+  no final scoring (the card's "without Final Scoring"; the DLL agrees;
+  the compose batch's four Wargames desyncs were this). Re-rated: v3 vs
+  Greedy 0.945/400 bid 2, Greedy self 0.500/200 — the ladder stands.
+- **Measured**: kick5's decider ran **4 desyncs / 120, void 2** — under the
+  7–14 band for the first time. Its four fatals carry the trails
+  (`runs/playdek/desync-mining-2026-09-02-kick5.txt`): 373 a two-step
+  DEFCON drift pinned to seqs, 303 a 5-VP drift, 300 a reshuffle-boundary
+  deal drift, 312 granted-Ops attribution. Next bridge pass reads them.
+- Tooling: `wopr.distill harvest --workers`, `train --gnn-layers
+  --option-hidden --weight-decay --label-smoothing --lr-decay`;
+  `runs/playdek/decider_summary.py <batch>` (the standing readings);
+  `runs/falken2/stage1.sh`, `runs/kick5-gates.sh`. Suite 549.
+
 # KICK4 NEGATIVE — THE GIFT LINE PARKS FOR REVIEW; 20TH-PASS INSTRUMENTS ABOARD (2026-09-01)
 
 - **kick4 (punisher seated in the scenario games; new
@@ -157,28 +198,28 @@ entry. **Raw v3 stays the reported player.**
 
 ## What is next (needs the user's call)
 
-- The **article** (the other round-3 option): docs/WOPR.md passes
-  1–18 + five closed training arms are the outline; the transfer-gap
-  story now has five arms of evidence.
-- A reconstructed teacher arm, if wanted: fixed-share anchor slot
-  for falken (PFSP can't fade it), a stronger clone (DAgger /
-  more corpus), or live-DLL sparring (30–50 min a game) — each
-  pre-registered fresh.
-- Parked desync families (unchanged, traces standing): hidden-seat
-  inference drift (315/411…), granted-Ops attribution (369/390),
-  388's China-leftover, end-of-game turbulence (379, 324, 332),
-  393's 1-VP U2 shape, Wargames corner (304). Next layout bump:
-  OPTION_VOCAB fold + `u2_incident` slot.
+- **kick6** = kick2's construction with C (`runs/falken2/c/joshua.pt`,
+  the sweep's strongest punisher) in the anchor slot — the arm kick5 was
+  meant to be; a new pre-registered entry.
+- The gift-line review's other candidates: longer runs, the layout bump
+  (`OPTION_VOCAB` fold + `u2_incident` slot), or accepting the veto as the
+  gift's answer and aiming training at the other loss classes.
+- The **article** (the user, offline): `runs/article/FACTS.md` is current.
+- Bridge pass 22: the four kick5-easy fatals with their trails (373, 303,
+  300, 312) plus the open 410 / 312-of-kick4 / 367.
+- Hard mode: parked until easy is beaten (>0.5 both seats at bid 2).
 
 ## Quick commands
 
 ```sh
-uv run pytest -q                                   # 541 pass, ~30 s
-uv run python -m wopr.distill harvest --out <dir> <batch-dirs...>
-uv run python -m wopr.distill train --corpus <dir> --out <run>
-uv run python runs/falken1/gate.py 100 0           # the exploit gate
+uv run pytest -q                                   # 549 pass, ~75 s
+uv run python -m wopr.distill harvest --workers 12 --out <dir> <batch-dirs...>
+uv run python -m wopr.distill train --corpus <dir> --out <run> [--gnn-layers 3 --option-hidden 256 --weight-decay 0.01 --label-smoothing 0.05 --lr-decay 0.5]
+uv run python -m wopr.distill top1 <ckpt> --corpus <dir>   # held-out top-1 (absorption / fidelity)
+uv run python runs/falken1/gate.py 100 0 <punisher.pt> [<gifter.pt>]   # the exploit gate / the mechanism probe
 uv run python -m wopr.eval joshua=baselines/r3-bid2/v3/joshua.pt greedy \
     --games 400 --bid 2 --workers 6                # yardstick
 uv run python -m wopr.playdek.eval --difficulty easy --games 120 --seed 300 \
     --bid 2 --policy joshua=<ckpt> --workers 8 --out runs/playdek/<name>
+uv run python runs/playdek/decider_summary.py runs/playdek/<name>   # the standing readings
 ```

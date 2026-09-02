@@ -1813,7 +1813,20 @@ Findings from the first four random games, and what became of each:
   card ends the game "without Final Scoring", as the DLL does (the
   compose batch's four Wargames endings were this): **rules version
   8** (docs/JOSHUA.md), re-rated and re-verified the same night.
-  Measured by the next AI batch.
+  Measured the same morning (`kick5-easy`, 120 easy games, seeds
+  300+): **4 desyncs, void 2** (both the trapped held-scoring-card
+  known) — under the 7–14 band of the eight identical-seed batches
+  before it (9, 7, 14, 7, 10, 10, 11, 9 and the strong players' 6–20),
+  five Wargames endings played to their ends, drift-pick ×3. The four
+  fatals each carry their trails (`desync-mining-2026-09-02-kick5.txt`):
+  373 is the game-over timing family with a **two-step DEFCON drift**
+  now pinned to seqs (the DLL's trail ends 3, 2, 1 while the engine
+  stands at 3); 303 the same family over a 5-VP drift with the VP trail
+  attached; 300 a deal drift (two scoring cards the engine holds in the
+  discard pile while the DLL dealt them from the deck — a reshuffle
+  boundary); 312 the granted-Ops/influence attribution face (the engine
+  mid-placement with one Op left against the bot's play prompt). The
+  next pass reads the trails.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 
