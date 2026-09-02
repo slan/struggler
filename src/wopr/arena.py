@@ -180,6 +180,11 @@ class Arena:
     def seats(self, slot: int) -> Mapping[Side, str]:
         return self._slots[slot].seats
 
+    def game_seed(self, slot: int) -> int:
+        """The engine seed of the game in `slot`: a pure function of the run
+        seed, the global slot and the episode, the same through either backend."""
+        return self._slots[slot].seed
+
     def is_terminal(self, slot: int) -> bool:
         return self._slots[slot].engine.is_terminal
 

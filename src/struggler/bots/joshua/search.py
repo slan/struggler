@@ -42,7 +42,7 @@ from struggler.bots.joshua import features as F
 from struggler.bots.joshua.model import JoshuaNet, load_checkpoint, to_tensors
 from struggler.engine import Action, Engine, Observation, Side
 from struggler.engine.player import Event
-from struggler.engine.types import Decision
+from struggler.engine.types import Decision, DecisionKind
 
 # The value head's estimate is kept strictly inside the terminal payoffs:
 # a found win (+1) must outrank any estimate, a found loss (-1) rank below
@@ -368,3 +368,175 @@ class SearchPlayer:
                 if not lost and forced:
                     return False
             return forced
+
+
+# -- the training-time mask: the veto's shapes, proven cheaply -----------------
+
+#: The learner decisions the training mask probes (docs/JOSHUA.md kick7):
+#: where a play is committed to. Placements, realignment and war targets
+#: cannot change DEFCON within the play and are never probed.
+KILL_MASK_KINDS = frozenset({
+    DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY, DecisionKind.PLAY_MODE,
+    DecisionKind.EVENT_OPS_ORDER, DecisionKind.OPS_TYPE, DecisionKind.COUP_TARGET, DecisionKind.EVENT_CHOICE,
+})
+#: Inside the probe, the mover's own decisions that can bear on DEFCON within
+#: the play: the mover chooses among them, so an option is lost only if every
+#: such choice loses. Any other own decision follows its first option.
+_BRANCH_KINDS = KILL_MASK_KINDS - {DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY}
+#: An opponent branching wider than this that is not a coup target is a quiet
+#: ops chain (placements): followed along its first option, never fanned out.
+_OPP_FAN = 8
+#: Above this DEFCON no single play reaches DEFCON 1: nothing to probe.
+KILL_MASK_DEFCON = 3
+
+
+def defcon_kill_mask(engine: Engine, side: Side, decision: Decision, *, seed: int = 0, budget: int = 80) -> list[bool]:
+    """Which of `decision`'s options are provable DEFCON deaths for `side`
+    within the current play -- the veto's shapes (the self-kill coup, the
+    granted-coup gift, a DEFCON-lowering event) proven cheaply enough for
+    the training arena (docs/JOSHUA.md kick7). Each option is played on a
+    determinized copy and is lost iff *every* own continuation over the
+    DEFCON-relevant choices ends the game against `side` through some
+    opponent reply and every die, quiet chains followed rather than fanned
+    out (`kill_probe`). Unprovable is never masked (`budget` engine copies
+    an option); when every option proves lost none is masked -- the
+    policy's choice stands, the veto's own fallback. All False outside the
+    probed kinds, above DEFCON 3, or with a single option."""
+    options = decision.options
+    if decision.kind not in KILL_MASK_KINDS or engine.defcon > KILL_MASK_DEFCON or len(options) < 2:
+        return [False] * len(options)
+    worth = [_worth_probing(engine, side, decision, a) for a in options]
+    if not any(worth):
+        return [False] * len(options)
+    # One determinization per decision, copied per option: the proof is about
+    # DEFCON, which the hidden cards almost never touch, and the copy is the
+    # cheaper half of a determinize.
+    snapshot = engine.determinize(side, ((seed + 1) * 1_000_003 + decision.id * 9973 + 7919) & 0x7FFFFFFF).serialize()
+    lost: list[bool] = []
+    for option, probe in zip(options, worth):
+        if not probe:
+            lost.append(False)
+            continue
+        sim = Engine.deserialize(snapshot)
+        boundary = SearchPlayer._boundary(sim)
+        try:
+            sim.step(option)
+            lost.append(kill_probe(sim, side, boundary, [budget]))
+        except Exception:
+            lost.append(False)  # unprovable is never a veto
+    if all(lost):
+        return [False] * len(options)
+    return lost
+
+
+#: Cards whose event can move DEFCON down, or hand the opponent a play, from
+#: the mover's own or a neutral side: probed at the card level like any
+#: opponent-event card. Every other own or neutral event leaves DEFCON alone
+#: within the play (the mover's own coup is caught at the ops decisions).
+DEFCON_EVENTS = frozenset({
+    "Olympic_Games", "Summit", "How_I_Learned_to_Stop_Worrying", "Duck_and_Cover", "We_Will_Bury_You",
+    "Cuban_Missile_Crisis", "Missile_Envy", "Wargames",
+})
+
+
+def _card_can_move_defcon(engine: Engine, side: Side, cid: str | None) -> bool:
+    card = engine.cards.get(cid) if cid else None
+    if card is None or card.scoring:
+        return False  # a marker option (the extra round's pass, a reshuffle), or scoring: VP, never DEFCON
+    return engine._is_opponent_event(side, card) or cid in DEFCON_EVENTS
+
+
+def _worth_probing(engine: Engine, side: Side, decision: Decision, action: Action) -> bool:
+    """The cheap pre-filter: an option that cannot bear on DEFCON within the
+    play is not probed. Card-level options (the card, its mode, its order)
+    are probed for opponent-event cards and `DEFCON_EVENTS`; coup targets
+    only where a battleground is couped; ops types and event choices always
+    (few options, any may matter)."""
+    kind = decision.kind
+    if kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY):
+        return _card_can_move_defcon(engine, side, action.payload.get("card"))
+    if kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER):
+        return _card_can_move_defcon(engine, side, decision.context.get("card"))
+    if kind is DecisionKind.COUP_TARGET:
+        country = engine.board.countries.get(action.payload.get("country"))
+        return country is not None and country.battleground
+    return True
+
+
+def _copy_step(sim: Engine, action: Action, budget: list[int]) -> Engine:
+    budget[0] -= 1
+    child = Engine.deserialize(sim.serialize())
+    child.step(action)
+    return child
+
+
+def _risk(sim: Engine, frame: Decision, action: Action) -> int:
+    """How likely an option is to move DEFCON: the mover's own choices are
+    tried safest first (one surviving line clears the option), the
+    opponent's most dangerous first (one kill proves the loss)."""
+    p = action.payload
+    if frame.kind is DecisionKind.COUP_TARGET:
+        country = sim.board.countries.get(p.get("country"))
+        return 1 if country is not None and country.battleground else 0
+    if frame.kind is DecisionKind.OPS_TYPE:
+        return 1 if p.get("type") == "coup" else 0
+    if frame.kind is DecisionKind.EVENT_OPS_ORDER:
+        return 1 if p.get("order") == "event_first" else 0
+    if frame.kind is DecisionKind.PLAY_MODE:
+        return {"space_race": 0, "ops": 1}.get(p.get("mode"), 2)
+    return 0
+
+
+def kill_probe(sim: Engine, root: Side, boundary: tuple, budget: list[int]) -> bool:
+    """True iff `sim` -- a determinized copy on which `root` has just acted
+    -- is a DEFCON death for `root` within the current play: terminal
+    against `root`, or forced there through any opponent reply among the
+    small branchings and the battleground coups, every exposed die, and
+    every one of `root`'s own DEFCON-relevant choices. Own placements and
+    the opponent's quiet chains follow their first option. False on the
+    play boundary, on the budget, or on anything unproven."""
+    while True:
+        if sim.is_terminal:
+            return sim.winner is root.opponent
+        if budget[0] <= 0 or SearchPlayer._boundary(sim) != boundary:
+            return False
+        frame = sim.pending_decision
+        options = frame.options
+        if len(options) == 1:
+            sim.step(options[0])
+            continue
+        if frame.actor is Side.CHANCE:
+            for option in options:  # forced: every outcome must lose
+                if budget[0] <= 0:
+                    return False
+                if not kill_probe(_copy_step(sim, option, budget), root, boundary, budget):
+                    return False
+            return True
+        if frame.actor is root:
+            if frame.kind in _BRANCH_KINDS:
+                for option in sorted(options, key=lambda a: _risk(sim, frame, a)):  # the mover chooses: one safe line clears it
+                    if budget[0] <= 0:
+                        return False
+                    if not kill_probe(_copy_step(sim, option, budget), root, boundary, budget):
+                        return False
+                return True
+            sim.step(options[0])  # DEFCON-blind (a placement): the line does not depend on it
+            continue
+        if frame.kind is DecisionKind.COUP_TARGET:
+            for option in options:  # only a battleground coup can move DEFCON
+                country = sim.board.countries.get(option.payload.get("country"))
+                if country is None or not country.battleground:
+                    continue
+                if budget[0] <= 0:
+                    return False
+                if kill_probe(_copy_step(sim, option, budget), root, boundary, budget):
+                    return True
+            return False
+        if len(options) <= _OPP_FAN or frame.kind in _BRANCH_KINDS:
+            for option in sorted(options, key=lambda a: -_risk(sim, frame, a)):  # the opponent picks: any kill proves it
+                if budget[0] <= 0:
+                    return False
+                if kill_probe(_copy_step(sim, option, budget), root, boundary, budget):
+                    return True
+            return False
+        sim.step(options[0])  # a quiet chain (placements): cannot kill, follow it

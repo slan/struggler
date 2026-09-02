@@ -2584,6 +2584,23 @@ probe is expected to add up to an hour); the gates (~30 min); one
 decider batch (~2.5 h DLL); one confirmation batch only on a bar
 clear. Nothing else without a new entry.
 
+**Amendment, before the run (the wiring as built and its cost).** The
+mask probes only options that can bear on DEFCON: at the card level (the
+card, its mode, its ops order) opponent-event cards and eight own or
+neutral events that can move DEFCON or hand the opponent a play
+(`DEFCON_EVENTS`: Olympic Games, Summit, How I Learned to Stop Worrying,
+Duck and Cover, We Will Bury You, Cuban Missile Crisis, Missile Envy,
+Wargames); coup targets only where the target is a battleground; ops
+types and event choices always. One determinization per decision, copied
+per option; 80 engine copies an option. Measured on a 60-game smoke run
+(one collector): 90 → 63 steps/s as the games reached DEFCON 3 and 2,
+against ~325 without the mask; 3.7 struck options per game in the
+opening turns, 11.7 by turn 3. At eight collectors the rollout goes from
+~3 s to ~16 s an update, so the run is expected at ~2.5 h rather than
+kick6's 97 min. Suite 553 with the mask's three unit tests (the suicide
+coup struck and nothing else, all-lost strikes nothing, the granted-coup
+mate proven) and a two-backend equivalence test under the mask.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

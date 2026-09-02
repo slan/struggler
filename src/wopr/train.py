@@ -131,6 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--scenarios", default=None, help="a scenario bank (wopr.scenarios): start --scenario-frac of training games from its states; evaluation stays at the printed game")
     p.add_argument("--scenario-frac", type=float, default=0.25, help="fraction of training games started from --scenarios (ignored without it)")
     p.add_argument("--scenario-vs-anchor", action="store_true", help="seat every scenario-started game as the bank entry's mover (the learner) against the --anchor opponent, overriding the seat mix for those games (needs --scenarios and a single fixed --anchor)")
+    p.add_argument("--veto-train", action="store_true", help="train under the veto: options of the learner's rows that are provable DEFCON deaths within the play are struck from its mask before the policy samples (the self-kill coup, the granted-coup gift; docs/JOSHUA.md kick7); opponent seats untouched, `vetoes_per_game` counts the strikes")
     p.add_argument("--kickstart", default=None, help="a harvested corpus (wopr.distill): after every PPO update, pull the policy toward the teacher's choices with --kickstart-batches cross-entropy minibatches (kickstarting, docs/JOSHUA.md)")
     p.add_argument("--kickstart-coef", type=float, default=1.0, help="weight on the kickstart cross-entropy")
     p.add_argument("--kickstart-batches", type=int, default=4, help="corpus minibatches per PPO update")
@@ -218,10 +219,12 @@ def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSche
         if len(anchor.anchors) != 1:
             raise ValueError("--scenario-vs-anchor needs a single fixed --anchor, not a schedule")
         scenario_seats = (LEARNER, anchor.current)
+    veto_train = bool(getattr(args, "veto_train", False))
     if args.workers > 1:
         spec = ArenaSpec(args.n_envs, args.seed, events=not args.no_events, starting_vp=args.handicap,
                          us_bid=args.bid, margin=args.margin,
-                         scenario_path=scenario_path, scenario_frac=scenario_frac, scenario_seats=scenario_seats)
+                         scenario_path=scenario_path, scenario_frac=scenario_frac, scenario_seats=scenario_seats,
+                         veto_train=veto_train)
         backend: Backend = SharedMemoryBackend(spec, seats, opponents, workers=args.workers, worker_threads=args.worker_threads)
     else:
         bank = None
@@ -235,6 +238,7 @@ def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSche
                   scenario_bank=bank, scenario_frac=scenario_frac, scenario_seats=scenario_seats),
             opponents,
             margin=args.margin,
+            veto_train=veto_train,
         )
     return WoprVecEnv(backend)
 

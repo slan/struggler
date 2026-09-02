@@ -13,7 +13,7 @@ torch = pytest.importorskip("torch")
 
 from conftest import bare_engine  # noqa: E402
 from struggler.bots.joshua.model import JoshuaConfig, JoshuaNet  # noqa: E402
-from struggler.bots.joshua.search import SearchPlayer  # noqa: E402
+from struggler.bots.joshua.search import SearchPlayer, defcon_kill_mask, kill_probe  # noqa: E402
 from struggler.engine import Engine, Side  # noqa: E402
 from struggler.engine.core import HIDDEN_CARD  # noqa: E402
 from struggler.engine.types import DecisionKind  # noqa: E402
@@ -149,6 +149,43 @@ def test_probe_proves_the_granted_coup_mate(net):
         player = SearchPlayer(net, evaluator="terminal", seed=0)
         sim = engine.determinize(Side.USSR, seed=1)
         assert player._probe(sim, Side.USSR, player._boundary(sim), [500]) is expected
+
+
+def test_kill_mask_strikes_the_suicide_coup_and_nothing_else():
+    # The training-time veto (docs/JOSHUA.md kick7) on the veto's own
+    # position: the battleground coup at DEFCON 2 is a provable DEFCON
+    # death, the non-battleground coups are not; at DEFCON 4 nothing is.
+    engine = coup_engine_defcon2()
+    decision = engine.pending_decision
+    lost = dict(zip((a.payload["country"] for a in decision.options), defcon_kill_mask(engine, Side.USSR, decision)))
+    assert lost == {"Angola": True, "Kenya": False, "Cameroon": False}
+    engine.defcon = 4
+    assert not any(defcon_kill_mask(engine, Side.USSR, engine.pending_decision))
+
+
+def test_kill_mask_strikes_nothing_when_every_option_loses():
+    # Every target a battleground at DEFCON 2: all provably lost, so none
+    # is struck -- the policy's choice stands, the veto's own fallback.
+    engine = bare_engine()
+    engine.defcon = 2
+    for country in ("Angola", "Zaire", "Nigeria"):
+        engine.board.influence[country]["US"] = 2
+    engine.begin_coup(Side.USSR, ops=2)
+    assert not any(defcon_kill_mask(engine, Side.USSR, engine.pending_decision))
+
+
+def test_kill_probe_proves_the_granted_coup_mate():
+    # The gift's shape, as `test_probe_proves_the_granted_coup_mate`, by the
+    # cheap probe: proven at DEFCON 2, nothing at DEFCON 4.
+    for defcon, expected in ((2, True), (4, False)):
+        engine = bare_engine()
+        engine.defcon = defcon
+        engine.phase = "action_rounds"
+        engine._ars_played = 1  # play index 0 was the USSR's: the USSR is phasing
+        engine.board.influence["Angola"]["USSR"] = 2
+        engine.begin_coup(Side.US, ops=2)
+        sim = engine.determinize(Side.USSR, seed=1)
+        assert kill_probe(sim, Side.USSR, SearchPlayer._boundary(sim), [80]) is expected
 
 
 def test_value_mode_probes_its_pick(net):

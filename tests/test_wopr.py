@@ -409,6 +409,33 @@ def test_eval_pairs_are_independent_jobs_and_run_in_a_process_pool():
     assert pooled == serial
 
 
+def test_backend_trains_under_the_veto(tmp_path):
+    """`veto_train` strikes provable DEFCON deaths from the learner's rows
+    (docs/JOSHUA.md kick7): every row keeps at least one option, the games
+    play on through both backends identically, and the episode record
+    carries the strike count."""
+    n_slots, steps = 4, 400
+    opponents = StandardOpponents(str(tmp_path), seed=1)
+    local = InProcessBackend(Arena(n_slots, seed=9, seat_assigner=self_play), opponents, veto_train=True)
+    shared = SharedMemoryBackend(ArenaSpec(n_slots, 9, veto_train=True), self_play, opponents, workers=2)
+    try:
+        local.reset()
+        shared.reset()
+        records = []
+        for _ in range(steps):
+            masks = local.buffers["opt_mask"]
+            assert (masks.sum(-1) >= 1).all()
+            np.testing.assert_array_equal(masks, shared.buffers["opt_mask"])
+            actions = np.array([int(np.flatnonzero(m)[0]) for m in masks])
+            _, _, recs = local.step(actions)
+            _, _, shared_recs = shared.step(actions)
+            assert [r.vetoes for r in recs if r is not None] == [r.vetoes for r in shared_recs if r is not None]
+            records += [r for r in recs if r is not None]
+    finally:
+        shared.close()
+    assert all(r.vetoes >= 0 and r.summary()["vetoes"] == r.vetoes for r in records)
+
+
 def test_shared_memory_backend_plays_the_same_games_as_the_in_process_one(tmp_path):
     """k collectors over shared memory must be indistinguishable from one
     process: same rows, rewards, dones and episode records step for step.

@@ -45,6 +45,7 @@ from typing import Any, Callable, Mapping, NamedTuple, Protocol, Sequence
 import numpy as np
 
 from struggler.bots.joshua import features as F
+from struggler.bots.joshua.search import KILL_MASK_DEFCON, KILL_MASK_KINDS, defcon_kill_mask
 from struggler.engine import Side
 from wopr.arena import Arena, Opponent, PendingRow, SeatAssigner
 from wopr.eval import EvalCounts, EvalJob
@@ -69,6 +70,7 @@ class EpisodeRecord(NamedTuple):
     seed: int
     length: int
     margin: float = 0.0  # weight of the final-VP margin in `reward` (0: the outcome alone)
+    vetoes: int = 0  # options the training veto struck from the learner's rows of this game (`--veto-train`)
 
     def reward(self) -> float:
         """The terminal reward for the mover: `(1 - margin) * outcome +
@@ -94,6 +96,7 @@ class EpisodeRecord(NamedTuple):
             "turn": self.turn,
             "vp": self.vp,
             "seed": self.seed,
+            "vetoes": self.vetoes,
         }
 
 
@@ -121,9 +124,11 @@ class InProcessBackend:
         buffers: Mapping[str, np.ndarray] | None = None,
         learner: str = LEARNER,
         margin: float = 0.0,
+        veto_train: bool = False,
     ) -> None:
         self.arena = arena
         self.margin = margin
+        self.veto_train = veto_train  # strike provable DEFCON deaths from the learner's rows (docs/JOSHUA.md kick7)
         self.n_slots = arena.n_games
         self._resolve = opponents
         self._opponents: dict[str, Opponent] = {}
@@ -134,6 +139,7 @@ class InProcessBackend:
                 raise ValueError(f"buffer {name!r} has {array.shape[0]} rows for {self.n_slots} slots")
         self._rows: list[PendingRow | None] = [None] * self.n_slots
         self._steps = np.zeros(self.n_slots, dtype=np.int64)
+        self._vetoes = np.zeros(self.n_slots, dtype=np.int64)  # options struck in the running game of each slot
         self._eval: EvalCounts | None = None
 
     def reset(self) -> None:
@@ -232,13 +238,36 @@ class InProcessBackend:
             seed=result.seed,
             length=int(self._steps[slot]),
             margin=self.margin,
+            vetoes=int(self._vetoes[slot]),
         )
         self._steps[slot] = 0
+        self._vetoes[slot] = 0
         return record
 
     def _encode_all(self) -> None:
         for slot, row in enumerate(self._rows):
             F.encode_into(row.observation, self.buffers, slot)
+            if self.veto_train:
+                self._veto_row(slot, row)
+
+    def _veto_row(self, slot: int, row: PendingRow) -> None:
+        """The training-time veto (docs/JOSHUA.md kick7): options of the
+        learner's row that are provable DEFCON deaths within the play are
+        struck from `opt_mask` before the policy sees the row, so the
+        distribution PPO samples from -- and stores -- is the masked one and
+        a struck option gets no gradient. Opponent seats never pass here."""
+        engine = self.arena.engine(slot)
+        decision = engine.pending_decision
+        if decision.kind not in KILL_MASK_KINDS or engine.defcon > KILL_MASK_DEFCON or len(decision.options) < 2:
+            return
+        lost = defcon_kill_mask(engine, row.side, decision, seed=self.arena.game_seed(slot))
+        mask = self.buffers["opt_mask"][slot]
+        struck = 0
+        for k, is_lost in enumerate(lost):
+            if is_lost:
+                mask[k] = 0
+                struck += 1
+        self._vetoes[slot] += struck
 
 
 # -- shared memory ------------------------------------------------------------------
@@ -261,6 +290,7 @@ CONTROL_FIELDS: tuple[tuple[str, tuple[int, ...], Any], ...] = (
     ("ep_seed", (), np.int64),
     ("ep_length", (), np.int32),
     ("ep_seats", (2,), _ID),
+    ("ep_vetoes", (), np.int32),
 )
 
 #: Shared with the workers besides the per-slot fields: the evaluation
@@ -290,6 +320,7 @@ class ArenaSpec:
     scenario_path: str | None = None  # a scenario bank (wopr.scenarios); each worker loads it
     scenario_frac: float = 0.0  # fraction of games started from the bank
     scenario_seats: tuple[str, str] | None = None  # (mover id, opponent id): scenario games seated by the arena itself
+    veto_train: bool = False  # strike provable DEFCON deaths from the learner's rows (InProcessBackend veto_train)
 
 
 @dataclass(frozen=True)
@@ -372,7 +403,8 @@ def worker_main(
         scenario_bank=bank, scenario_frac=spec.scenario_frac, scenario_seats=spec.scenario_seats,
     )
     backend = InProcessBackend(
-        arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin
+        arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin,
+        veto_train=spec.veto_train,
     )
     done.release()  # built: the main process may now write the next seats
     try:
@@ -411,6 +443,7 @@ def worker_main(
                 shared["ep_seed"][slot] = record.seed
                 shared["ep_length"][slot] = record.length
                 shared["ep_seats"][slot] = (record.seats[Side.US].encode(), record.seats[Side.USSR].encode())
+                shared["ep_vetoes"][slot] = record.vetoes
             done.release()
     finally:
         for segment in segments.values():
@@ -500,6 +533,7 @@ class SharedMemoryBackend:
                 seed=int(shared["ep_seed"][slot]),
                 length=int(shared["ep_length"][slot]),
                 margin=self.spec.margin,
+                vetoes=int(shared["ep_vetoes"][slot]),
             )
         if len(finished):
             # Those slots restarted during the step on the seats written
