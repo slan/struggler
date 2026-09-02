@@ -228,7 +228,8 @@ entry. **Raw v3 stays the reported player.**
   layout bump (`OPTION_VOCAB` fold + `u2_incident` slot), accepting the veto
   as the gift's answer and aiming training at the other loss classes, or
   pricing the champion's own DEFCON death in the reward itself.
-- The **article** (the user, offline): `runs/article/FACTS.md` is current.
+- A broader-audience wrap-up, later (the user); `runs/article/FACTS.md` is its
+  fact base, `docs/REPORT-STYLE.md` the brief's format.
 - Bridge: pass 22 is unmeasured — the next AI batch measures it (and reads
   its `random-discard` lines); open with trails: 410, 367, kick4's 312.
 - Hard mode: parked until easy is beaten (>0.5 both seats at bid 2).
