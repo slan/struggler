@@ -2243,6 +2243,42 @@ one decider batch (~2.5 h DLL), one compose batch only on a
 double-clear (~2.5 h), one confirmation batch only if the compose
 clears 0.308. Nothing else without a new entry.
 
+**Result, stage 1** (2026-09-02, `runs/falken2/`). The harvest of the
+eleven batches took under a minute with twelve workers: 1,120 clean
+games, 192,842 rows (20 logs no longer replay, the falken1 harvest's
+own failure class). Merged corpus 57 shards, 2,973 games, **458,525
+rows**, held-out fold 43,731 rows; falken1 on that fold **0.6008**, so
+the promotion line was **0.6208**. All three fits cleared it:
+
+| fit | recipe | held-out top-1 | epochs | gate: v3-as-USSR DEFCON share (v3 wins) | vs falken1 | vs Greedy | v3 vs it |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| falken1 | hidden 256, Adam | 0.6008 | 15 (+2) | 0.50 (0.66) | — | — | 0.66 / 0.55 by seat (gate) |
+| A | falken1's recipe, new corpus | 0.6341 | 20 of 24 | 0.365 (0.48) | 0.634 | 0.650 | **0.476** (US 0.385 / USSR 0.568) |
+| C | A + AdamW 0.01, smoothing 0.05, lr halving | 0.6449 | 28 of 30 (cap) | 0.60 (0.55) | 0.627 | 0.645 | **0.471** (US 0.335 / USSR 0.608) |
+| **B** | hidden 384, 3 GNN layers, option 256 + C's regularization | **0.6536** | 28 of 30 (cap) | 0.548 (0.69) | 0.570 | 0.625 | 0.595 (US 0.485 / USSR 0.705) |
+
+The data alone bought +0.033 (A), regularization +0.011 more (C),
+capacity +0.009 more (B); B and C both ran to the cap still creeping.
+Two readings the sweep was not designed to give, recorded because they
+bear on stage 2. First, **the clones beat the champion**: v3 loses
+head-to-head to A and to C at bid 2 (0.476, 0.471 over 400) while both
+clones sit near 0.65 against Greedy, which v3 beats at 0.94 — the
+distilled AI is a specialist, strong in exactly the states where v3
+blunders, weak elsewhere. Second, **fidelity and punishment invert**:
+the top-1 rank is B > C > A, but v3 wins 0.69 of its USSR-seat games
+against B in the gate against 0.48 vs A and 0.55 vs C, and the
+punishment density — v3's DEFCON deaths per 100 games as USSR — is
+C 27 > A 19 > B 17 = falken1 17. The 400-game ratings agree: v3 beats
+B 0.595 while losing to A and C, and B is the weakest of the three
+against falken1 and Greedy too. The most faithful clone punishes the
+gift no more often than falken1 did; the smaller regularized clone
+punishes it 1.6× as often. The pre-registered rule names its winner
+by fidelity with the gate passed, and it is followed: **falken2 = B**
+(`runs/falken2/joshua.pt`; the sweep's numbers in
+`runs/falken2/falken1-top1.txt`). If kick5's gift share does not move,
+the inversion is the first suspect and **kick6 with C in the slot** the
+named follow-on, a new entry. Stage 2 (kick5) launched 06:15.
+
 ### 2026-09-02 — rules version 8: the ladder stands
 
 Found by the twenty-first bridge pass's new instrument on its first
