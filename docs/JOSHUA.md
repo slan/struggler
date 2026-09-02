@@ -2453,6 +2453,54 @@ gift share — the intervals overlap (15/100 [0.09, 0.23], 8/100 [0.04,
 0.15]), so the inversion may be noise, and the probe's read is coarser
 than the decider's.
 
+**Result — the gates** (2026-09-02, `runs/kick6`, 8k games in ~97 min;
+`runs/kick6/gates.log`). Absorption **0.5077** on falken1's corpus (kick2
+0.505, kick5 0.5025: the pull intact). The anchor curve averaged
+**0.680** over the run, 0.725 over its last three quarters, 1.0 at the
+end (kick5 0.742 / 0.779 / 0.80 against B; kick2 0.6–1.0 against
+falken1): C read as the harder anchor, as predicted, and was still
+beaten two games in three. Strength gate **0.983** vs Greedy at bid 2
+(kick2 0.983, kick5 0.992), passed; the in-run evals climbed 0.95 → 1.00
+over the second half. The self-play diagnose is the arm's first
+surprise: USSR edge 0.683 (kick2 0.633, kick5 0.742), shorter games
+(mean final turn 6.5 against 7.5), and **71 of 120 games ended at
+DEFCON 1** — 47 US-seat deaths, 24 USSR-seat — where kick2's self-play
+ended 26 that way (13 + 13) and kick5's 20 (13 + 7). The mechanism
+probe, the go/no-go: kick6 as USSR vs falken1 wins 0.90 with gifted
+deaths **9/100** (kick2 6, kick5 8, kick3 11, kick4 14, v3 17); vs C,
+its own anchor, wins 0.70 with gifted deaths **20/100** — above kick2's
+15 and kick5's 8 on the same scale, above kick5's 12 against its own
+anchor, at or above the higher comparator: **no-go**. (As US vs C: wins
+0.56 with 13 DEFCON deaths; kick2 0.59 / 10, kick5 0.64 / 10.)
+
+**Decision.** Closed at zero DLL hours on the pre-registered no-go; the
+decider does not run, no compose. The arm moved the wrong way on the
+very read it targeted: the punisher that prices the gift 1.6× as often
+sat in 10% of the games, and the champion came out gifting *more*
+against it than kick2 did (20 against 15) and no less against falken1
+(9 against 6). The self-play endings say what was learned instead: 71 of
+120 games decided at DEFCON 1, the USSR seat winning 47 of them by the
+US's death — the tactic C uses on v3 (an opponent's granted Ops or coup
+at DEFCON 2 ending the phasing side's game; the DLL's AI played exactly
+this on the bot in kick5-easy seed 373). Inflicting a DEFCON death is
+rewarded in every game of the mix; avoiding one is rewarded only in the
+tenth against the punisher — the standing theory (a lesson survives
+where self-play reward agrees with it) with its offensive half filled
+in: what transferred from C was the punishment, not the caution. Two
+things settled: the anchor's punishment density at a 10% share does not
+lower the gift (kick2 15 → kick6 20 against C, the same corpus pull),
+and a stronger anchor changes what the champion learns from it in a
+direction the probe reads before a decider has to. The review candidates
+stand as recorded (kick4's entry): longer runs, the layout bump,
+accepting the veto as the gift's answer. This arm adds a caveat to the
+dose lever — a larger share of C would amplify both halves — and points
+at the reward itself: the champion's own DEFCON death priced in every
+game, not only where a punisher happens to sit. Any of these is a new
+construction and a new entry, the user's call. Standing unchanged:
+kick2+veto 0.258 pooled (bar 0.308), kick2 the raw checkpoint at 0.140.
+Budget spent: 8k games and the gates; zero DLL hours. The twenty-second
+bridge pass (WOPR.md) stays measured by the next AI batch.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

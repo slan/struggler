@@ -1,3 +1,28 @@
+# KICK6 CLOSED NO-GO AT THE PROBE, ZERO DLL HOURS; BRIDGE PASS 22 (2026-09-02, afternoon)
+
+- **kick6** (docs/JOSHUA.md 2026-09-02, "the punisher that punishes"): kick2's
+  construction with C (`runs/falken2/c/joshua.pt`) in the anchor slot.
+  Gates: absorption 0.5077, Greedy 0.983, anchor curve 0.680 (C read as
+  harder than B's 0.742); self-play **71/120 games ended at DEFCON 1**
+  (kick2 26, kick5 20) — the champion learned C's offensive tactic (win by
+  the opponent's DEFCON death), not caution. Probe: 9/100 vs falken1 (kick2
+  6, kick5 8), **20/100 vs C** (the scale, probed first: kick2 15, kick5 8 —
+  inverted against the board, the rule resolved blind: go <= 7, no-go >= 15)
+  → **no-go**, the decider skipped, no compose. Reading: a punisher's
+  density at a 10% share does not lower the gift; what transfers from a
+  punisher is the punishment (rewarded in every game), not the caution
+  (rewarded in the tenth). Standing unchanged: kick2+veto 0.258 pooled (bar
+  0.308), kick2 raw 0.140.
+- **Bridge pass 22** (docs/WOPR.md; commit f960f6d), from the kick5-easy
+  trails, no DLL volume: the trapped AI's scoring-card play at the trap step
+  never consumed (373/303 — the DLL's AI plays a scoring card under the trap
+  where its UI denies the bot's seat the same play), the drift rescue
+  skipping Grain Sales' "return" bookkeeping (300), Five Year Plan's read
+  taking Grain Sales' draw for the discard (312). Instrument: a
+  `random-discard` evidence line. Harnesses green (sweep 149/149, hotseat
+  8/8, differ 12/12); suite 549. **Unmeasured**: no AI batch ran after it.
+- Tooling: `runs/kick6-gates.sh` (`scale` mode probes kick2/kick5 vs C).
+
 # FALKEN2 BUILT, KICK5 NEGATIVE ON THE KEY READ; BRIDGE PASS 21 + RULES V8; ATTRITION 4/120 (2026-09-02)
 
 - **falken2 (stage 1, zero DLL hours; docs/JOSHUA.md 2026-09-02)**: merged
@@ -198,15 +223,14 @@ entry. **Raw v3 stays the reported player.**
 
 ## What is next (needs the user's call)
 
-- **kick6** = kick2's construction with C (`runs/falken2/c/joshua.pt`,
-  the sweep's strongest punisher) in the anchor slot — the arm kick5 was
-  meant to be; a new pre-registered entry.
-- The gift-line review's other candidates: longer runs, the layout bump
-  (`OPTION_VOCAB` fold + `u2_incident` slot), or accepting the veto as the
-  gift's answer and aiming training at the other loss classes.
+- The gift line, the user's review (each a new pre-registered entry): a
+  larger C share (amplifies both halves — kick6's caveat), longer runs, the
+  layout bump (`OPTION_VOCAB` fold + `u2_incident` slot), accepting the veto
+  as the gift's answer and aiming training at the other loss classes, or
+  pricing the champion's own DEFCON death in the reward itself.
 - The **article** (the user, offline): `runs/article/FACTS.md` is current.
-- Bridge pass 22: the four kick5-easy fatals with their trails (373, 303,
-  300, 312) plus the open 410 / 312-of-kick4 / 367.
+- Bridge: pass 22 is unmeasured — the next AI batch measures it (and reads
+  its `random-discard` lines); open with trails: 410, 367, kick4's 312.
 - Hard mode: parked until easy is beaten (>0.5 both seats at bid 2).
 
 ## Quick commands
@@ -222,4 +246,5 @@ uv run python -m wopr.eval joshua=baselines/r3-bid2/v3/joshua.pt greedy \
 uv run python -m wopr.playdek.eval --difficulty easy --games 120 --seed 300 \
     --bid 2 --policy joshua=<ckpt> --workers 8 --out runs/playdek/<name>
 uv run python runs/playdek/decider_summary.py runs/playdek/<name>   # the standing readings
+bash runs/kick6-gates.sh [scale]                   # an arm's gates (adapt the paths); scale = the comparators vs the anchor
 ```
