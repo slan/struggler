@@ -1827,6 +1827,58 @@ Findings from the first four random games, and what became of each:
   boundary); 312 the granted-Ops/influence attribution face (the engine
   mid-placement with one Op left against the bot's play prompt). The
   next pass reads the trails.
+- **Twenty-second pass, from the kick5-easy fatals' trails (full texts
+  in `runs/playdek/desync-mining-2026-09-02-kick5.txt`): three roots by
+  static read of the trails against the per-game action logs, no new
+  DLL volume.** (1) *The trapped AI's scoring card, played at the trap
+  step and never consumed* (seeds 373 and 303, both the game-over timing
+  family). A seat in Quagmire or Bear Trap with no 2+-Ops card may play
+  a scoring card, and the DLL's AI does -- where its UI denies the bot's
+  seat the very same play (the `narrow` known: `TRAP_SCORING_CARD` is
+  inert for the local seat). The operator's trap-step answer looked for
+  a discard and, finding none with the DLL already at the bot's prompt,
+  answered "none" for both steps; the AI's "play <scoring card>" record
+  stayed at the head of its queue. In 373 the next read was Lone
+  Gunman's granted Ops during the bot's own round: `_answer_ops_type`
+  binds its facts to the seq of the seat's next queued play, so the coup
+  roll recorded after the stale Africa Scoring was excluded and the
+  grant read as declined -- the DLL's AI had couped a battleground at
+  DEFCON 2 (the trail: (1362, 2), (1652, 1)) and the phasing US lost by
+  DEFCON while the engine passed the grant, ended the turn and met the
+  fatal at turn 5's deal, VP 4 adrift for the unplayed scoring card too.
+  303 was the same queue with nothing to poison: the AI's scoring card
+  took the DLL to -21 while the engine held it and asked the bot's
+  Socialist Governments. Fix: a queued scoring-card play at the trap
+  step goes to the generic path, which answers the discard step "none"
+  and the scoring step with the card (the engine's
+  `_push_trap_scoring_step` was built for this seat). (2) *The drift
+  rescue skipping Grain Sales' bookkeeping* (300). `_more`'s drift-pick
+  (nineteenth pass) hands its carried choice back from the top of
+  `_answer`, past the Grain Sales branch that clears `_taken` and
+  `_handed` on a "return". The AI's Grain Sales at turn 6 AR 1 drew the
+  bot's Middle East Scoring and returned it; the card stayed marked as
+  taken, and when the bot played it at AR 6 the play animation's owner
+  flip (a taken card is played by the opponent) queued it as the US's
+  play -- "Playdek chose Middle_East_Scoring" against the engine's US
+  hand, and the AI's real South America Scoring illegal after it. Fix:
+  `_grain_settled`, the bookkeeping on every path. (3) *Five Year Plan's
+  read taking Grain Sales' draw for the discard* (312, the granted-Ops
+  attribution face). The discard that fires as a US event is named by
+  its "fired" animation, and the read took the *latest* fired card; when
+  the discard is Grain Sales, its own draw is fired next and later, and
+  the read took the draw (South African Unrest, a USSR event) for the
+  discard: the engine discarded it and nothing fired, while the DLL's
+  Grain Sales gave the AI 2 Ops (the draw returned, Colombia couped) --
+  Colombia and the US military Ops drifted from there and the bot's
+  placement met the mismatch two rounds on. Fix: the earliest US-event
+  card fired since the Five Year Plan play (`_fired_seq`); the bot-side
+  Grain path forgets its shown twins too (the 366 root's other door);
+  and a `random-discard` evidence line (diagnostic kind) records each
+  read's basis -- it fired on the sweep's seed 132 with a stale neutral
+  twin in the fired list that the US-event filter skipped. Verified:
+  suite 549, the grain sweep 149/149 (desyncs 0), hotseat 8/8, the
+  differ 12/12 zero fatals, known only. Still open with trails: 410,
+  367, kick4's 312. Measured by the next AI batch (kick6's decider).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

@@ -195,7 +195,7 @@ class Bridge:
 
     #: Purely informational divergence kinds: evidence for later diagnosis,
     #: never a reason to stop the game or to count toward the cap.
-    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops", "contest")
+    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops", "contest", "random-discard")
 
     @property
     def stop(self) -> bool:

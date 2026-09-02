@@ -147,6 +147,7 @@ class PlaydekOperator(Bridge):
         self._china: Side | None = None  # the China Card's holder per the DLL's CHINA_CARD records (it has no CARD_LOCATION)
         self._china_log: list[tuple[int, str | None]] = []  # every CHINA_CARD record: (record seq, holder) -- the fork instrument
         self._fired: list[str] = []  # cards another event fired out of a hand (Five Year Plan), not yet discarded there
+        self._fired_seq: dict[str, int] = {}  # card -> the record seq it was last fired at (Five Year Plan's discard before Grain Sales' draw)
         self._from_discard: list[str] = []  # cards an event played out of the discard pile (Star Wars), not yet accounted for
         self._auto_declined = 0  # lone "Pass" prompts of the bot's answered before the engine asked the choice
         self._declined_for_dll: Decision | None = None
@@ -239,6 +240,7 @@ class PlaydekOperator(Bridge):
             use = T.use_from_animation(hint)
             if hint == ANIMATION_FIRED and card not in self._fired:
                 self._fired.append(card)  # Five Year Plan's discard firing as a US event, Grain Sales' draw
+                self._fired_seq[card] = self._seq
                 if self.last_hand_of(card) is not None:
                     self._taken[card] = self.last_hand_of(card)
                     self._handed.add(card)
@@ -496,7 +498,7 @@ class PlaydekOperator(Bridge):
         if self._sim_forced is not None and self._sim_forced[0] == id(d):
             action = self._sim_forced[1]  # `_more`'s drift rescue for this very decision
             self._sim_forced = None
-            return action
+            return self._grain_settled(d, action)
         if d.actor is self.other:
             self._resync()
             if d.kind is DecisionKind.ACTION_ROUND_PLAY and not self.moves[self.other] and any(a.payload["card"] == PASS_ROUND for a in d.options):
@@ -516,16 +518,28 @@ class PlaydekOperator(Bridge):
                         action = self._pick(d, lambda a: a.payload.get("choice") == ("take" if took else "return"), f"Grain Sales {'take' if took else 'return'} {card}")
                     else:
                         action = self._answer_grain_sales(d)
-                    if action is not None and action.payload.get("choice") == "return":
-                        self._taken.clear()  # the drawn card is its owner's own again
-                        if not self._simulating:
-                            self._handed.clear()
-                    return action
+                    return self._grain_settled(d, action)
                 return self._answer_choice(d)
             if d.kind in (DecisionKind.QUAGMIRE_DISCARD, DecisionKind.HELD_CARD_DISCARD):
                 card = self.card_that_left(self.other, {a.payload["card"] for a in d.options})
                 if card is not None:
                     return self._pick(d, lambda a: a.payload["card"] == card, f"discard {card}")
+                head = self.moves[self.other][0].meaning if self.moves[self.other] else None
+                if (d.kind is DecisionKind.QUAGMIRE_DISCARD and head is not None and head.meaning is T.Meaning.CARD
+                        and head.card in self.engine.cards and self.engine.cards[head.card].scoring):
+                    # Nothing discarded, a scoring card played: the trapped AI,
+                    # out of 2+-Ops cards, played it at the trap step -- the
+                    # DLL's AI does what its UI denies the bot's seat (the
+                    # `narrow` known). The generic path answers both steps from
+                    # the queued play (the discard step "none", the scoring
+                    # step the card). Answered "none" here instead, the play
+                    # sat at the head of the queue: it bound the next
+                    # granted-Ops read to its seq and starved it of the coup
+                    # behind it (kick5-easy seed 373: the AI's Lone Gunman coup
+                    # at DEFCON 2 read as declined, the DLL's game over on it),
+                    # or the scoring alone ended the DLL's game while the
+                    # engine played on (seed 303).
+                    return super()._answer(d)
                 prompt = self.game.prompt
                 if d.kind is DecisionKind.QUAGMIRE_DISCARD and any(a.payload["card"] == "none" for a in d.options) and (
                         self.game.result is not None or (prompt is not None and self.prompt_side(prompt) is self.side)):
@@ -592,14 +606,65 @@ class PlaydekOperator(Bridge):
                         self._forget_shown(card)
                         return self._pick(d, lambda a: a.payload["card"] == card, f"Grain Sales drew {card}")
                 return None
-            if purpose != "grain_sales":
+            if purpose == "grain_sales":
+                # The bot's own Grain Sales (`_grain`, from its prompt): the
+                # drawn card was shown as a reveal and a "fired" animation
+                # too, and both entries go with the answer, or a later Five
+                # Year Plan reads the stale twin (the kick4-easy 366 root's
+                # other door).
+                self._forget_shown(self._grain[0])
+            else:
                 # Five Year Plan's discard firing as a US event resolves before
-                # the card is discarded: named by its resolve record.
-                card = next((c for c in reversed(self._fired) if c in offered), None)
+                # the card is discarded: named by its resolve record -- the
+                # *earliest* US-event card fired since the play, not the
+                # latest. When the discard is Grain Sales, its draw is fired
+                # next, and the latest-first read took the draw for the
+                # discard (kick5-easy seed 312: the engine discarded the drawn
+                # South African Unrest, a USSR event, and the Grain Sales
+                # event -- the 2 Ops the AI couped Colombia with -- never
+                # fired; Colombia and the US military Ops drifted from there).
+                since = self._play_seq.get("Five_Year_Plan", 0) if purpose == "five_year_plan" else 0
+                fired = [c for c in self._fired if c in offered and self._fired_seq.get(c, 0) >= since]
+                card = next((c for c in fired if self.engine._is_opponent_event(Side.USSR, self.engine.cards[c])), None)
+                if card is None and purpose != "five_year_plan":
+                    card = next(iter(reversed(fired)), None)
                 if card is not None:
                     self._forget_shown(card)
+                    self._random_discard_evidence(d, f"{card} (fired)", since)
                     return self._pick(d, lambda a: a.payload["card"] == card, f"random discard {card} (fired)")
+                action = super()._answer(d)
+                if action is not None:
+                    self._random_discard_evidence(d, f"{action.payload['card']} (its exit)", since)
+                return action
         return super()._answer(d)
+
+    def _random_discard_evidence(self, d: Decision, read: str, since: int) -> None:
+        """One non-fatal line per real random-discard resolution (Five Year
+        Plan, Terrorism, Aldrich Ames): what the read was based on, the way
+        the granted-Ops and grain lines carry theirs."""
+        if self._simulating:
+            return
+        owner = HAND_LOCATION[Side(d.context["owner"])]
+        exits = [(c, q, play) for _, c, was, q, play in self._exits if was == owner][-4:]
+        self.diverge("random-discard", f"random discard ({d.context.get('purpose')}, {d.context.get('owner')}): read {read}; "
+                     f"fired {[(c, self._fired_seq.get(c)) for c in self._fired]} since {since}, "
+                     f"revealed {self._revealed[-4:]}, {d.context.get('owner')} hand exits {exits}")
+
+    def _grain_settled(self, d: Decision, action: Action | None) -> Action | None:
+        """Grain Sales' take/return answered, by whichever path: on a return
+        the drawn card is its owner's own again. The drift rescue
+        (`_sim_forced`) once returned its "return" from the top of `_answer`,
+        past this bookkeeping -- the card the AI drew and gave back stayed
+        marked as taken, and its owner's own play of it five rounds later
+        was read as the AI's (kick5-easy seed 300: the bot's Middle East
+        Scoring queued as the US's play, the US's real play illegal after
+        it)."""
+        if (action is not None and d.kind is DecisionKind.EVENT_CHOICE and d.context.get("event") == "Grain_Sales_to_Soviets"
+                and action.payload.get("choice") == "return"):
+            self._taken.clear()  # the drawn card is its owner's own again
+            if not self._simulating:
+                self._handed.clear()
+        return action
 
     def _forget_shown(self, card: str) -> None:
         """A shown card named and consumed: out of *both* the reveal and the
