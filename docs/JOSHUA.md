@@ -2352,6 +2352,89 @@ Verified against the DLL on the new engine: the grain sweep 149/149
 Measured by the next AI batch (kick5's decider, if falken2 promotes,
 carries both the pass and the bump).
 
+### 2026-09-02 — kick6: the punisher that punishes — C in the anchor slot (pre-registered)
+
+**The decision** (user, 2026-09-02): kick5 closed on the pre-registered
+third reading without testing what it was built to test. The stage-1
+rule promoted the most faithful clone, and fidelity ran against
+punishment: B punishes v3's gift 17 times per 100 games, falken1's
+density exactly, and kick5's share (0.622) landed where falken1's dose
+had (0.489–0.659). The sweep's strongest punisher is **C**
+(`runs/falken2/c/joshua.pt`: A's net — hidden 256, 2 GNN layers,
+option head 128 — with AdamW 0.01, label smoothing 0.05 and the
+learning rate halved on a miss; held-out 0.6449, 28 of 30 epochs). In
+the exploit gate v3 as USSR loses to C **27 times per 100 games by
+DEFCON** (falken1 17, A 19, B 17; the DEFCON share of v3's USSR losses
+0.60, v3 wins 0.55), and over 400 rated games v3 loses to C 0.529
+(US 0.335 / USSR 0.608 for v3); C beats falken1 0.627 and Greedy 0.645.
+kick6 is the arm kick5 was meant to be: kick2's construction, one
+lever moved — the anchor's punishment density, 1.6× falken1's.
+
+**Question.** With the anchor slot's punisher swapped for one that
+prices the gift 1.6× as often, does kick2's construction lower the
+on-board gift share where falken1's density (kick2, kick4, kick5)
+floored it at 0.45–0.62?
+
+**Setup.** kick2's flags with the anchor swapped and nothing else:
+`--run kick6 --init baselines/r3-bid2/v3/joshua.pt --games 8000
+--recipe v11 --bid 2 --vs-pool 0.4 --anchor
+falken2c=runs/falken2/c/joshua.pt --kickstart runs/falken1/corpus
+--kickstart-coef 1.0 --kickstart-batches 4 --kickstart-batch-size 512`.
+The kickstart pull stays on falken1's corpus (one lever; absorption
+comparable to kick2's 0.505 and kick5's 0.5025). No scenario starts
+(kick3 and kick4 closed those). Rules version 8, layout v1, the
+twenty-first bridge pass. Evaluation at the printed game.
+
+**Metrics and decision rule** (written before the run starts).
+
+- *Gates before DLL spend* (kick2's): absorption on falken1's corpus
+  (expect ≈ 0.50); `wopr.diagnose` vs Greedy at bid 2 ≥ **0.9**, no
+  seat collapse; the anchor curve (`win_rate_vs_anchor`) reported —
+  kick2 rode 0.6–1.0 against falken1, kick5 0.742 mean / 0.80 last
+  against B; a punisher that is actually harder should read lower.
+- *The mechanism probe, the go/no-go* (`runs/falken1/gate.py 100 0
+  <punisher> <gifter>`, 100 games a seat, argmax). Two reads: kick6 as
+  gifter vs **falken1** (the comparable read across the family: kick2
+  6/100, kick5 8, kick3 11, kick4 14, v3 17), and kick6 as gifter vs
+  **C, its own anchor** — the read kick5 gave 12/100 against its anchor
+  before the 0.622 share. Because C punishes 1.6× as often as B, a raw
+  count against C is not kick5's 12 on the same scale; so before kick6
+  is probed, **kick2 and kick5 are probed as gifters against C** (zero
+  DLL hours, minutes of CPU) to fix the scale. The rule, on gifted
+  deaths vs C: **at or under kick2's count → go**; **at or above
+  kick5's count → no-go**, the decider does not run and the arm closes
+  at zero DLL hours on the probe (the probe called kick3, kick4 and
+  kick5 before their deciders did); strictly between → the decider
+  runs with the mood recorded as lukewarm, as kick5's did.
+- *Decider*: the standing easy eval (120 games, seeds 300+, bid 2,
+  argmax), desyncs mined first, read with
+  `runs/playdek/decider_summary.py`. Success = **mean ≥ 0.140**
+  (kick2's raw standing, kick5's too) **and** USSR gift share
+  ≤ **0.25**. The share is read against **0.622 / 0.489 / 0.465**
+  (kick5 / kick2 / kick4). Readings: both met → the theory closes
+  positive at champion strength — reward pricing works and the
+  punisher's *density* was the missing dose — and the compose runs.
+  Share under 0.465 but over 0.25 → density is a lever and the dose is
+  still short; the next dose (a larger anchor share, or two punishers
+  in the slot) is a new entry. Share at or above 0.465 → the anchor's
+  punishment density, at 10% of games, is not what floors the share;
+  the floor belongs to the construction (8k games of PPO against a 90%
+  non-punishing pool), and the review moves to longer runs, the layout
+  bump, or accepting the veto as the gift's answer. Mean under 0.140
+  with the share moved → the pricing cost strength; reported, no
+  compose.
+- *The compose* (veto over kick6, `veto=runs/kick1/joshua.pt` as in the
+  standing player): one 120-game batch, seeds 300+, **only on a
+  double-clear**; its bar as a candidate standing player is **0.308**
+  (pooled kick2+veto 0.258 + 0.05). A batch that clears it is
+  re-measured on seeds 500+ before it stands, as the compose entry did.
+
+**Budget.** 8k games (~95 min CPU), the gates and the three probes
+(~40 min CPU), one decider batch (~2.5 h DLL) unless the probe says
+no-go, one compose batch only on a double-clear (~2.5 h), one
+confirmation batch only if the compose clears 0.308. Nothing else
+without a new entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
