@@ -2501,6 +2501,89 @@ kick2+veto 0.258 pooled (bar 0.308), kick2 the raw checkpoint at 0.140.
 Budget spent: 8k games and the gates; zero DLL hours. The twenty-second
 bridge pass (WOPR.md) stays measured by the next AI batch.
 
+### 2026-09-02 — kick7: the veto trained in — the rules probe as the learner's mask (pre-registered)
+
+**The decision** (user, 2026-09-02): after kick6 the punisher channel is
+spent. Dose (kick2, kick4), fidelity (kick5) and density (kick6) all
+left the raw gift share between 0.45 and 0.66, and kick6 showed what a
+10% punisher teaches — the kill, rewarded in every game, not the
+caution, rewarded in one game in ten. The veto is the one mechanism that
+has cleared the target (0.08–0.19 on the board) and it composes; today
+it is bolted on at inference, so the policy plans as if it could still
+gift and, refused, plays a move it never trained for. This arm trains
+under it. Two alternatives were weighed and stand as named follow-ons:
+kick2 continued to 24k games (the length lever, untested but weakly
+evidenced), and the *kill switch* — every self-play seat taking a
+provable win, so the gift is priced by reward in every game — the
+theory's most direct test, a separate entry if this arm's reading
+points there.
+
+**Question.** With the veto's rules probe applied as the learner's
+action mask during training — the gift impossible in every training
+game — does kick2's construction produce a checkpoint whose composed
+player (checkpoint + veto, the standing player's form) beats the
+standing 0.258, and does the reward that remains move the other loss
+classes, the US seat first?
+
+**Setup.** kick2's flags plus one: `--run kick7 --init
+baselines/r3-bid2/v3/joshua.pt --games 8000 --recipe v11 --bid 2
+--vs-pool 0.4 --anchor falken1=runs/falken1/joshua.pt --kickstart
+runs/falken1/corpus --kickstart-coef 1.0 --kickstart-batches 4
+--kickstart-batch-size 512 --veto-train`. The mask (new wiring:
+`defcon_kill_mask` in `bots/joshua/search.py`, applied by the arena
+backend to the learner's rows): at a learner decision with DEFCON ≤ 3
+of a kind where a play is committed to (card, mode, ops order, ops
+type, coup target, event choice), each legal option is probed on a
+determinized copy and masked when *every* own continuation over the
+DEFCON-relevant choices ends the game against the mover within the
+current play, through some opponent reply and every die — the DEFCON
+self-kill and the granted-coup gift, the veto's own shapes, proven by
+walking the opponent's small branchings and checking battleground coups
+at DEFCON 2 rather than exploring quiet ops chains (the inference veto's
+full probe costs ~0.1–0.7 s an option; the arena cannot pay it). An
+unprovable option is never masked; when every option proves lost none is
+masked, the veto's own fallback. The mask edits `opt_mask` before the
+policy sees the row, so the distribution PPO samples from and stores is
+the masked one and masked options receive no gradient; opponent seats
+(pool, anchor) are untouched. `vetoes_per_game` counts masked options
+per learner game. Rules version 8, layout v1, the twenty-second bridge
+pass.
+
+**Metrics and decision rule** (written before the run starts).
+
+- *Gates before DLL spend* (kick2's): absorption on falken1's corpus
+  (expect ≈ 0.50), `wopr.diagnose` vs Greedy at bid 2 ≥ **0.9**, no
+  seat collapse; the anchor curve reported; the rollout throughput
+  reported against kick6's (the probe's cost). The check that the mask
+  worked: `vetoes_per_game` above zero through the run, and the
+  self-play diagnose's DEFCON-1 endings (kick6 71 of 120, kick2 26,
+  kick5 20) — expected to collapse toward zero. The mechanism probe as
+  gifter vs falken1 and vs C is run on the raw checkpoint and
+  **reported, not gating**: the raw policy never trained on gift options,
+  so their logits are untrained and the raw read says nothing about the
+  arm; the reported player carries the veto.
+- *Decider*: the standing easy eval, 120 games, seeds 300+, bid 2, the
+  checkpoint under the veto (`--policy veto=runs/kick7/joshua.pt`),
+  desyncs mined first, read with `runs/playdek/decider_summary.py`.
+  Success = **mean ≥ 0.308** (the bar: pooled 0.258 + 0.05). Secondary
+  read: **US seat ≥ 0.25** (standing 0.189). The composed gift share is
+  reported (expected at the veto's level, ≤ 0.25). The raw checkpoint is
+  not sent to the DLL (see above). A batch that clears is re-measured on
+  seeds 500+ before it stands; the pooled number becomes the standing
+  one and the bar moves to pooled + 0.05.
+- *Readings*: bar cleared → training under the constraint is the
+  construction to build on (every later arm trains under it) and the
+  standing player advances. Mean in [0.258, 0.308) → a lift short of the
+  bar: reported, no new standing player, the length lever on this
+  construction the named follow-on. Mean under 0.258 → the mask cost
+  strength or bought nothing; it stays an inference device, and the
+  review moves to the kill switch and to the loss classes directly.
+
+**Budget.** The wiring and its tests; 8k games (kick6 took 97 min; the
+probe is expected to add up to an hour); the gates (~30 min); one
+decider batch (~2.5 h DLL); one confirmation batch only on a bar
+clear. Nothing else without a new entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
