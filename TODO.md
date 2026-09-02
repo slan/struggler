@@ -1,3 +1,31 @@
+# KICK7 (THE VETO TRAINED IN) NEGATIVE ON THE BAR AT 0.250; THE MASK DELETES CAUTION; ATTRITION 2/120 (2026-09-03)
+
+- **kick7** (docs/JOSHUA.md 2026-09-02, "the veto trained in"): kick2's
+  construction with `--veto-train` (new wiring: `defcon_kill_mask` /
+  `kill_probe` in bots/joshua/search.py, applied to `opt_mask` by the arena
+  backend; `vetoes_per_game` metric). Gates on the composed player: absorption
+  0.5104, 26.8 struck options a game, anchor curve 0.844, veto-over-kick7 vs
+  Greedy 0.995. Decider under the veto: USSR 0.220 / US **0.281** (best US
+  seat ever; secondary read >= 0.25 met) / mean **0.250** [0.18, 0.34] -- the
+  standing player's own number, bar 0.308 missed; composed gift share
+  **0.304** (kick2+veto 0.19 / 0.08). Readings: (1) masking removes the
+  caution it enforces -- the raw checkpoint is a maximal gifter (120/120 raw
+  self-play games dead at DEFCON 1 by turn 2.6); (2) the composed player
+  inherits the veto's gaps (hidden-card kills, budget), and a raw policy that
+  prefers the gift walks through them; (3) the freed reward moved the US
+  seat. Evidence-pointed next arm (user's call, new entry): **the kill
+  switch** -- every self-play seat takes a provable win, so the gift is priced
+  by reward in every game while the policy still sees the option
+  (`kill_probe` from the killer's side). Standing unchanged: kick2+veto 0.258
+  pooled (bar 0.308), kick2 raw 0.140.
+- **Attrition 2/120, void 2** -- the lowest yet; bridge pass 22 measured. The
+  two fatals (`runs/playdek/desync-mining-2026-09-03-kick7.txt`): 346 (the
+  DLL asks the bot's Warsaw Pact choice while the engine is at a placement),
+  411 (the AI's coup of Colombia the engine does not offer -- a Colombia
+  influence drift, the granted-Ops attribution face). Pass 23's input.
+- Tooling: `runs/kick7-gates.sh` (the composed strength gate through
+  `wopr.search_eval --policy veto=...`).
+
 # KICK6 CLOSED NO-GO AT THE PROBE, ZERO DLL HOURS; BRIDGE PASS 22 (2026-09-02, afternoon)
 
 - **kick6** (docs/JOSHUA.md 2026-09-02, "the punisher that punishes"): kick2's
@@ -223,15 +251,17 @@ entry. **Raw v3 stays the reported player.**
 
 ## What is next (needs the user's call)
 
-- The gift line, the user's review (each a new pre-registered entry): a
-  larger C share (amplifies both halves — kick6's caveat), longer runs, the
-  layout bump (`OPTION_VOCAB` fold + `u2_incident` slot), accepting the veto
-  as the gift's answer and aiming training at the other loss classes, or
-  pricing the champion's own DEFCON death in the reward itself.
+- **The kill switch** (evidence-pointed by kick7): every self-play seat takes
+  a provable win (the mirror of the training mask, `kill_probe` from the
+  killer's side), so the learner is punished for every gift by its own kind
+  and caution lives in the policy and value head, not in a mask. New entry.
+- Other review candidates: longer runs on kick2's construction, the layout
+  bump (`OPTION_VOCAB` fold + `u2_incident` slot), aiming training at the VP
+  loss classes with the veto as the gift's answer.
 - A broader-audience wrap-up, later (the user); `runs/article/FACTS.md` is its
   fact base, `docs/REPORT-STYLE.md` the brief's format.
-- Bridge: pass 22 is unmeasured — the next AI batch measures it (and reads
-  its `random-discard` lines); open with trails: 410, 367, kick4's 312.
+- Bridge pass 23: 346 and 411 from kick7-veto-easy (trails attached); open
+  with trails: 410, 367, kick4's 312.
 - Hard mode: parked until easy is beaten (>0.5 both seats at bid 2).
 
 ## Quick commands
@@ -247,5 +277,6 @@ uv run python -m wopr.eval joshua=baselines/r3-bid2/v3/joshua.pt greedy \
 uv run python -m wopr.playdek.eval --difficulty easy --games 120 --seed 300 \
     --bid 2 --policy joshua=<ckpt> --workers 8 --out runs/playdek/<name>
 uv run python runs/playdek/decider_summary.py runs/playdek/<name>   # the standing readings
-bash runs/kick6-gates.sh [scale]                   # an arm's gates (adapt the paths); scale = the comparators vs the anchor
+bash runs/kick7-gates.sh                           # an arm's gates (adapt the paths); the composed strength gate via wopr.search_eval
+uv run python -m wopr.search_eval --policy veto=<ckpt> --opponent greedy --games 200 --bid 2 --workers 8   # the composed player vs Greedy
 ```

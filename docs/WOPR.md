@@ -1899,7 +1899,15 @@ Findings from the first four random games, and what became of each:
   twin in the fired list that the US-event filter skipped. Verified:
   suite 549, the grain sweep 149/149 (desyncs 0), hotseat 8/8, the
   differ 12/12 zero fatals, known only. Still open with trails: 410,
-  367, kick4's 312. Measured by the next AI batch (kick6's decider).
+  367, kick4's 312. Measured the next night (`kick7-veto-easy`, 120 easy
+  games, the veto over kick7): **2 desyncs, void 2** — the lowest yet
+  (kick5-easy 4). The two fatals (`desync-mining-2026-09-03-kick7.txt`):
+  346, the DLL asking the bot's Warsaw Pact choice while the engine had
+  moved on to an ops placement (an event-order face), and 411, the AI's
+  coup of Colombia the engine does not offer (a Colombia influence
+  drift, 312's country again — the granted-Ops attribution face). The
+  voids: De-Stalinization placing fewer than it removed and The
+  Reformer's lapsed ban, both known. Input for the twenty-third pass.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

@@ -2641,6 +2641,54 @@ falken1 and 73/100 against C — the struck options, untrained, dominate
 raw play, and nothing here is a read on the arm. The decider runs under
 the veto (launched 21:17, `runs/playdek/kick7-veto-easy`).
 
+**Result — the decider** (2026-09-02/03, `runs/playdek/kick7-veto-easy`,
+120 easy games, seeds 300+, bid 2, the checkpoint under the veto,
+21:17–00:29). USSR 13/59 = **0.220** [0.13, 0.34], US 16/57 = **0.281**
+[0.18, 0.41], mean 29/116 = **0.250** [0.18, 0.34]. The bar (0.308) is
+missed; the mean is the standing player's own number (kick2+veto 0.268
+and 0.250 on the two seed sets, pooled 0.258) with the seats swapped:
+the US seat is the best ever measured (kick1+veto 0.218, kick2+veto
+pooled 0.189) and clears the pre-registered secondary read (≥ 0.25); the
+USSR seat is the family's weakest under a veto (kick2+veto 0.330). The
+composed gift share: USSR **14/46 = 0.304** (kick2+veto 0.188 and
+0.081), US 5/41 = 0.122; the USSR seat's losses 23 VP, 14 DEFCON, 4 held
+cards, 2 Europe control, 2 Wargames, 1 final scoring; the US seat's 27
+VP, 7 Europe control, 5 DEFCON, 2 held cards. Games to turn 6.3 / 5.4.
+**Attrition 2 desyncs in 120, void 2** — the lowest yet (kick5-easy 4),
+the twenty-second pass measured (WOPR.md).
+
+**Decision.** Negative on the bar; the pre-registered third reading
+(mean under 0.258 — by 0.008, inside every interval: "bought nothing")
+fires, and the mask stays an inference device. The arm is the most
+instructive negative since kick3, in three parts. (1) *Masking removes
+the caution it enforces.* The raw checkpoint became a maximal gifter —
+120 of 120 raw self-play games dead at DEFCON 1 by turn 2.6, 73/100
+gifted deaths against C — because a struck option is outside the trained
+distribution and nothing ever lowers its logit, while the shared network
+keeps v3's liking for the battleground coup. (2) *The composed player
+inherits the veto's gaps.* The inference probe proves a loss within the
+current play along the policy's own line from one determinization; the
+shapes it cannot prove — a kill through a hidden card (Grain Sales'
+draw, Missile Envy's exchange), a proof past the budget — leak, and a raw
+policy that *prefers* the gift walks through every gap: the composed
+gift share rose to 0.304 where kick2+veto, whose raw policy half-avoided
+the gift on its own, read 0.19 and 0.08. The veto's 0.08–0.19 was never
+the veto alone; it was the veto over a policy with caution of its own.
+(3) *The reward that remained did move the other seat.* The US seat,
+whose losses were never mostly DEFCON, rose to 0.281 — the secondary
+read met — consistent with the hypothesis that a reward freed of the
+gift prices the VP game; a suggestive lift, not a measured one (the
+interval overlaps the standing US seat's). The theory's next form:
+caution must live in the policy and the value head, not in the mask —
+the reward has to price the gift in every game while the policy still
+sees the option. That is the **kill switch** (every self-play seat takes
+a provable win, so the learner is punished for every gift by its own
+kind; `kill_probe` from the killer's side is the wiring), named above as
+the alternative and now the evidence-pointed arm: a new entry, the
+user's call. Standing unchanged: kick2+veto 0.258 pooled (bar 0.308),
+kick2 the raw checkpoint at 0.140. The `--veto-train` wiring stays. Budget
+spent: 8k games (3.5 h), the gates, one decider batch; no confirmation.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
