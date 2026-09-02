@@ -2625,6 +2625,22 @@ artifact they are. The decider was already the composed player. If the
 composed gate fails, the arm closes at zero DLL hours: training under
 the mask cost the strength the veto cannot give back.
 
+**Result — the gates** (2026-09-02, `runs/kick7`, 8k games in 3.5 h at
+122 steps/s against kick6's ~2,600; `runs/kick7/gates.log`). Absorption
+**0.5104** on falken1's corpus (kick2 0.505, kick6 0.5077: the pull
+intact, the struck options notwithstanding). The mask fired throughout:
+**26.8 struck options a game** on average, 34 at the end as games
+lengthened to turn 5.5. The anchor curve averaged **0.844** (kick2
+0.6–1.0, kick6 0.680): a learner that cannot gift beats the punisher more
+often, as it should. The composed strength gate: **veto over kick7 vs
+Greedy 199/200 = 0.995** [0.97, 1.00] at bid 2 (USSR 100/100, US 99/100,
+mean final turn 4.1) — passed. The raw form, reported as the artifact it
+is: 120 of 120 raw self-play games ended at DEFCON 1 (US 72, USSR 48) by
+turn 2.6, and as gifter the raw checkpoint died by DEFCON 54/100 against
+falken1 and 73/100 against C — the struck options, untrained, dominate
+raw play, and nothing here is a read on the arm. The decider runs under
+the veto (launched 21:17, `runs/playdek/kick7-veto-easy`).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
