@@ -13,6 +13,7 @@ commit.
 | [docs/WOPR.md](docs/WOPR.md) | `bots/joshua/` (the learned bot, its encoding layout), `src/wopr/` (the self-play training arena) |
 | [docs/TESTING.md](docs/TESTING.md) | Adding or changing any test |
 | [docs/LIMITATIONS.md](docs/LIMITATIONS.md) | Before "fixing" something that may be a documented simplification |
+| [docs/REPORT-STYLE.md](docs/REPORT-STYLE.md) | Any wrap-up report or executive brief on the WOPR/Joshua program (structure, tokens, where the template and facts live) |
 
 The five architectural mandates in `docs/ARCHITECTURE.md` are
 non-negotiable. Code referring to "mandate #3" means that list. An
