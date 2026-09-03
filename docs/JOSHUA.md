@@ -2839,6 +2839,28 @@ Suite 556 unchanged: the granted-coup test sits inside the opponent's
 play, and the mover's own battleground coup in its own play is the
 negative.
 
+**Result — the gates** (2026-09-03, `runs/kick8`, 8k games in 4.3 h at
+120 steps/s — kick7's 122: the probes' cost, wherever it is placed,
+meets the machine's ceiling past one collector; `runs/kick8/gates.log`).
+The raw checkpoint is a player: the in-run raw evaluations against
+Greedy held **0.86–0.99** across the run (kick7's fell to 0.34–0.67),
+and the diagnose reads **0.967** vs Greedy at bid 2 (the last in-run
+read US 0.93 / USSR 0.97; no seat collapse). Absorption **0.4941** on
+falken1's corpus (kick2 0.505, kick7 0.5104: a shade under the family,
+the pull intact). The switch fired throughout: **0.58 decisions a game**
+resolved on average (0.23–1.09 by update), steady from the first update
+to the last as games lengthened from turn 3.2 to 4.5. The anchor curve
+averaged **0.753** (last three quarters 0.789; kick2 0.6–1.0, kick7
+0.844): falken1 at certain punishment reads harder, as the entry
+expected. Self-play, 120 raw games: **23 ended at DEFCON 1** (13 US
+deaths, 10 USSR; kick2 26, kick5 20, kick6 71) at a mean final turn of
+7.33, the family's longest (kick6 6.54), USSR edge 0.733. The probe as
+gifter, the gating read: **4/100 gifted deaths vs falken1** (kick2 6,
+kick5 8, kick6 9; kick8 wins 0.88) and **9/100 vs C** (kick2 15, kick5
+8, kick6 20; wins 0.69) — under kick2's count on both scales: go. The
+decider runs on the raw checkpoint (launched 09:26,
+`runs/playdek/kick8-easy`).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
