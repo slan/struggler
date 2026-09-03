@@ -1945,7 +1945,15 @@ Findings from the first four random games, and what became of each:
   decline a bonus point (the placement decision carries no stop), so
   the ruling is adopted: `_push_ops_type(regional=False)` for the
   `un_intervention` mode, rules version 9, one test (the bonus on the
-  plain play of the same card, none under UN Intervention). (2) *411,
+  plain play of the same card, none under UN Intervention). *Narrowed
+  the same day by the first batch on version 9* (kick8-easy 323, read
+  off the new `coup` line): the bot headlined Vietnam Revolts and
+  couped the Philippines with a UN Intervention play of the 4-Ops
+  US/Japan Pact — the DLL's die 6 left USSR 6 where the engine's 4 Ops
+  made 5: the DLL scored the coup at 5 Ops. So the DLL's UN Intervention
+  path skips the bonus *point* on Influence and keeps the +1 on a coup
+  in the region: rules version 10, `_push_ops_type(influence_bonus=
+  False)`, the test extended with the coup. (2) *411,
   the AI's Colombia coup the two programs scored apart — instrumented.*
   The engine's Brezhnev Doctrine coup (3 Ops, the DLL's die read as 1,
   Colombia's stability 1: margin 2, the US point removed and one USSR
@@ -1966,7 +1974,17 @@ Findings from the first four random games, and what became of each:
   simulation's stop point needs a trace), 367 (the `contest` line
   waits for the next Summit), kick4's 312. Verified: suite 557, the
   grain sweep 149/149, hotseat 8/8, the differ 12/12, one harness at a
-  time.
+  time. Measured the same day (`kick8-easy`, 120 easy games, the raw
+  kick8 checkpoint): **4 desyncs, void 0** — 323 the version-9 rule's
+  own (above), 350 a game-over timing fatal (the engine ended turn 6 on
+  a held Southeast Asia Scoring the DLL's AI no longer held, a
+  hand-tracking drift), 382 the bot's We Will Bury You missing from the
+  DLL's headline prompt after a reshuffle (a deal drift), 407 the AI's
+  2-Ops play under Vietnam Revolts placed twice in Indonesia by the DLL
+  and once elsewhere by the engine (the granted-Ops attribution face
+  meeting the bonus arithmetic). 48 `coup` lines rode the batch. Input
+  for the twenty-fourth pass
+  (`runs/playdek/desync-mining-2026-09-03-kick8.txt`).
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

@@ -1,3 +1,48 @@
+# KICK8 (THE KILL SWITCH) NEGATIVE ON BOTH READS AT 0.138 / 0.422; THE SWITCH WORKS IN THE ARENA, NOT ON THE BOARD; RULES 9 -> 10; ATTRITION 4/120 (2026-09-03)
+
+- **kick8** (docs/JOSHUA.md 2026-09-03, "the kill switch"): kick2's
+  construction with `--kill-switch` (new wiring: `kill_options` in
+  bots/joshua/search.py = `defcon_kill_mask`'s mirror from the killer's side,
+  `kill_probe(child, root=opponent)`; the backend narrows a learner row TO its
+  kills and overrides a pool/anchor choice with the kill; `kills_per_game`).
+  Cost: the killer's probe cannot exit early, so inside the killer's own play
+  only Wargames is probed (the entry's named tightening, applied after a
+  28.9 st/s smoke); 120 st/s, 8k games in 4.3 h, 0.58 firings a game. Gates
+  on the RAW checkpoint all passed: in-run 0.86-0.99 vs Greedy (a player,
+  unlike kick7's), diagnose 0.967, absorption 0.4941, anchor 0.753, self-play
+  DEFCON-1 endings **23/120** (kick2 26, kick6 71), probe as gifter **4/100
+  vs falken1** and **9/100 vs C** (the lowest ever on both scales). Decider
+  (raw): USSR 0.224 / US 0.052 / mean **0.138** [0.09, 0.21] (kick2's 16/114
+  with two more games), gift share **19/45 = 0.422** (kick2 22/45 = 0.489).
+  Autopsy: all 19 USSR-seat DEFCON deaths are the switch's exact shape (the
+  bot plays a US-event card at DEFCON 2, the AI takes the granted coup), zero
+  self-kills. Readings: the switch works where the arena puts the learner;
+  the board's gifts are positions the arena never reaches (the AI holds
+  DEFCON at 2 through the mid-game); the caution learned is position-bound.
+  Evidence-pointed next arm (user's call, new entry): **the switch over
+  kick3's gift-scenario starts** (`--scenarios <defcon2_gift bank>
+  --scenario-frac 0.25 --kill-switch` on kick2's flags) -- the states the
+  board gifts in, the punishment certain in each. No compose. Standing
+  unchanged: kick2+veto 0.258 pooled (bar 0.308), kick2 raw 0.140.
+- **Bridge pass 23 + rules versions 9 and 10** (docs/WOPR.md; commits
+  8af0a15, ab268ac, the v10 close): 346 = the DLL grants a UN Intervention
+  play no Vietnam Revolts bonus *point* on Influence (v9) but keeps the +1 on
+  its coup (v10, from kick8-easy 323 read off the new `coup` line); 411
+  instrumented (`coup` evidence line: die, Ops, stability, modifier, margin,
+  both boards; recent records on `_pick`'s illegal-in-engine fatal). Ladder
+  re-rated on v9 and v10 (v3 vs Greedy 0.945/400, Greedy self ~0.53/0.47):
+  stands. Harnesses green one at a time (`runs/playdek/pass23-verify.sh`;
+  under Start-Process `uv` needs its full path).
+- **Attrition 4/120, void 0** (`runs/playdek/desync-mining-2026-09-03-kick8.txt`,
+  48 `coup` lines aboard): 323 (v9's own rule, fixed by v10), 350 (game-over
+  timing: a held SE Asia Scoring the AI no longer had -- hand drift), 382 (the
+  bot's We Will Bury You missing from the DLL's headline prompt after a
+  reshuffle -- deal drift), 407 (the AI's 2-Ops play under Vietnam Revolts:
+  DLL twice in Indonesia, engine once elsewhere -- granted-Ops attribution
+  meeting the bonus arithmetic). Pass 24's input; open with trails: kick4's
+  410 (Grain take carried as a return; the hand is the tell), 367, kick4's 312.
+- Tooling: `runs/kick8-gates.sh` (raw gates with the probe gating).
+
 # KICK7 (THE VETO TRAINED IN) NEGATIVE ON THE BAR AT 0.250; THE MASK DELETES CAUTION; ATTRITION 2/120 (2026-09-03)
 
 - **kick7** (docs/JOSHUA.md 2026-09-02, "the veto trained in"): kick2's
@@ -260,14 +305,14 @@ entry. **Raw v3 stays the reported player.**
   loss classes with the veto as the gift's answer.
 - A broader-audience wrap-up, later (the user); `runs/article/FACTS.md` is its
   fact base, `docs/REPORT-STYLE.md` the brief's format.
-- Bridge pass 23: 346 and 411 from kick7-veto-easy (trails attached); open
-  with trails: 410, 367, kick4's 312.
+- Bridge pass 24: 350 / 382 / 407 from kick8-easy (trails and `coup` lines
+  attached); open with trails: kick4's 410, 367, kick4's 312.
 - Hard mode: parked until easy is beaten (>0.5 both seats at bid 2).
 
 ## Quick commands
 
 ```sh
-uv run pytest -q                                   # 549 pass, ~75 s
+uv run pytest -q                                   # 557 pass, ~40 s
 uv run python -m wopr.distill harvest --workers 12 --out <dir> <batch-dirs...>
 uv run python -m wopr.distill train --corpus <dir> --out <run> [--gnn-layers 3 --option-hidden 256 --weight-decay 0.01 --label-smoothing 0.05 --lr-decay 0.5]
 uv run python -m wopr.distill top1 <ckpt> --corpus <dir>   # held-out top-1 (absorption / fidelity)
@@ -275,8 +320,8 @@ uv run python runs/falken1/gate.py 100 0 <punisher.pt> [<gifter.pt>]   # the exp
 uv run python -m wopr.eval joshua=baselines/r3-bid2/v3/joshua.pt greedy \
     --games 400 --bid 2 --workers 6                # yardstick
 uv run python -m wopr.playdek.eval --difficulty easy --games 120 --seed 300 \
-    --bid 2 --policy joshua=<ckpt> --workers 8 --out runs/playdek/<name>
+    --bid 2 --policy joshua=<ckpt> --workers 8 --out runs/playdek/<name>   # the decider (launch detached: PowerShell Start-Process uv.exe)
 uv run python runs/playdek/decider_summary.py runs/playdek/<name>   # the standing readings
-bash runs/kick7-gates.sh                           # an arm's gates (adapt the paths); the composed strength gate via wopr.search_eval
+bash runs/kick8-gates.sh                           # an arm's gates on the raw checkpoint (adapt the paths); runs/kick7-gates.sh for a composed player
 uv run python -m wopr.search_eval --policy veto=<ckpt> --opponent greedy --games 200 --bid 2 --workers 8   # the composed player vs Greedy
 ```

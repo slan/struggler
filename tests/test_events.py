@@ -1108,13 +1108,16 @@ def test_vietnam_revolts_places_and_grants_se_asia_ops_bonus():
     assert steps == 4  # base 3 + 1 all-in-SE-Asia bonus
 
 
-def test_un_intervention_ops_earn_no_regional_bonus():
-    # Rules version 9 (docs/WOPR.md, the twenty-third pass): the official
-    # AI closes a UN Intervention play after the card's own Ops, Vietnam
-    # Revolts notwithstanding -- the bot's 1-Op CIA Created placed in Laos
-    # met a bonus placement the DLL never asked (kick7-veto-easy 346). The
-    # same card played for Ops on its own still earns the bonus.
-    for mode, bonus in (("un_intervention", None), ("ops", ["se_asia"])):
+def test_un_intervention_influence_earns_no_regional_bonus_but_its_coup_does():
+    # Rules versions 9 and 10 (docs/WOPR.md, the twenty-third pass): the
+    # official AI closes a UN Intervention play's Influence after the
+    # card's own Ops, Vietnam Revolts notwithstanding -- the bot's 1-Op CIA
+    # Created placed in Laos met a bonus placement the DLL never asked
+    # (kick7-veto-easy 346) -- yet scores the same play's coup in the
+    # region with the +1 (kick8-easy 323: a 4-Ops US/Japan Pact couped the
+    # Philippines at 5). The same card played for Ops on its own earns the
+    # bonus point on its Influence too.
+    for mode, placements in (("un_intervention", 1), ("ops", 2)):
         engine = _bare()
         engine.turn_effects["vietnam_revolts"] = True
         engine.board.influence["Vietnam"]["USSR"] = 2  # a reachable SE Asia foothold
@@ -1123,13 +1126,24 @@ def test_un_intervention_ops_earn_no_regional_bonus():
         if engine.pending_decision.kind is DecisionKind.EVENT_OPS_ORDER:  # the plain play: the US event's order
             engine.step(Action(DecisionKind.EVENT_OPS_ORDER, {"order": "ops_first"}))
         assert engine.pending_decision.kind is DecisionKind.OPS_TYPE
-        assert engine.pending_decision.context["bonus"] == bonus
+        assert engine.pending_decision.context["bonus"] == ["se_asia"]
         engine.step(Action(DecisionKind.OPS_TYPE, {"type": "influence"}))
         steps = 0
         while engine.pending_decision is not None and engine.pending_decision.kind is DecisionKind.PLACE_INFLUENCE:
             engine.step(next(a for a in engine.pending_decision.options if a.payload["country"] == "Laos_Cambodia"))
             steps += 1
-        assert steps == (1 if bonus is None else 2)  # CIA Created's 1 Op, plus the bonus point only on the plain play
+        assert steps == placements  # CIA Created's 1 Op, plus the bonus point only on the plain play
+    # The coup: 1 Op plus the region's +1 against a Southeast Asian target, under UN Intervention too.
+    engine = _bare()
+    engine.defcon = 5
+    engine.turn_effects["vietnam_revolts"] = True
+    engine.board.influence["Thailand"]["US"] = 1
+    engine.hands["USSR"] = ["CIA_Created", "UN_Intervention"]
+    _play_card_for(engine, Side.USSR, "CIA_Created", "un_intervention")
+    engine.step(Action(DecisionKind.OPS_TYPE, {"type": "coup"}))
+    engine.step(Action(DecisionKind.COUP_TARGET, {"country": "Thailand"}))
+    assert engine.pending_decision.kind is DecisionKind.COUP_ROLL
+    assert engine.pending_decision.context["ops"] == 2
 
 
 def test_region_bonus_does_not_apply_to_us_or_outside_se_asia():

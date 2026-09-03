@@ -2861,6 +2861,61 @@ kick5 8, kick6 9; kick8 wins 0.88) and **9/100 vs C** (kick2 15, kick5
 decider runs on the raw checkpoint (launched 09:26,
 `runs/playdek/kick8-easy`).
 
+**Result — the decider** (2026-09-03, `runs/playdek/kick8-easy`, 120
+easy games, seeds 300+, bid 2, the raw checkpoint, 09:26–12:25). USSR
+13/58 = **0.224** [0.14, 0.35], US 3/58 = **0.052** [0.02, 0.14], mean
+16/116 = **0.138** [0.09, 0.21] — kick2's 16/114 with two more games in
+the denominator, one game under the 0.140 line. The USSR seat's gift
+share **19/45 = 0.422** (kick2 0.489 — 22 of 45 —, kick5 0.622, kick4
+0.465, kick7-composed 0.304): three deaths fewer than kick2 on the same
+count of losses, inside the noise. The USSR seat's losses 23 VP, 19
+DEFCON, 1 Wargames, 1 Cuban Missile Crisis, 1 Europe control; the US
+seat's 45 VP, 5 Europe control, 4 DEFCON, 1 held card (the US seat's
+DEFCON share 0.073). Games to turn 5.9 / 5.1. **Attrition 4 desyncs in
+120, void 0** (WOPR.md: one of the four is rules version 9's own, the
+rule narrowed to version 10 the same afternoon). An autopsy of the 19
+USSR-seat DEFCON deaths through the engine's replay logs: **every one is
+the switch's exact shape** — the bot plays a card carrying a US event at
+DEFCON 2 and the AI takes the coup the event hands it (14 event-granted
+coups after the bot's own event-or-Ops order, 3 Grain Sales returns
+couping with the 2 Ops, 2 Five Year Plan discards firing CIA Created);
+not one self-kill. They come at turns 3 to 9, DEFCON already at 2.
+
+**Decision.** Negative on both reads. The pre-registered fourth reading
+fires by the letter — the mean a game under the line, the share far over
+it — and its verdict stands: outcome alone, made certain in every arena
+game, did not price the gift away on the board in 8k games. The second
+reading's substance is the same fact seen from one game over: the switch
+moved the gift share from 0.489 to 0.422 and no further, and dose was
+not the lever, the punishment being already certain. What the arm
+settles, in three parts. (1) *The switch works where the arena puts the
+learner.* The raw checkpoint is a player (0.967 vs Greedy, 0.86–0.99
+through the run) that stopped gifting its own kind (23 of 120 self-play
+games at DEFCON 1, kick2's 26 with the gift now certain to be taken —
+so fewer gifts offered) and the clones (4/100 vs falken1, 9/100 vs C,
+the lowest counts on both scales) — the caution the theory asked for,
+in the policy and the value head, no mask. (2) *The board's gifts are
+positions the arena does not reach.* Every DEFCON death against the AI
+is the granted kill the switch punished for 8k games, yet the champion
+still plays the gift card in a third of its USSR games: the AI holds
+DEFCON at 2 through the mid-game and the bot's hand fills with US events
+that hand over a coup, a position self-play and the clones seldom
+build. The caution learned is conditioned on the arena's positions; the
+lesson did not generalise to the AI's. (3) *The reward-pricing line does
+not close on this evidence; it turns.* kick3 put exactly these positions
+into training (gift-scenario starts) and taught the gift harder because
+nine opponents in ten declined the kill; under the switch none can. The
+evidence-pointed follow-on, a new entry on the user's call: **the switch
+over kick3's scenario starts** (`--scenarios` on the `defcon2_gift` bank
+with `--kill-switch`, kick2's construction otherwise) — the states the
+board gifts in, with the punishment certain in every one of them. The
+US seat (0.052; kick2 0.089) stays the raw family's weak seat and the
+veto's to lift. No compose (the double clear was not met), no
+confirmation. Standing unchanged: kick2+veto 0.258 pooled (bar 0.308),
+kick2 the raw checkpoint at 0.140 — kick8 ties it at 0.138 with the
+lowest arena gift counts ever measured and no board move. Budget spent:
+8k games (4.3 h), the gates, one decider batch.
+
 ### 2026-09-03 — rules version 9: the ladder stands
 
 Found by the twenty-third bridge pass's static read of the kick7-veto-easy
@@ -2886,6 +2941,28 @@ engine: the grain sweep 149/149 (desyncs 0), hotseat 8/8, the differ
 decider carries both the pass and the bump (its training ran on
 version 8, the launch preceding the bump by two hours; the difference
 does not reach the arena's opening turns).
+
+### 2026-09-03 — rules version 10: the ladder stands
+
+Version 9 lasted one batch. kick8's decider, the first on the new
+engine, desynced at seed 323 on the twenty-third pass's own `coup` line:
+the bot headlined Vietnam Revolts and couped the Philippines with a UN
+Intervention play of the 4-Ops US/Japan Pact — the DLL's die 6 left USSR
+6 where the engine's 4 Ops made 5. The DLL scored that coup at 5 Ops:
+its UN Intervention path skips the bonus *point* on Influence (346) and
+keeps the region's +1 on a coup. Rules version 10 narrows version 9 to
+the Influence placement (`_push_ops_type(influence_bonus=False)`; the
+coup's `_bonus_ops_for` unchanged; a realignment's extra attempt kept as
+before, no observation either way), the test extended with the coup.
+
+The decision points' re-rating on the new engine: **r3-bid2/v3 vs Greedy
+0.945** over 400 at bid 2 (W378 D0 L22; US 0.950 / USSR 0.940 — versions
+8's and 9's figures to the game), **Greedy against itself** over 200 at
+bid 2 US 0.530 / USSR 0.470 (version 9's exactly). The `r3-bid2` ladder
+stands; no checkpoint is affected. Verified against the DLL on the new
+engine, one harness at a time: the grain sweep 149/149 (desyncs 0),
+hotseat 8/8, the differ 12/12 zero fatals; suite 557. Measured by the
+next AI batch.
 
 ## Road map
 

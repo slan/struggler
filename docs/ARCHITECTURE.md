@@ -309,7 +309,10 @@ Version 9: a UN Intervention play's Ops earn no per-turn regional bonus
 (Vietnam Revolts' "+1 if all in Southeast Asia") — the official AI's
 ruling, adopted (docs/WOPR.md, the twenty-third pass: the DLL closed
 the bot's 1-Op play after its one placement where the engine asked a
-bonus point).
+bonus point). Version 10 narrows it to the Influence placement: the
+same play's coup against a target in the region keeps the +1 (the
+first batch on version 9 desynced on the DLL scoring a 4-Ops UN
+Intervention coup in the Philippines at 5).
 
 ## Opening deal order
 

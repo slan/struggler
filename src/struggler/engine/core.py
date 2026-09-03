@@ -1416,12 +1416,14 @@ class Engine:
             self._log_card_exit(side, un_id)
             self.discard_pile.append(un_id)
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
-            # UN Intervention's Ops earn no regional bonus (Vietnam Revolts'
-            # "+1 if all in Southeast Asia"): the official AI's ruling,
-            # adopted as rules version 9 (docs/WOPR.md, the twenty-third
-            # pass -- the DLL closed the bot's 1-Op play after one placement
-            # where the engine asked a bonus point).
-            self._push_ops_type(side, self._effective_ops(side, card), regional=False)
+            # UN Intervention's Ops placed as Influence earn no regional
+            # bonus (Vietnam Revolts' "+1 if all in Southeast Asia"), while
+            # its coup keeps the +1 for a target in the region: the official
+            # AI's rulings, adopted as rules versions 9 and 10 (docs/WOPR.md,
+            # the twenty-third pass -- the DLL closed the bot's 1-Op play
+            # after one placement where the engine asked a bonus point, and
+            # scored its 4-Ops coup in the Philippines at 5).
+            self._push_ops_type(side, self._effective_ops(side, card), influence_bonus=False)
             return
 
         if mode == "space_race":
@@ -1461,19 +1463,20 @@ class Engine:
 
     def _push_ops_type(
         self, side: Side, ops: int, china: bool = False, allow_coup: bool = True, may: bool = False,
-        regional: bool = True,
+        influence_bonus: bool = True,
     ) -> None:
-        """`regional=False`: a spend that earns no per-turn regional bonus
-        whatever the board (UN Intervention's Ops, rules version 9)."""
+        """`influence_bonus=False`: a spend whose Influence placement earns no
+        per-turn regional bonus point, its coup keeping the region's +1 (UN
+        Intervention's Ops, rules versions 9 and 10)."""
         options = self._ops_type_options(side, ops, allow_coup)
         if may:
             # Event-granted Operations are optional on every granting card's
             # text ("may then conduct Operations"): a card play's Ops are not.
             options = (*options, Action(DecisionKind.OPS_TYPE, {"type": "pass"}))
-        self._push(
-            side, DecisionKind.OPS_TYPE, options,
-            {"side": side.value, "ops": ops, "bonus": self._ops_bonus_regions(side, china) if regional else None},
-        )
+        context = {"side": side.value, "ops": ops, "bonus": self._ops_bonus_regions(side, china)}
+        if not influence_bonus:
+            context["influence_bonus"] = False
+        self._push(side, DecisionKind.OPS_TYPE, options, context)
 
     def _ops_bonus_regions(self, side: Side, china: bool) -> list[str] | None:
         """The regions a play earns a "+1 Op if all Ops used here" bonus in,
@@ -1529,7 +1532,7 @@ class Engine:
         if ops_type == "pass":
             return  # granted Operations declined ("may"): they simply lapse
         if ops_type == "influence":
-            if bonus:
+            if bonus and decision.context.get("influence_bonus", True):
                 # A region-bonus play's +1 applies only if every Op is spent in
                 # that region; the placement step enforces the all-or-nothing
                 # rule (China Card -> Asia, Vietnam Revolts -> Southeast Asia).

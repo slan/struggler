@@ -212,9 +212,10 @@ turn effect giving USSR plays `"se_asia"`. A play can earn both at once —
 a USSR China Card play kept inside Southeast Asia is 6 Ops, one kept in
 the rest of Asia 5 — each region's +1 on its own all-or-nothing terms
 (`non_bonus` counts the Ops spent outside each region). The extra Realignment attempt is offered inside the bonus region
-only: out of it, the card has no such Op. A UN Intervention play's Ops
-earn no regional bonus (`_push_ops_type(regional=False)`; rules version
-9, adopted from the DLL).
+only: out of it, the card has no such Op. A UN Intervention play's
+Influence earns no regional bonus point while its coup keeps the
+region's +1 (`_push_ops_type(influence_bonus=False)`; rules versions 9
+and 10, adopted from the DLL).
 
 **Player-choice influence** (`EVENT_INFLUENCE`). COMECON, Marshall Plan,
 Decolonization, Suez Crisis, Truman Doctrine, Warsaw Pact Formed (branch),
