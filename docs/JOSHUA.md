@@ -2861,6 +2861,32 @@ kick5 8, kick6 9; kick8 wins 0.88) and **9/100 vs C** (kick2 15, kick5
 decider runs on the raw checkpoint (launched 09:26,
 `runs/playdek/kick8-easy`).
 
+### 2026-09-03 — rules version 9: the ladder stands
+
+Found by the twenty-third bridge pass's static read of the kick7-veto-easy
+trails (WOPR.md): the bot's UN Intervention play of CIA Created under the
+AI's Vietnam Revolts, its one Op placed in Laos/Cambodia — inside
+Southeast Asia, so the engine offered the "+1 if all in the region"
+bonus point as a second placement, while the DLL had closed the play on
+the one placement and moved to the AI's next card. The DLL's UN
+Intervention path spends the card's printed Ops and no regional bonus;
+the engine's bonus placement carries no stop the bot's decision could be
+cut to, so the ruling is adopted: rules version 9 grants a UN
+Intervention play's Ops no per-turn regional bonus
+(`_push_ops_type(regional=False)` for the `un_intervention` mode).
+
+The decision points' re-rating on the new engine: **r3-bid2/v3 vs Greedy
+0.945** over 400 at bid 2 (W378 D0 L22; US 0.950 / USSR 0.940 — version
+8's figures to the game, the bonus a Late-War corner neither yardstick
+reaches), **Greedy against itself** over 200 at bid 2 US 0.530 / USSR
+0.470 (version 8's 0.52/0.48). The `r3-bid2` ladder stands, the bump
+noted; no checkpoint is affected. Verified against the DLL on the new
+engine: the grain sweep 149/149 (desyncs 0), hotseat 8/8, the differ
+12/12 zero fatals; suite 557. Measured by the next AI batch: kick8's
+decider carries both the pass and the bump (its training ran on
+version 8, the launch preceding the bump by two hours; the difference
+does not reach the arena's opening turns).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
