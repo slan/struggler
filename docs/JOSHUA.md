@@ -2689,6 +2689,156 @@ user's call. Standing unchanged: kick2+veto 0.258 pooled (bar 0.308),
 kick2 the raw checkpoint at 0.140. The `--veto-train` wiring stays. Budget
 spent: 8k games (3.5 h), the gates, one decider batch; no confirmation.
 
+### 2026-09-03 — kick8: the kill switch — every seat takes a provable win (pre-registered)
+
+**The decision** (user, 2026-09-03): kick7's reading — masking removes
+the caution it enforces; the reward has to price the gift in every game
+while the policy still sees the option — points at the kill switch,
+named in kick7's entry as the theory's most direct test. Punishment in
+self-play is stochastic today: the learner's own kind takes a granted
+kill only as often as its policy happens to, a pool snapshot as often as
+its own, and falken1 at a 10% share is the one seat that reliably does —
+hence kick2's dose-response and kick6's "the kill transfers, not the
+caution". This arm makes the punishment certain and the gift priced by
+outcome everywhere: whenever any seat has a provable win within the
+current play, the arena resolves it.
+
+**Question.** With every provable win taken by whichever seat holds it —
+the learner's rows narrowed to the kill, a pool or anchor seat's choice
+overridden with it — does kick2's construction produce a *raw*
+checkpoint that keeps kick2's strength against the easy AI (mean ≥
+0.140) with the gift share at or under the veto's level (≤ 0.25), the
+caution living in the policy and the value head rather than a mask?
+
+**Setup.** kick2's flags plus one, and not kick7's: `--run kick8 --init
+baselines/r3-bid2/v3/joshua.pt --games 8000 --recipe v11 --bid 2
+--vs-pool 0.4 --anchor falken1=runs/falken1/joshua.pt --kickstart
+runs/falken1/corpus --kickstart-coef 1.0 --kickstart-batches 4
+--kickstart-batch-size 512 --kill-switch` (no `--veto-train`, no
+scenario starts). The wiring, new: `kill_options` in
+`bots/joshua/search.py` is `defcon_kill_mask`'s mirror from the killer's
+side — the same gate (DEFCON ≤ 3; the kinds where a play is committed
+to: card, mode, ops order, ops type, coup target, event choice; two or
+more options), the same pre-filter (opponent-event cards and
+`DEFCON_EVENTS` at the card level, battleground coup targets, every ops
+type and event choice), one determinization per decision — and an
+option kills iff `kill_probe(child, root=opponent)` proves the opponent
+dead within the play: through some continuation of the killer's own
+DEFCON-relevant choices, every one of the victim's and every die, quiet
+chains followed, 80 engine copies an option. The arena backend
+(`--kill-switch`; `InProcessBackend kill_switch`, `ArenaSpec.kill_switch`
+through the collectors) applies it to every row of every seat: a learner
+row with a kill has `opt_mask` narrowed *to* the killing options before
+the policy samples, so the distribution PPO stores is over the kills
+alone (kick7's mask, in the other direction); a pool or anchor row's
+choice stands if it kills and is otherwise overridden with the first
+killing option. `kills_per_game` counts the decisions the switch resolved
+per learner game, both seats (a kill that spans several decisions of one
+play — card, ops type, target — counts at each). Rules version 8, layout
+v1, the twenty-second bridge pass.
+
+**Design choices, and their risks** (named before the run).
+
+- *The switch fires for both seats.* In self-play the learner is the
+  victim and the killer of the same gift. A learner row narrowed to its
+  kills trains only the kills' relative logits, and nothing lowers the
+  non-kill options' — kick7's lesson in the mirror — so the raw policy
+  may *decline* at inference a kill it was made to take in training.
+  Accepted: the arm's target is the victim seat's caution, which the
+  reward prices in every game precisely because the killer's row cannot
+  decline; the value head learns the killer's position as +1 and the
+  victim's as −1 either way. The composed form, if built, is the veto,
+  which refuses losses and never takes kills, so kill-taking at
+  inference is not on the decider's path.
+- *The learner also learns to take kills.* Wanted — the easy AI gifts
+  too, and a policy that takes the kill is stronger. The risk is kick6's
+  shape, the kill learned as an offensive tactic without the caution,
+  which the probe as gifter measures directly and first.
+- *A false kill.* The proof is on one determinization; a hidden-hand
+  line can make a proven kill fail. The seat then played a sub-optimal
+  move, no worse than a sampled one; unprovable never fires, so the only
+  misses are the probe's known gaps (a kill through a hidden card, a
+  proof past the budget). Not counted separately.
+- *Cost.* Every row of every seat at DEFCON ≤ 3 is probed, where kick7
+  probed the learner's rows only: about 1.3× kick7's probe count, and
+  kick7 ran at 122 steps/s (3.5 h for 8k games). The smoke run (60 games,
+  one collector) measures before the launch; if the projection passes
+  ~5 h the pre-filter is tightened to the killer's decisions *inside the
+  victim's play* (a DEFCON death in the killer's own play is the killer's
+  own, rule 4.5's note; only a Wargames win lives there) and the entry
+  amended before the run.
+- *The pool and anchor seats play stronger than they are.* falken1's
+  punishment density becomes certainty; the anchor curve will read
+  lower than kick2's 0.6–1.0 for that reason alone — reported, not
+  gating.
+
+**Metrics and decision rule** (written before the run starts). No option
+is ever struck from a victim's row, so the raw checkpoint is a player
+again and the gates are kick2's, on the raw checkpoint.
+
+- *Gates before DLL spend*: absorption on falken1's corpus (expect ≈
+  0.50); `wopr.diagnose` vs Greedy at bid 2 ≥ **0.9**, no seat collapse;
+  the anchor curve and `kills_per_game` reported (the switch's check:
+  above zero through the run); the raw self-play DEFCON-1 endings
+  against kick2's 26/120 and kick6's 71/120 — a collapse toward zero is
+  the mechanism at work in self-play, a rise toward kick6's is the kill
+  learned and not the caution. The mechanism probe as gifter, 100 games
+  a seat argmax, vs falken1 (kick2 6, kick5 8, kick6 9) and vs C (kick2
+  15, kick5 8, kick6 20), is **the mechanism's first read and it gates:
+  a count above kick2's on either scale is a no-go** — the decider
+  skipped, zero DLL hours.
+- *Decider*: the standing easy eval, 120 games, seeds 300+, bid 2, the
+  **raw** checkpoint (`--policy joshua=runs/kick8/joshua.pt`), desyncs
+  mined first, read with `runs/playdek/decider_summary.py`. Success =
+  **mean ≥ 0.140 AND the USSR-seat gift share ≤ 0.25**, the readings
+  written against kick2's 0.489, kick5's 0.622 and kick7-composed's
+  0.304; the US seat reported (kick7's 0.281 was the freed reward's
+  suggestion).
+- *Compose*: only on a double clear, the veto over kick8 (`veto=`) on
+  seeds 300+ against the bar **0.308**; a batch that clears is
+  re-measured on seeds 500+ before it stands, and the pooled number
+  becomes the standing one.
+- *Readings*: double clear → the switch is the construction (every later
+  arm trains under it) and the compose decides the standing player.
+  Mean ≥ 0.140 with the gift share in (0.25, 0.489) → the switch moved
+  the gift and not far enough: dose is not the lever (it is already
+  certain) and the length lever on this construction is the named
+  follow-on. Gift share ≤ 0.25 with the mean under 0.140 → caution
+  bought at strength's price: the compose is still run (the veto has
+  lifted every raw checkpoint it was laid over) and reported. Neither →
+  the switch closes the reward-pricing line: outcome alone does not
+  price the gift away in 8k games, and the review moves to the loss
+  classes directly.
+
+**Budget.** The wiring and its tests (suite 556: the granted coup found
+from the killer's side and not from the mover's, the switch resolving
+the gift for either seat through both backends, the two-backend
+equivalence under the switch); the smoke run; 8k games (3–5 h); the gates
+(~30 min); one decider batch (~2.5 h DLL) unless the probe says no-go;
+one compose batch and one confirmation only on the clears named. Nothing
+else without a new entry.
+
+**Amendment, before the run (the wiring's cost, and the pre-filter
+tightened as named).** The smoke run (60 games, one collector, kick2's
+flags with `--kill-switch`) read the first form — the mask's pre-filter
+applied from the killer's side on every row — at **28.9 steps/s** over
+the opening turns (kick7's mask read 90 → 63 as games reached DEFCON 3
+and 2; ~325 unmasked). The killer's probe cannot exit early the way the
+mask's does: a mover's option is cleared by its first safe continuation,
+a kill is proven only by exhausting the killer's own choices, and the
+killer's own play — where a DEFCON death is its own — was paying that
+whole budget for nothing. Past the entry's line, so the named tightening
+went in before any training: in the killer's own play
+(`_defcon_one_loser` names the killer) only Wargames is probed — the
+card, its mode and order, its end-the-game choice — and inside the
+opponent's play the mask's pre-filter stands. The switch fires where the
+gift is, and nowhere else. Tightened, the smoke run read **157 → 114
+steps/s** at turns 1.6 → 2.4 with the switch resolving **0.24 → 0.74
+decisions a game**; at eight collectors the run is projected at ~2 h.
+Suite 556 unchanged: the granted-coup test sits inside the opponent's
+play, and the mover's own battleground coup in its own play is the
+negative.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

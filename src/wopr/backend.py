@@ -45,7 +45,7 @@ from typing import Any, Callable, Mapping, NamedTuple, Protocol, Sequence
 import numpy as np
 
 from struggler.bots.joshua import features as F
-from struggler.bots.joshua.search import KILL_MASK_DEFCON, KILL_MASK_KINDS, defcon_kill_mask
+from struggler.bots.joshua.search import KILL_MASK_DEFCON, KILL_MASK_KINDS, defcon_kill_mask, kill_options
 from struggler.engine import Side
 from wopr.arena import Arena, Opponent, PendingRow, SeatAssigner
 from wopr.eval import EvalCounts, EvalJob
@@ -71,6 +71,7 @@ class EpisodeRecord(NamedTuple):
     length: int
     margin: float = 0.0  # weight of the final-VP margin in `reward` (0: the outcome alone)
     vetoes: int = 0  # options the training veto struck from the learner's rows of this game (`--veto-train`)
+    kills: int = 0  # decisions of either seat the kill switch resolved to a provable win in this game (`--kill-switch`)
 
     def reward(self) -> float:
         """The terminal reward for the mover: `(1 - margin) * outcome +
@@ -97,6 +98,7 @@ class EpisodeRecord(NamedTuple):
             "vp": self.vp,
             "seed": self.seed,
             "vetoes": self.vetoes,
+            "kills": self.kills,
         }
 
 
@@ -125,10 +127,12 @@ class InProcessBackend:
         learner: str = LEARNER,
         margin: float = 0.0,
         veto_train: bool = False,
+        kill_switch: bool = False,
     ) -> None:
         self.arena = arena
         self.margin = margin
         self.veto_train = veto_train  # strike provable DEFCON deaths from the learner's rows (docs/JOSHUA.md kick7)
+        self.kill_switch = kill_switch  # every seat takes a provable win within the play (docs/JOSHUA.md kick8)
         self.n_slots = arena.n_games
         self._resolve = opponents
         self._opponents: dict[str, Opponent] = {}
@@ -140,6 +144,7 @@ class InProcessBackend:
         self._rows: list[PendingRow | None] = [None] * self.n_slots
         self._steps = np.zeros(self.n_slots, dtype=np.int64)
         self._vetoes = np.zeros(self.n_slots, dtype=np.int64)  # options struck in the running game of each slot
+        self._kills = np.zeros(self.n_slots, dtype=np.int64)  # decisions the switch resolved in the running game of each slot
         self._eval: EvalCounts | None = None
 
     def reset(self) -> None:
@@ -210,6 +215,7 @@ class InProcessBackend:
                         # was written for it, so there is nothing to
                         # reward: drop it and reset again.
                     self.arena.reset(slot)
+                    self._kills[slot] = 0  # a game dropped here (no learner row) takes its switch count with it
                     still_active.append(slot)
                     continue
                 policy_id = self.arena.policy_for(slot)
@@ -223,7 +229,10 @@ class InProcessBackend:
                 if len(choices) != len(rows):
                     raise ValueError(f"opponent {policy_id!r} answered {len(choices)} of {len(rows)} rows")
                 for row, choice in zip(rows, choices):
-                    self.arena.apply(row.slot, int(choice))
+                    choice = int(choice)
+                    if self.kill_switch:
+                        choice = self._kill_choice(row, choice)
+                    self.arena.apply(row.slot, choice)
             active = still_active
         return records
 
@@ -239,9 +248,11 @@ class InProcessBackend:
             length=int(self._steps[slot]),
             margin=self.margin,
             vetoes=int(self._vetoes[slot]),
+            kills=int(self._kills[slot]),
         )
         self._steps[slot] = 0
         self._vetoes[slot] = 0
+        self._kills[slot] = 0
         return record
 
     def _encode_all(self) -> None:
@@ -249,6 +260,8 @@ class InProcessBackend:
             F.encode_into(row.observation, self.buffers, slot)
             if self.veto_train:
                 self._veto_row(slot, row)
+            if self.kill_switch:
+                self._kill_row(slot, row)
 
     def _veto_row(self, slot: int, row: PendingRow) -> None:
         """The training-time veto (docs/JOSHUA.md kick7): options of the
@@ -268,6 +281,45 @@ class InProcessBackend:
                 mask[k] = 0
                 struck += 1
         self._vetoes[slot] += struck
+
+    def _kills_of(self, row: PendingRow) -> list[bool] | None:
+        """The kill switch's prover on the row's decision (docs/JOSHUA.md
+        kick8): which options are provable wins for the mover within the
+        play, `kill_options` from the killer's side on the game's own
+        determinization seed. None when the decision is outside the gate
+        or nothing kills."""
+        engine = self.arena.engine(row.slot)
+        decision = engine.pending_decision
+        if decision.kind not in KILL_MASK_KINDS or engine.defcon > KILL_MASK_DEFCON or len(decision.options) < 2:
+            return None
+        kills = kill_options(engine, row.side, decision, seed=self.arena.game_seed(row.slot))
+        return kills if any(kills) else None
+
+    def _kill_row(self, slot: int, row: PendingRow) -> None:
+        """The kill switch on a learner row: when some option is a provable
+        win, `opt_mask` is narrowed *to* the killing options before the
+        policy sees the row, so the distribution PPO samples from and
+        stores is over the kills alone -- the learner takes the win, and
+        its own kind pays for every gift in every game. Applied after the
+        veto, which a kill never contradicts."""
+        kills = self._kills_of(row)
+        if kills is None:
+            return
+        mask = self.buffers["opt_mask"][slot]
+        for k, kill in enumerate(kills):
+            if not kill:
+                mask[k] = 0
+        self._kills[slot] += 1
+
+    def _kill_choice(self, row: PendingRow, choice: int) -> int:
+        """The kill switch on a pool or anchor row: the opponent's choice
+        stands when it kills or when nothing does; otherwise it is
+        overridden with the first killing option."""
+        kills = self._kills_of(row)
+        if kills is None:
+            return choice
+        self._kills[row.slot] += 1
+        return choice if kills[choice] else kills.index(True)
 
 
 # -- shared memory ------------------------------------------------------------------
@@ -291,6 +343,7 @@ CONTROL_FIELDS: tuple[tuple[str, tuple[int, ...], Any], ...] = (
     ("ep_length", (), np.int32),
     ("ep_seats", (2,), _ID),
     ("ep_vetoes", (), np.int32),
+    ("ep_kills", (), np.int32),
 )
 
 #: Shared with the workers besides the per-slot fields: the evaluation
@@ -321,6 +374,7 @@ class ArenaSpec:
     scenario_frac: float = 0.0  # fraction of games started from the bank
     scenario_seats: tuple[str, str] | None = None  # (mover id, opponent id): scenario games seated by the arena itself
     veto_train: bool = False  # strike provable DEFCON deaths from the learner's rows (InProcessBackend veto_train)
+    kill_switch: bool = False  # every seat takes a provable win within the play (InProcessBackend kill_switch)
 
 
 @dataclass(frozen=True)
@@ -404,7 +458,7 @@ def worker_main(
     )
     backend = InProcessBackend(
         arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin,
-        veto_train=spec.veto_train,
+        veto_train=spec.veto_train, kill_switch=spec.kill_switch,
     )
     done.release()  # built: the main process may now write the next seats
     try:
@@ -444,6 +498,7 @@ def worker_main(
                 shared["ep_length"][slot] = record.length
                 shared["ep_seats"][slot] = (record.seats[Side.US].encode(), record.seats[Side.USSR].encode())
                 shared["ep_vetoes"][slot] = record.vetoes
+                shared["ep_kills"][slot] = record.kills
             done.release()
     finally:
         for segment in segments.values():
@@ -534,6 +589,7 @@ class SharedMemoryBackend:
                 length=int(shared["ep_length"][slot]),
                 margin=self.spec.margin,
                 vetoes=int(shared["ep_vetoes"][slot]),
+                kills=int(shared["ep_kills"][slot]),
             )
         if len(finished):
             # Those slots restarted during the step on the seats written

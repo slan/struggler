@@ -402,41 +402,85 @@ def defcon_kill_mask(engine: Engine, side: Side, decision: Decision, *, seed: in
     an option); when every option proves lost none is masked -- the
     policy's choice stands, the veto's own fallback. All False outside the
     probed kinds, above DEFCON 3, or with a single option."""
+    lost = _probe_options(engine, side, decision, root=side, seed=seed, budget=budget)
+    if lost is None or all(lost):
+        return [False] * len(decision.options)
+    return lost
+
+
+def kill_options(engine: Engine, side: Side, decision: Decision, *, seed: int = 0, budget: int = 80) -> list[bool]:
+    """Which of `decision`'s options are provable wins for `side` within the
+    current play -- the kill switch (docs/JOSHUA.md kick8), the mirror of
+    `defcon_kill_mask` from the killer's side: an option kills iff, on a
+    determinized copy on which it has been played, `kill_probe` proves the
+    *opponent* dead within the play -- through some continuation of `side`'s
+    own DEFCON-relevant choices, every one of the opponent's and every die.
+    The granted coup taken, the boycott that ends the opponent's headline,
+    Wargames at DEFCON 2. The mask's gate (DEFCON <= 3, the kinds where a
+    play is committed to) and, inside the opponent's play, its pre-filter
+    (the options that can bear on DEFCON); in the killer's own play a
+    DEFCON death is the killer's own (rule 4.5's note, `_defcon_one_loser`)
+    and only Wargames is probed. Unprovable never kills. All False when
+    nothing kills."""
+    found = _probe_options(engine, side, decision, root=side.opponent, seed=seed, budget=budget)
+    return [False] * len(decision.options) if found is None else found
+
+
+def _probe_options(engine: Engine, side: Side, decision: Decision, *, root: Side, seed: int, budget: int) -> list[bool] | None:
+    """For each option of `decision` (`side` to move), whether playing it on
+    one determinized copy proves a DEFCON death for `root` within the
+    current play (`kill_probe`): `root` is the mover for the training mask,
+    the opponent for the kill switch. None when nothing is worth probing
+    (outside the probed kinds, above DEFCON 3, a single option, or no
+    option that can bear on DEFCON)."""
     options = decision.options
     if decision.kind not in KILL_MASK_KINDS or engine.defcon > KILL_MASK_DEFCON or len(options) < 2:
-        return [False] * len(options)
-    worth = [_worth_probing(engine, side, decision, a) for a in options]
+        return None
+    if root is side or engine._defcon_one_loser(side) is root:
+        worth = [_worth_probing(engine, side, decision, a) for a in options]
+    else:
+        worth = [_is_wargames(engine, decision, a) for a in options]
     if not any(worth):
-        return [False] * len(options)
+        return None
     # One determinization per decision, copied per option: the proof is about
     # DEFCON, which the hidden cards almost never touch, and the copy is the
     # cheaper half of a determinize.
     snapshot = engine.determinize(side, ((seed + 1) * 1_000_003 + decision.id * 9973 + 7919) & 0x7FFFFFFF).serialize()
-    lost: list[bool] = []
+    proven: list[bool] = []
     for option, probe in zip(options, worth):
         if not probe:
-            lost.append(False)
+            proven.append(False)
             continue
         sim = Engine.deserialize(snapshot)
         boundary = SearchPlayer._boundary(sim)
         try:
             sim.step(option)
-            lost.append(kill_probe(sim, side, boundary, [budget]))
+            proven.append(kill_probe(sim, root, boundary, [budget]))
         except Exception:
-            lost.append(False)  # unprovable is never a veto
-    if all(lost):
-        return [False] * len(options)
-    return lost
+            proven.append(False)  # unprovable is never a veto, nor a kill
+    return proven
 
 
 #: Cards whose event can move DEFCON down, or hand the opponent a play, from
 #: the mover's own or a neutral side: probed at the card level like any
 #: opponent-event card. Every other own or neutral event leaves DEFCON alone
 #: within the play (the mover's own coup is caught at the ops decisions).
+WARGAMES = "Wargames"
 DEFCON_EVENTS = frozenset({
     "Olympic_Games", "Summit", "How_I_Learned_to_Stop_Worrying", "Duck_and_Cover", "We_Will_Bury_You",
-    "Cuban_Missile_Crisis", "Missile_Envy", "Wargames",
+    "Cuban_Missile_Crisis", "Missile_Envy", WARGAMES,
 })
+
+
+def _is_wargames(engine: Engine, decision: Decision, action: Action) -> bool:
+    """The one win the phasing side can force within its own play: the
+    Wargames card, its mode and order, and its end-the-game choice."""
+    kind = decision.kind
+    if kind in (DecisionKind.HEADLINE_PLAY, DecisionKind.ACTION_ROUND_PLAY):
+        return action.payload.get("card") == WARGAMES
+    if kind in (DecisionKind.PLAY_MODE, DecisionKind.EVENT_OPS_ORDER):
+        return decision.context.get("card") == WARGAMES
+    return kind is DecisionKind.EVENT_CHOICE and decision.context.get("event") == WARGAMES
 
 
 def _card_can_move_defcon(engine: Engine, side: Side, cid: str | None) -> bool:

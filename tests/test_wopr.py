@@ -409,15 +409,18 @@ def test_eval_pairs_are_independent_jobs_and_run_in_a_process_pool():
     assert pooled == serial
 
 
-def test_backend_trains_under_the_veto(tmp_path):
+@pytest.mark.parametrize("flag, count", [("veto_train", "vetoes"), ("kill_switch", "kills")])
+def test_backend_trains_under_the_probe(tmp_path, flag, count):
     """`veto_train` strikes provable DEFCON deaths from the learner's rows
-    (docs/JOSHUA.md kick7): every row keeps at least one option, the games
-    play on through both backends identically, and the episode record
-    carries the strike count."""
+    (docs/JOSHUA.md kick7); `kill_switch` narrows a row to its provable
+    wins and overrides an opponent's choice with one (kick8). Under
+    either, every row keeps at least one option, the games play on
+    through both backends identically, and the episode record carries
+    the count."""
     n_slots, steps = 4, 400
     opponents = StandardOpponents(str(tmp_path), seed=1)
-    local = InProcessBackend(Arena(n_slots, seed=9, seat_assigner=self_play), opponents, veto_train=True)
-    shared = SharedMemoryBackend(ArenaSpec(n_slots, 9, veto_train=True), self_play, opponents, workers=2)
+    local = InProcessBackend(Arena(n_slots, seed=9, seat_assigner=self_play), opponents, **{flag: True})
+    shared = SharedMemoryBackend(ArenaSpec(n_slots, 9, **{flag: True}), self_play, opponents, workers=2)
     try:
         local.reset()
         shared.reset()
@@ -429,11 +432,74 @@ def test_backend_trains_under_the_veto(tmp_path):
             actions = np.array([int(np.flatnonzero(m)[0]) for m in masks])
             _, _, recs = local.step(actions)
             _, _, shared_recs = shared.step(actions)
-            assert [r.vetoes for r in recs if r is not None] == [r.vetoes for r in shared_recs if r is not None]
+            assert [getattr(r, count) for r in recs if r is not None] == [getattr(r, count) for r in shared_recs if r is not None]
             records += [r for r in recs if r is not None]
     finally:
         shared.close()
-    assert all(r.vetoes >= 0 and r.summary()["vetoes"] == r.vetoes for r in records)
+    assert all(getattr(r, count) >= 0 and r.summary()[count] == getattr(r, count) for r in records)
+
+
+def test_kill_switch_resolves_the_granted_coup_for_either_seat(tmp_path):
+    """The kill switch (docs/JOSHUA.md kick8) on the gift's position, started
+    from a scenario bank: the USSR is phasing at DEFCON 2 with a 1-ops coup
+    of its own to make first, then the US holds a granted 2-ops coup with
+    Angola (a battleground) behind Morocco and Tunisia. Seated as the
+    learner, the US row is narrowed to Angola alone; seated as `first`
+    (which would coup Morocco), its choice is overridden with Angola. Either
+    way DEFCON reaches 1, the phasing USSR loses, and the record counts the
+    one decision the switch resolved -- through both backends alike."""
+    import json
+
+    from conftest import bare_engine
+
+    engine = bare_engine()
+    engine.defcon = 2
+    engine.phase = "action_rounds"
+    engine._ars_played = 1  # play index 0 was the USSR's: the USSR is phasing
+    for country in ("Morocco", "Tunisia", "Angola"):
+        engine.board.influence[country]["USSR"] = 2
+    for country in ("Morocco", "Tunisia"):
+        engine.board.influence[country]["US"] = 2
+    engine.begin_coup(Side.US, ops=2)  # the granted coup, beneath
+    engine.begin_coup(Side.USSR, ops=1)  # the USSR's own coup of Morocco or Tunisia, on top
+    header = {"kind": "scenario-bank", "us_bid": 0, "starting_vp": 0, "events": True, "include_optional": True}
+    bank_path = tmp_path / "bank.jsonl"
+    bank_path.write_text("\n".join(json.dumps(x) for x in (header, {"mover": "USSR", "state": engine.serialize()})) + "\n")
+    from wopr.scenarios import ScenarioBank
+
+    bank = ScenarioBank.load(bank_path)
+    opponents = StandardOpponents(str(tmp_path), seed=1)
+    for us, ussr in ((LEARNER, "first"), ("first", LEARNER)):
+        seats = _seats(us, ussr)
+        local = InProcessBackend(
+            Arena(1, seed=3, seat_assigner=seats, scenario_bank=bank, scenario_frac=1.0), opponents, kill_switch=True)
+        spec = ArenaSpec(1, 3, scenario_path=str(bank_path), scenario_frac=1.0, kill_switch=True)
+        shared = SharedMemoryBackend(spec, seats, opponents, workers=1)
+        try:
+            for backend in (local, shared):
+                backend.reset()
+                mask = backend.buffers["opt_mask"][0]
+                decision = local.arena.engine(0).pending_decision if backend is local else None
+                if us == LEARNER:
+                    # The USSR's own coup (`first`: Morocco) went by, no kill in
+                    # it; the learner's granted coup is narrowed to Angola.
+                    assert mask.sum() == 1
+                    if decision is not None:
+                        assert decision.actor is Side.US
+                        assert decision.options[int(np.flatnonzero(mask)[0])].payload["country"] == "Angola"
+                else:
+                    # The learner's own coup: two targets, nothing to narrow.
+                    assert mask.sum() == 2
+                    if decision is not None:
+                        assert decision.actor is Side.USSR
+                _, dones, records = backend.step(np.array([int(np.flatnonzero(mask)[0])]))
+                assert dones.tolist() == [True]
+                record = records[0]
+                assert record.winner is Side.US and record.mover is (Side.US if us == LEARNER else Side.USSR)
+                assert record.kills == 1 and record.summary()["kills"] == 1
+                assert record.reward() == (1.0 if us == LEARNER else -1.0)
+        finally:
+            shared.close()
 
 
 def test_shared_memory_backend_plays_the_same_games_as_the_in_process_one(tmp_path):

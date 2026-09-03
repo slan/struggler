@@ -13,7 +13,7 @@ torch = pytest.importorskip("torch")
 
 from conftest import bare_engine  # noqa: E402
 from struggler.bots.joshua.model import JoshuaConfig, JoshuaNet  # noqa: E402
-from struggler.bots.joshua.search import SearchPlayer, defcon_kill_mask, kill_probe  # noqa: E402
+from struggler.bots.joshua.search import SearchPlayer, defcon_kill_mask, kill_options, kill_probe  # noqa: E402
 from struggler.engine import Engine, Side  # noqa: E402
 from struggler.engine.core import HIDDEN_CARD  # noqa: E402
 from struggler.engine.types import DecisionKind  # noqa: E402
@@ -186,6 +186,29 @@ def test_kill_probe_proves_the_granted_coup_mate():
         engine.begin_coup(Side.US, ops=2)
         sim = engine.determinize(Side.USSR, seed=1)
         assert kill_probe(sim, Side.USSR, SearchPlayer._boundary(sim), [80]) is expected
+
+
+def test_kill_options_finds_the_granted_coup_from_the_killers_side():
+    # The kill switch (docs/JOSHUA.md kick8) is the mask's mirror: during
+    # the USSR's round the US holds a granted coup at DEFCON 2 -- the
+    # battleground coup is a provable win for the US, the others are not,
+    # and at DEFCON 4 nothing is. The same position from the mover's own
+    # side is not a kill: the USSR's battleground coup in its own round
+    # kills itself, and the switch never fires on it.
+    for defcon, expected in ((2, {"Morocco": False, "Tunisia": False, "Angola": True}), (4, {"Morocco": False, "Tunisia": False, "Angola": False})):
+        engine = bare_engine()
+        engine.defcon = defcon
+        engine.phase = "action_rounds"
+        engine._ars_played = 1  # play index 0 was the USSR's: the USSR is phasing
+        for country in ("Morocco", "Tunisia", "Angola"):
+            engine.board.influence[country]["USSR"] = 2
+        engine.begin_coup(Side.US, ops=2)
+        decision = engine.pending_decision
+        assert decision.actor is Side.US and decision.kind is DecisionKind.COUP_TARGET
+        kills = dict(zip((a.payload["country"] for a in decision.options), kill_options(engine, Side.US, decision)))
+        assert kills == expected
+    engine = coup_engine_defcon2()
+    assert not any(kill_options(engine, Side.USSR, engine.pending_decision))
 
 
 def test_value_mode_probes_its_pick(net):

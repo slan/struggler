@@ -325,6 +325,27 @@ learner game. A checkpoint trained this way is reported under the
 inference veto (`veto=`): its gift logits are untrained and are never
 played raw.
 
+**The kill switch (`train.py --kill-switch`, docs/JOSHUA.md kick8).** The
+mask's mirror, from the killer's side. `kill_options` probes each option
+of a decision of *either* seat under the same gate and pre-filter, and an
+option kills iff `kill_probe` on the copy it has been played on proves
+the *opponent* dead within the play -- through some continuation of the
+killer's own DEFCON-relevant choices, every one of the victim's and every
+die (the granted coup taken, the boycott that ends the opponent's
+headline, Wargames at DEFCON 2). The backend applies it to every row of
+every seat: a learner row with a kill has `opt_mask` narrowed *to* the
+killing options before the policy samples (PPO stores the narrowed
+distribution; the learner takes the win), and a pool or anchor seat's
+choice stands if it kills and is otherwise overridden with the first
+killing option. So every gift is punished in every game by whichever
+seat holds the kill, and the reward prices it while the victim's policy
+still sees the option -- the caution has to live in the policy and the
+value head, not in a mask. `kills_per_game` counts the decisions the
+switch resolved per learner game, both seats; a game dropped before its
+first learner row takes its count with it. Both flags may be set: the
+veto strikes first, and a kill never contradicts it. A checkpoint
+trained this way is a player raw.
+
 Wiring: `wopr.playdek.eval --policy search=ckpt.pt | veto=ckpt.pt`
 (easy/hard evals; the AI's 15 s per decision dwarfs the search),
 `python -m wopr.search_eval --policy search=ckpt.pt --opponent
@@ -593,7 +614,7 @@ generation.
 
 Per update: games, win rates (overall, per seat, vs pool, vs anchor),
 the current anchor, rollout and update seconds (and, with collectors,
-the seconds spent waiting on them), draw rate, episode length, mean final turn, the learner's mean final VP (`vp_mean`, non-self-play games), `vetoes_per_game` (options struck by the training veto, `--veto-train`), policy health —
+the seconds spent waiting on them), draw rate, episode length, mean final turn, the learner's mean final VP (`vp_mean`, non-self-play games), `vetoes_per_game` (options struck by the training veto, `--veto-train`), `kills_per_game` (decisions the kill switch resolved, `--kill-switch`), policy health —
 `entropy`, `k_valid` (mean legal options), `entropy_ratio = H / ln K`
 (≈1: not choosing yet; ≪0.3 with many options: collapsed), `k_eff = e^H`
 — and SB3's `approx_kl`, `clip_fraction`, `explained_variance`, losses.

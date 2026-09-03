@@ -47,7 +47,7 @@ from wopr.vec_env import LEARNER, WoprVecEnv
 CSV_COLUMNS = (
     "update", "timesteps", "games", "games_in_rollout", "elapsed_s", "steps_per_s", "rollout_s", "update_s", "wait_s",
     "win_rate", "win_rate_us", "win_rate_ussr", "draw_rate", "win_rate_vs_pool", "win_rate_vs_anchor",
-    "ep_len_mean", "turn_mean", "vp_mean", "vetoes_per_game",
+    "ep_len_mean", "turn_mean", "vp_mean", "vetoes_per_game", "kills_per_game",
     "entropy", "k_valid", "entropy_ratio", "k_eff",
     "approx_kl", "clip_fraction", "explained_variance", "policy_loss", "value_loss", "entropy_loss",
     "pool_size", "anchor",
@@ -319,6 +319,7 @@ class WoprCallback(BaseCallback):
             "turn_mean": round(float(np.mean([g["turn"] for g in games])), 2),
             "vp_mean": round(float(np.mean(vps)), 2) if vps else None,
             "vetoes_per_game": round(float(np.mean([g.get("vetoes", 0) for g in games])), 2),
+            "kills_per_game": round(float(np.mean([g.get("kills", 0) for g in games])), 2),
         }
 
     def _policy_health(self, sample: int = 2048) -> dict[str, Any]:
@@ -369,7 +370,7 @@ class WoprCallback(BaseCallback):
                 f"[wopr] upd {row['update']:>4} | games {row['games']:>6} (+{row['games_in_rollout']}) "
                 f"| wr {row.get('win_rate')} us {row.get('win_rate_us')} ussr {row.get('win_rate_ussr')} "
                 f"pool {row.get('win_rate_vs_pool')} anchor {row.get('win_rate_vs_anchor')} "
-                f"| len {row.get('ep_len_mean')} turn {row.get('turn_mean')} veto {row.get('vetoes_per_game')} "
+                f"| len {row.get('ep_len_mean')} turn {row.get('turn_mean')} veto {row.get('vetoes_per_game')} kill {row.get('kills_per_game')} "
                 f"| H {row.get('entropy')} K {row.get('k_valid')} H/lnK {row.get('entropy_ratio')} "
                 f"| kl {row.get('approx_kl')} clip {row.get('clip_fraction')} ev {row.get('explained_variance')} "
                 f"| {row['steps_per_s']} st/s | rollout {row['rollout_s']}s update {row.get('update_s')}s",
