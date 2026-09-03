@@ -1416,7 +1416,12 @@ class Engine:
             self._log_card_exit(side, un_id)
             self.discard_pile.append(un_id)
             self._file_card(side, cid, fired=False)  # event cancelled: normal discard
-            self._push_ops_type(side, self._effective_ops(side, card))
+            # UN Intervention's Ops earn no regional bonus (Vietnam Revolts'
+            # "+1 if all in Southeast Asia"): the official AI's ruling,
+            # adopted as rules version 9 (docs/WOPR.md, the twenty-third
+            # pass -- the DLL closed the bot's 1-Op play after one placement
+            # where the engine asked a bonus point).
+            self._push_ops_type(side, self._effective_ops(side, card), regional=False)
             return
 
         if mode == "space_race":
@@ -1455,8 +1460,11 @@ class Engine:
         self._push_ops_type(side, ops, china=(cid == RULES["china_card_id"]))
 
     def _push_ops_type(
-        self, side: Side, ops: int, china: bool = False, allow_coup: bool = True, may: bool = False
+        self, side: Side, ops: int, china: bool = False, allow_coup: bool = True, may: bool = False,
+        regional: bool = True,
     ) -> None:
+        """`regional=False`: a spend that earns no per-turn regional bonus
+        whatever the board (UN Intervention's Ops, rules version 9)."""
         options = self._ops_type_options(side, ops, allow_coup)
         if may:
             # Event-granted Operations are optional on every granting card's
@@ -1464,7 +1472,7 @@ class Engine:
             options = (*options, Action(DecisionKind.OPS_TYPE, {"type": "pass"}))
         self._push(
             side, DecisionKind.OPS_TYPE, options,
-            {"side": side.value, "ops": ops, "bonus": self._ops_bonus_regions(side, china)},
+            {"side": side.value, "ops": ops, "bonus": self._ops_bonus_regions(side, china) if regional else None},
         )
 
     def _ops_bonus_regions(self, side: Side, china: bool) -> list[str] | None:

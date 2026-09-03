@@ -195,7 +195,7 @@ class Bridge:
 
     #: Purely informational divergence kinds: evidence for later diagnosis,
     #: never a reason to stop the game or to count toward the cap.
-    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops", "contest", "random-discard")
+    _DIAGNOSTIC = ("grain", "hand-drift", "granted-ops", "contest", "random-discard", "coup")
 
     @property
     def stop(self) -> bool:
@@ -736,6 +736,21 @@ class Bridge:
                 return None
             self.rolls.remove(roll)
             key = next(iter(roll.payload))
+            if d.kind is DecisionKind.COUP_ROLL and country is not None and not getattr(self, "_simulating", 0):
+                # Evidence, once per real coup: the DLL's die against the
+                # engine's arithmetic and both boards, so a coup whose result
+                # the two programs count differently (kick7-veto-easy 411:
+                # the AI's Colombia at USSR 5 where the engine's 3 Ops and
+                # the die's 1 made 1) carries its inputs into the next batch.
+                side = Side(d.context["side"])
+                info = self.engine.board.countries[country]
+                ops = d.context.get("ops")
+                mod = self.engine._coup_roll_modifier(side, info)
+                margin = roll.payload[key] + ops - 2 * info.stability + mod
+                mine = self.engine.board.influence[country]
+                self.diverge("coup", f"coup {country} by {side.value}: DLL die {roll.payload[key]}; engine ops {ops}, "
+                             f"stability {info.stability}, modifier {mod} -> margin {margin}; engine before USSR {mine['USSR']}/US {mine['US']}, "
+                             f"DLL now (USSR, US) {self.influence.get(country)}; recent records: {list(self.recent)[-6:]}")
             return self._pick(d, lambda a: a.payload.get(key) == roll.payload[key], f"roll {roll}")
         if d.kind is DecisionKind.RANDOM_DISCARD and d.context.get("purpose") == "grain_sales":
             if self._grain is None:
@@ -861,7 +876,8 @@ class Bridge:
         trail = (f"; {card}: engine has it in {self._engine_location(card)}, DLL history {self.loc_history.get(card, [])}"
                  if card in self.loc_history or card in ids.NUMBER_BY_CARD else "")
         self.diverge("illegal in engine", f"{d.actor.value} {d.kind.value}: Playdek chose {what}, engine offers "
-                     f"{[dict(a.payload) for a in d.options][:12]}{'...' if len(d.options) > 12 else ''}{trail}", fatal=True)
+                     f"{[dict(a.payload) for a in d.options][:12]}{'...' if len(d.options) > 12 else ''}{trail}"
+                     f" (recent records: {list(self.recent)})", fatal=True)
         return d.options[0]
 
     def _pick_choice(self, d: Decision, mv: Move) -> Action:

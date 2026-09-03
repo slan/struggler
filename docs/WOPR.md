@@ -1929,6 +1929,44 @@ Findings from the first four random games, and what became of each:
   drift, 312's country again — the granted-Ops attribution face). The
   voids: De-Stalinization placing fewer than it removed and The
   Reformer's lapsed ban, both known. Input for the twenty-third pass.
+- **Twenty-third pass, from the kick7-veto-easy fatals' trails (full
+  texts in `runs/playdek/desync-mining-2026-09-03-kick7.txt`), no new
+  DLL volume.** (1) *346, the bot's UN Intervention play under Vietnam
+  Revolts — a rules difference, adopted as rules version 9.* The AI had
+  played Vietnam Revolts (event first) and the bot answered with CIA
+  Created under UN Intervention, its one Op placed in Laos/Cambodia —
+  inside Southeast Asia, so the engine offered the "+1 if all in the
+  region" bonus point as a second placement, while the DLL had closed
+  the play on the one placement (its next records: both cards to the
+  discard, then the AI's Warsaw Pact Formed, event first, and its
+  "Choose for Eastern Europe" for the bot's seat — the fatal's
+  "illegal in Playdek"). The DLL's UN Intervention path spends the
+  card's printed Ops and no regional bonus; the engine had no way to
+  decline a bonus point (the placement decision carries no stop), so
+  the ruling is adopted: `_push_ops_type(regional=False)` for the
+  `un_intervention` mode, rules version 9, one test (the bonus on the
+  plain play of the same card, none under UN Intervention). (2) *411,
+  the AI's Colombia coup the two programs scored apart — instrumented.*
+  The engine's Brezhnev Doctrine coup (3 Ops, the DLL's die read as 1,
+  Colombia's stability 1: margin 2, the US point removed and one USSR
+  point added) stood against the DLL's Colombia at USSR 5 two records
+  later (a margin of 6: three more Ops or four more pips than the engine
+  had), and the AI's second coup of Colombia at the next round found
+  no US point there in the engine. The "illegal in engine" fatal
+  carried no records, so the DLL's own account of the first coup is
+  lost; now a `coup` evidence line (diagnostic kind) records every real
+  coup's inputs — the DLL's die, the engine's Ops, stability and
+  modifier, the margin, the engine's board before and the DLL's board
+  after, the last records — and `_pick`'s illegal-in-engine fatal
+  carries the recent records too. The next batch's Colombia, if it
+  comes again, names the Ops. Still open with trails: kick4's 410 (a
+  Grain Sales take carried as a return by the drift rescue, the taken
+  card played by the AI for the same two Ops the return would have
+  granted — indistinguishable on the board, the hand the tell; its
+  simulation's stop point needs a trace), 367 (the `contest` line
+  waits for the next Summit), kick4's 312. Verified: suite 557, the
+  grain sweep 149/149, hotseat 8/8, the differ 12/12, one harness at a
+  time.
 
 ### The match operator (`operator.py`) and the eval (`eval.py`)
 

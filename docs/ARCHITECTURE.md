@@ -305,6 +305,11 @@ ends the game on the VP total as it stands after the 6-VP gift —
 "without Final Scoring", the printed text — where the engine had
 final-scored every region (docs/WOPR.md, the twenty-first pass: the
 official AI's Wargames endings desynced on exactly that difference).
+Version 9: a UN Intervention play's Ops earn no per-turn regional bonus
+(Vietnam Revolts' "+1 if all in Southeast Asia") — the official AI's
+ruling, adopted (docs/WOPR.md, the twenty-third pass: the DLL closed
+the bot's 1-Op play after its one placement where the engine asked a
+bonus point).
 
 ## Opening deal order
 
