@@ -3258,7 +3258,9 @@ DLL games evaluation-only; this arm takes the same logged games as
 *positions* — the AI's line up to the US's first pick, the AI's hand
 resampled, no live DLL game touched — and reads the amendment as
 covering it. Named as the assumption the user's call may overturn; the
-run is then discarded, not reported.
+run is then discarded, not reported. **Confirmed by the user the same
+evening (2026-09-09, ~21:50): the amendment covers logged games as a
+state prior.** The run stands.
 
 **Design choices, and their risks.** (1) The learner in the US seat of
 every scenario game: the scenario quarter is US-seat rows for the

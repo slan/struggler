@@ -62,8 +62,7 @@
   --scenario-learner-mover` (new: the learner at the bank entry's mover, the
   seat mix's other draw kept), `--kill-switch`. Policy assumption stated in
   the entry: logged games as a state prior fall under the 2026-08-30
-  amendment -- the user's call; the run is discarded if it goes the other
-  way. Gates: kick8's (absorption, diagnose >= 0.9, no seat collapse; probe
+  amendment -- **confirmed by the user 2026-09-09 evening**; the run stands. Gates: kick8's (absorption, diagnose >= 0.9, no seat collapse; probe
   reported not gating) plus the arm's own reads --
   `runs/playdek/opening_remeasure.py` on the held-out states vs kick2 as
   USSR (baseline reading for kick8/kick2 in
