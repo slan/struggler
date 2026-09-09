@@ -43,8 +43,18 @@
   Europe (4.7 Ops points a game vs the arena USSR's 2.3) and the arena's
   sampled US setup leaves West Germany at 0.7 vs the argmax 4, so Blockade
   costs 0.5 a play in the arena and 4.1 on the board.
-- **kick9** (docs/JOSHUA.md 2026-09-09, third entry, pre-registered; RUNNING
-  from 15:10, `runs/kick9`, ~4-5 h): kick8's construction plus the board's
+- **kick9** (docs/JOSHUA.md 2026-09-09, third entry, pre-registered; trained
+  15:10-20:24, `runs/kick9`; **gates all passed** 20:28 -- diagnose 0.967,
+  per-seat vs Greedy 0.960/0.980, absorption 0.502, switch 0.56/game,
+  self-play USSR edge 0.517; the held-out re-measure moved: West Germany
+  held 76/124 (kick8 45), Blockade plays 46 (65), turn-3 VP -7.8 (-8.7),
+  the discard still refused 21/22; the sampled arena setup West Germany 1.2
+  (kick2 0.7); probe as gifter 10/100 and 19/100, reported. **Decider
+  queued** behind the confirmation batch: `runs/kick9-decider-chain.sh`
+  launches `runs/playdek/kick9-easy` on the GO in `runs/kick9/verdict.txt`
+  the moment `kick2-dump-easy-s500/summary.json` appears; success = US seat
+  >= 0.15 AND mean >= 0.140; the in-run evals were off this run (config
+  `eval_every` 0), a protocol slip): kick8's construction plus the board's
   opening as the prior -- `scenarios/us-opening-board.jsonl` (1,637 states,
   US to move at its first pick of turns 1-3, harvested by `wopr.scenarios
   --from-logs` from the 620 kick-era US-seat logs; 183 held out in

@@ -3315,6 +3315,37 @@ gates (~30 min); one decider batch (~3 h DLL) once the dump batch
 releases the DLL; the compose only on the clears named. Nothing else
 without a new entry.
 
+**Result — the gates** (2026-09-09, `runs/kick9`, 8k games 15:10–20:24
+at 91 steps/s alongside the DLL batches; `runs/kick9/gates.log`,
+`runs/kick9-gates.sh`). The raw checkpoint is a player: `wopr.diagnose`
+**0.967** vs Greedy at bid 2 (kick8 0.967), and per seat over 200
+`search_eval` games USSR 0.960 / US 0.980 — no seat collapse (the
+in-run evaluations did not run: this run's config recorded
+`eval_every` 0 where kick8's had 500, a protocol slip noted, the
+per-seat read taken after the fact instead). Absorption **0.5020** on
+falken1's corpus (kick2 0.505, kick8 0.4941: the pull intact). The
+anchor curve 0.742 (kick8 0.753), the switch resolving **0.56**
+decisions a game throughout (kick8 0.58). Self-play, 120 games: the
+**USSR edge 0.517** (kick8 0.733, the family's most balanced seats),
+DEFCON-1 endings 34 (kick8 23), mean final turn 7.31. The probe as
+gifter, reported: **10/100 vs falken1** (kick8 4, kick2 6), **19/100 vs
+C** (kick8 9, kick2 15) — the arena gift counts back at kick2's level;
+the gift line is closed and the count does not gate. The arm's own
+reads: (a) the held-out re-measure (`runs/kick9/opening-remeasure.log`,
+124 turn-1/turn-2 board states, kick9 as US argmax vs kick2 as USSR,
+through the end of turn 3): **West Germany held in 76 of 124** (kick8
+45, kick2 48), mean US points there 3.0 (2.0), Europe battlegrounds
+1.96 to 2.47 (1.65 to 2.48), **Blockade played 46 times** (65, 62),
+every one with West Germany at 3+ and the discard still refused 21 of
+22 (kick8 45 of 51), Europe Scoring from behind 27 of 62 (39 of 73),
+VP at the end of turn 3 **−7.8** (kick8 −8.7, kick2 −10.2); (b) the
+arena's sampled US setup (40 kick9 self-play games): West Germany
+**1.2** points (kick2 0.7), at 4+ in 5 of 40 (1), Italy 2.2 (2.1) —
+the learner's own sampled setup moved a little toward the board's,
+not to it. Every gate passes; the decider is queued on the DLL behind
+the dump's confirmation batch (`runs/kick9-decider-chain.sh`, the GO
+verdict in `runs/kick9/verdict.txt`).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
