@@ -52,13 +52,13 @@ def build_player(spec: str, *, seed: int) -> Player:
 
         return FirstLegalPlayer()
     if "=" not in spec:
-        raise ValueError(f"policy {spec!r}: expected random|greedy|first or search=|veto=|joshua=checkpoint.pt")
+        raise ValueError(f"policy {spec!r}: expected random|greedy|first or search=|veto=|dump=|joshua=checkpoint.pt")
     name, checkpoint = spec.split("=", 1)
-    if name in ("search", "veto"):
+    if name in ("search", "veto", "dump"):
         from struggler.bots.joshua.search import SearchPlayer
 
         return SearchPlayer.from_checkpoint(
-            checkpoint, evaluator="value" if name == "search" else "terminal", seed=seed
+            checkpoint, evaluator="value" if name == "search" else "terminal", dump=name == "dump", seed=seed
         )
     from struggler.bots.joshua.player import JoshuaPlayer
 
@@ -93,7 +93,7 @@ def main(argv: list[str] | None = None) -> None:
     from wopr.playdek.eval import wilson  # the same interval on the same kind of tally
 
     p = argparse.ArgumentParser(description="The search player against an in-repo opponent.")
-    p.add_argument("--policy", required=True, help="search=ckpt.pt | veto=ckpt.pt | joshua=ckpt.pt | greedy | random | first")
+    p.add_argument("--policy", required=True, help="search=ckpt.pt | veto=ckpt.pt | dump=ckpt.pt | joshua=ckpt.pt | greedy | random | first")
     p.add_argument("--opponent", default="greedy", help="same specs as --policy")
     p.add_argument("--games", type=int, default=200)
     p.add_argument("--seed", type=int, default=1)

@@ -2964,6 +2964,170 @@ engine, one harness at a time: the grain sweep 149/149 (desyncs 0),
 hotseat 8/8, the differ 12/12 zero fatals; suite 557. Measured by the
 next AI batch.
 
+### 2026-09-09 — the gift audit: the board's deaths replayed through the probe; the arena reaches the positions; the gift line closes
+
+**The review** (user, 2026-09-09, on a written assessment of kick8's
+follow-on): before the switch runs over kick3's scenario starts, audit
+the 19 deaths the arm is meant to cure. Run the same day on the
+artefacts in this checkout — `runs/playdek/kick8-easy`'s 120 replay
+logs replayed through the engine (`replay.make_engine`), the probes
+called at the reconstructed decisions, and 40 kick8-vs-kick8 sampled
+games at bid 2 as the arena's own sample; `runs/playdek/gift_audit.py`
+re-runs the whole of it. No training, no DLL time.
+
+**Question.** Three, in the order the proposed arm needs them answered:
+does the probe find the board's kills (detection); does the arena reach
+the positions the board kills in (distribution); at which decision was
+each death avoidable (credit).
+
+**Detection.** At the fatal action-round decision: the fatal card was
+CIA Created 8, Tear Down This Wall 3, Grain Sales to Soviets 3, Five
+Year Plan firing CIA Created 3, Star Wars 1, Soviets Shoot Down KAL-007
+1 (a DEFCON event, not a coup — the kick8 entry's "14 event-granted
+coups" counted KAL-007 and Star Wars); 4 were forced (one card in hand),
+15 had a probe-safe alternative card, 15 came at action round 6 or 7.
+From the AI's side — `kill_options` at the first US decision inside the
+play, the switch's own call at its default budget of 80 — the kill is
+provable in **18 of 19** (KAL-007 has no US decision: the event itself
+kills). From the bot's side — `defcon_kill_mask` at the card decision,
+kick7's mask — **0 of 19** at budget 80 and 7 of 19 at budget 4000, all
+CIA Created at 500–800 engine copies each; the 2–4 Ops cards clear at
+the card level because the Space Race is open for them (the loss is at
+`PLAY_MODE`), Grain Sales and Star Wars exhaust any budget on their
+chance branching. The inference veto is a different probe (the policy's
+line at 800), which is why kick2+veto's residual shares are low where
+the training mask is blind. So the switch punished the right shape in
+training; the gap is not detection.
+
+**Distribution.** The kick8 entry's second reading — the board's gifts
+are positions the arena never reaches — is false on measurement. USSR
+seat, kick8 raw, board (60 games) against arena (40): DEFCON 2 by turn
+1 in 73% / 70% of games, by turn 2 in 27% / 28%; decisions with a
+killing card in hand 20.4 / 14.2 a game, of them at DEFCON 2 73% /
+60%; the card dumped in a DEFCON-3 window 15% / 24% of the windows
+(51/332, 54/225); a killer played at DEFCON 2 for Ops or event 1.0 /
+0.85 a game (60/60, 34/40); played for Ops though it could have been
+spaced 44 of 320 / 14 of 164 space-open decisions; forced positions
+(the hand nothing but killers) 22 / 13. In self-play 62% of the USSR's
+action-round decisions are at DEFCON 2 (930/1506) and the death shape
+— DEFCON 2, two cards or fewer, a gift among them — occurs in 38 of 40
+games. The arena is saturated with these states and the policy behaves
+the same in both; the arena's gifts go unpunished at inference because
+the raw opponent declines the kill (the switch's named risk: a narrowed
+row trains the kills' relative logits and nothing else), the board's
+are taken. The killing set used: CIA Created, Tear Down This Wall,
+Grain Sales to Soviets, Star Wars, Duck and Cover, KAL-007, plus Five
+Year Plan when CIA Created is in hand.
+
+**Credit.** Every one of the 19 games had DEFCON-3 windows while the
+bot carried the fatal card — 1 to 20 decisions each — where playing it
+could not have killed; the Space Race was open for the card in 12 of
+19 games, 2 to 13 decisions each. The card was carried 3 to 52
+decisions, CIA Created 14 to 52. The loss is a scheduling failure: the
+killer rides through the safe windows and dies at a forced or
+near-forced last action round, the avoidable decision 6 to 50 decisions
+earlier. The scenario bank cannot hold that lesson: its predicate
+requires DEFCON 2 and the lesson lives at DEFCON 3; 8 of the 19 fatal
+cards fall outside the predicate; and the bank's entries
+(`scenarios/defcon2-gift-v3.jsonl`, 896) sit at turns 1–3 (677), action
+rounds 2–4 (639), hand sizes 4–6 (555), with a non-gift option in 892 —
+the easy end of the problem, and the end the arena already floods.
+
+**The ceiling arithmetic.** Replaying the standing player's gifted
+losses at each seat's non-gift win rate: kick2+veto USSR 0.330 → ~0.38,
+US 0.189 → ~0.20, pooled 0.258 → **~0.29** — under the 0.308 bar and
+nowhere near 0.5 with the gift class cured outright. The bar lives in
+the VP class: the US seat lost 45 of 58 decided games on VP, 18 at turn
+3 and 28 by turn 4, mean VP at the turn ends −2.8 / −6.1 / −11.9 /
+−10.7 (US positive), Europe Scoring the largest swing (played by the
+bot as US 37 times for a net −199, by the AI 42 times for −187), then
+Middle East Scoring (−128 / −118) and Asia Scoring (−79 / −74); the
+USSR seat's 23 VP losses come at turns 4–7 from Europe, South America
+and Central America scoring. An opening problem, and the transfer gap
+itself: 0.967 against Greedy, 0.052 on the board as US.
+
+**Decision.** The proposed arm — the switch over kick3's scenario
+starts — is not run: its premise is refuted (the arena reaches the
+positions; the bank holds the wrong ones) and its ceiling is under the
+bar. kick8's fourth reading stands as written: outcome alone does not
+price the gift away, and the review moves to the loss classes. **The
+gift line closes as a training target.** The correction to the kick8
+entry's second reading is recorded here, the entry left as written.
+Two moves follow, in order: the dump (the next entry — the gift class
+removed at inference by rules arithmetic, one batch, to measure what
+the class is worth), and the training line to the US seat's opening
+(its entry follows the opening diagnosis, running today). Standing
+unchanged: kick2+veto 0.258 pooled (bar 0.308), kick2 raw 0.140.
+
+### 2026-09-09 — the dump: the veto's horizon stretched to the turn, on the standing player (pre-registered)
+
+**The decision** (user, 2026-09-09, the audit's second move): the
+audit's credit finding says the board's gifts are lost at the schedule,
+not at the play — every death had a window or a space slot the bot
+walked past. The veto cannot use them: its horizon is the play, and at
+the fatal decision the safe door is already shut. A rider that reads
+the turn's arithmetic can. Zero training; one batch; the measurement is
+what the gift class is worth on the board, the arithmetic's ~0.29
+written down before the batch.
+
+**Question.** With the gift class removed at inference by rules
+arithmetic, what does the standing player read on the board — and is
+kick2+dump a better standing player than kick2+veto?
+
+**Setup.** The wiring: `SearchPlayer(dump=True)` over the veto
+(`bots/joshua/search.py`; WOPR.md's search section). `GIFT_CARDS`
+names, per seat, the opponent-event cards whose Ops play fires an event
+that hands the opponent a coup or degrades DEFCON — USSR: CIA Created,
+Tear Down This Wall, Grain Sales to Soviets, Star Wars, Duck and Cover,
+KAL-007; US: Lone Gunman, Ortega Elected in Nicaragua, We Will Bury You
+(neutral and own events do not fire when played for Ops, and are not
+gifts; Five Year Plan's gamble is the policy's). At each action-round
+card decision the rider reads its own hand on a determinized copy and
+does the turn's arithmetic: plays left, cards carried past them, gifts
+that therefore cannot all be held. At DEFCON 3 or more a gift with no
+disposal route (below the Space Race's Ops requirement at the mover's
+box, no UN Intervention in hand) is played now, forced or not; a
+disposable one only when it must leave this turn; the mode stays the
+policy's under the veto. At DEFCON 2 a gift that must leave is played
+under UN Intervention or into the Space Race now, the mode insisted on
+at its `PLAY_MODE`. Otherwise the veto's choice stands. Policy spec
+`dump=` in `wopr.playdek.eval`, `wopr.search_eval` and `src/main.py
+--us joshua-dump`; tests `tests/test_dump.py` (six: the gift table is
+opponent events, the unspaceable gift leaves at the first window and
+never at DEFCON 2, the spaceable one waits until forced, the forced one
+is spaced at DEFCON 2 through both decisions, the US seat, a stale
+intent dropped). The batch: `wopr.playdek.eval --difficulty easy
+--games 120 --seed 300 --bid 2 --policy dump=runs/kick2/joshua.pt
+--workers 8 --out runs/playdek/kick2-dump-easy` — the standing
+decider's shape on the compose batch's own seeds, rated as the named
+policy **kick2+dump**, read against kick2+veto's seeds-300 batch (USSR
+0.333 / US 0.204 / mean 0.268, gift share 0.188) and its pooled 0.258.
+
+**Prediction, written first.** The USSR-seat gift share from 0.19 to
+≤ 0.05; by the arithmetic USSR ~0.38, US ~0.20, mean ~0.29 — under the
+0.308 bar. The dump's costs: a 1-Op coup handed over at DEFCON 3 or
+more (harmless by DEFCON, a battleground at risk), a 2–3 Ops card into
+space instead of on the board, a hold slot spent early.
+
+**Metrics and decision rule** (written before the batch runs). Desyncs
+mined first; `runs/playdek/decider_summary.py` reads it. Readings: (1)
+gift share ≤ 0.05 **and** mean ≥ 0.268 → the class was worth its
+arithmetic; kick2+dump goes to a fresh-seed confirmation (120 games,
+seeds 500+) and, if its pooled number beats kick2+veto's 0.258, becomes
+the standing player, the next training arm's bar re-set by the standing
+construction (pooled + 0.05). (2) gift share ≤ 0.05, mean < 0.268 → the
+dumped games are lost elsewhere: the class was worth less than the
+arithmetic; kick2+veto stands and the gift is closed on both sides,
+training and inference. (3) gift share > 0.10 → the rider misses the
+board's shape; the residual deaths are autopsied through
+`gift_audit.py` and no second batch runs without an entry. The US seat
+is reported in every reading (the dump reads its Lone Gunman, Ortega
+and We Will Bury You), as are the dumps per game once the log is read.
+
+**Budget.** The wiring and its tests (suite 563). One batch (~3 h DLL);
+the confirmation batch on reading (1) only. Nothing else without a new
+entry.
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc

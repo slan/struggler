@@ -13,6 +13,16 @@ docs/JOSHUA.md (2026-08-25), mechanics in docs/WOPR.md:
   terminal loss within the current play -- is masked, and the policy's
   own argmax picks among the survivors. This is the ablation the search
   subsumes (a provable loss scores -1).
+- `dump=True` (the dump, a rider on the veto; docs/JOSHUA.md
+  2026-09-09): the veto's horizon is the play, the dump's is the turn.
+  A gift card (`GIFT_CARDS`: an opponent-event card whose event, fired by
+  the Ops play, hands the opponent a coup or degrades DEFCON -- a
+  provable death at DEFCON 2 that the mover carries in hand until a last
+  action round forces it) is played while DEFCON is 3 or more if it can
+  never be spaced, and is spaced (or put under UN Intervention) at
+  DEFCON 2 as soon as the turn's arithmetic -- the plays left, the cards
+  held past them, the space attempts -- says it can no longer be held.
+  Rules arithmetic on the mover's own hand, no search.
 
 The simulation state comes from `Engine.determinize(side, seed)`, never
 the live engine: unseen cards are reshuffled, the RNG reseeded, and d6
@@ -42,6 +52,7 @@ from struggler.bots.joshua import features as F
 from struggler.bots.joshua.model import JoshuaNet, load_checkpoint, to_tensors
 from struggler.engine import Action, Engine, Observation, Side
 from struggler.engine.player import Event
+from struggler.engine.rules import RULES
 from struggler.engine.types import Decision, DecisionKind
 
 # The value head's estimate is kept strictly inside the terminal payoffs:
@@ -78,6 +89,8 @@ class SearchPlayer:
         # deep) starve the coup branch that actually mates, and whether a
         # gift proved came down to option ordering.
         probe_budget: int = 800,
+        # The dump (module doc): the turn-horizon rider over the gift cards.
+        dump: bool = False,
         seed: int = 0,
         device: torch.device | str = "cpu",
     ) -> None:
@@ -92,6 +105,8 @@ class SearchPlayer:
         self._margin = margin
         self._chance_cap = chance_cap
         self._probe_budget = probe_budget
+        self._dump = dump
+        self._dump_intent: tuple[str, str | None] | None = None  # (card, mode) the dump chose, for its PLAY_MODE
         self._seed = seed
         self._engine: Engine | None = None
         self.last_scores: list[float] | None = None  # value mode's per-option scores, for analysis
@@ -107,11 +122,12 @@ class SearchPlayer:
         *,
         evaluator: str = "value",
         k: int = 6,
+        dump: bool = False,
         seed: int = 0,
         device: torch.device | str = "cpu",
     ) -> "SearchPlayer":
         net, _ = load_checkpoint(path, device=device)
-        return cls(net, evaluator=evaluator, k=k, seed=seed, device=device)
+        return cls(net, evaluator=evaluator, k=k, dump=dump, seed=seed, device=device)
 
     def bind(self, engine: Engine) -> None:
         """Attach the engine this player is seated at. Used solely for
@@ -123,16 +139,76 @@ class SearchPlayer:
     def choose_action(self, observation: Observation, history: Sequence[Event]) -> Action:
         decision = observation.pending_decision
         options = decision.options
+        intent = self._dump_intent
+        self._dump_intent = None
+        if intent is not None and decision.kind is DecisionKind.PLAY_MODE and decision.context.get("card") == intent[0]:
+            for option in options:
+                if option.payload.get("mode") == intent[1]:
+                    return option
         if len(options) == 1:
             return options[0]
         if self._engine is None:
             raise RuntimeError("SearchPlayer is unbound: call bind(engine) before play")
         logits = self._policy_logits(observation)
+        if self._dump and decision.kind is DecisionKind.ACTION_ROUND_PLAY:
+            dumped = self._choose_dump(observation.side, decision, logits)
+            if dumped is not None:
+                index, mode = dumped
+                self._dump_intent = (options[index].payload["card"], mode) if mode else None
+                return options[index]
         if self._evaluator == "terminal":
             index = self._choose_veto(observation, decision, logits)
         else:
             index = self._choose_value(observation, decision, logits)
         return options[index]
+
+    # -- the dump ------------------------------------------------------------
+
+    def _choose_dump(self, side: Side, decision: Decision, logits: list[float]) -> tuple[int, str | None] | None:
+        """The turn-horizon rider (module doc): the option index of the gift
+        card to leave the hand now and the mode to insist on at its
+        PLAY_MODE (None: the policy's own, under the veto), or None when the
+        turn's arithmetic leaves every gift holdable."""
+        sim = self._engine.determinize(side, self._det_seed(decision, 0, 4241))
+        hand = list(sim.hands[side.value])
+        by_card = {a.payload.get("card"): i for i, a in enumerate(decision.options)}
+        gifts = [cid for cid in hand if cid in GIFT_CARDS[side] and cid in by_card]
+        if not gifts:
+            return None
+        remaining = sim._remaining_action_rounds(side)
+        if side in sim._extra_action_round_sides():
+            remaining -= 1  # the extra round may be passed: it forces nothing
+        held = max(0, len(hand) - remaining)  # cards carried past the turn's last play
+        forced = max(0, len(gifts) - held)  # gifts that cannot all be held
+        ranked = sorted(gifts, key=lambda cid: logits[by_card[cid]], reverse=True)
+        if sim.defcon >= 3:
+            # The window: no single event reaches DEFCON 1 from here. A gift
+            # with no disposal route leaves now, forced or not (it holds the
+            # hand's one carried slot until a discard or a short hand forces
+            # it); a disposable one only when it must leave this turn.
+            stuck = [cid for cid in ranked if not self._disposable(sim, side, cid)]
+            pick = stuck or (ranked if forced else [])
+            return (by_card[pick[0]], None) if pick else None
+        if not forced:
+            return None
+        for cid in ranked:  # DEFCON 2: a gift that must leave goes out the safe door now
+            modes = sim._play_modes(side, cid)
+            for mode in ("un_intervention", "space_race"):
+                if mode in modes:
+                    return by_card[cid], mode
+        return None
+
+    @staticmethod
+    def _disposable(sim: Engine, side: Side, cid: str) -> bool:
+        """Whether `cid` has a route out of the hand that never fires its
+        event: the Space Race at the mover's current box (this turn's
+        attempts aside), or UN Intervention in hand."""
+        if RULES["un_intervention_id"] in sim.hands[side.value]:
+            return True
+        pos = sim.space_race[side.value]
+        if pos >= RULES["space_race_max_box"]:
+            return False
+        return sim._effective_ops(side, sim.cards[cid]) >= RULES["space_race_boxes"][str(pos + 1)]["ops"]
 
     # -- shared machinery --------------------------------------------------
 
@@ -470,6 +546,28 @@ DEFCON_EVENTS = frozenset({
     "Olympic_Games", "Summit", "How_I_Learned_to_Stop_Worrying", "Duck_and_Cover", "We_Will_Bury_You",
     "Cuban_Missile_Crisis", "Missile_Envy", WARGAMES,
 })
+#: The gift cards, by the seat that can be caught holding them: an
+#: opponent-event card whose event -- fired by the play for Ops, unavoidably
+#: -- hands the opponent a coup or degrades DEFCON within the play, so the
+#: play is a provable DEFCON death at DEFCON 2 (the shape of every one of
+#: the board's 19 kick8 deaths, docs/JOSHUA.md 2026-09-09). Neutral and own
+#: events are not gifts: played for Ops they do not fire. `wopr.scenarios`
+#: keeps the narrower pair the bank was harvested on.
+GIFT_CARDS: dict[Side, frozenset[str]] = {
+    Side.USSR: frozenset({
+        "CIA_Created",  # 1 Op to the US
+        "Tear_Down_This_Wall",  # a free US coup in Europe
+        "Grain_Sales_to_Soviets",  # returned, 2 Ops to the US
+        "Star_Wars",  # a discarded US event replayed
+        "Duck_and_Cover",  # DEFCON degrades
+        "Soviets_Shoot_Down_KAL_007",  # DEFCON degrades
+    }),
+    Side.US: frozenset({
+        "Lone_Gunman",  # 1 Op to the USSR
+        "Ortega_Elected_in_Nicaragua",  # a free USSR coup next to Nicaragua (Cuba)
+        "We_Will_Bury_You",  # DEFCON degrades
+    }),
+}
 
 
 def _is_wargames(engine: Engine, decision: Decision, action: Action) -> bool:

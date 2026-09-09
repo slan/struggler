@@ -78,15 +78,17 @@ def build_player(
         from struggler.bots.joshua.player import JoshuaPlayer
 
         return JoshuaPlayer.from_checkpoint(joshua_checkpoint, seed=seed)
-    if kind in ("joshua-search", "joshua-veto"):
+    if kind in ("joshua-search", "joshua-veto", "joshua-dump"):
         # Inference-time lookahead over the checkpoint's value head; "veto"
-        # is its terminal-only ablation (docs/WOPR.md). Needs the engine:
-        # main() binds it after construction (SearchPlayer.bind).
+        # is its terminal-only ablation, "dump" the veto with the turn-horizon
+        # rider over the gift cards (docs/WOPR.md). Needs the engine: main()
+        # binds it after construction (SearchPlayer.bind).
         from struggler.bots.joshua.search import SearchPlayer
 
         return SearchPlayer.from_checkpoint(
             joshua_checkpoint,
             evaluator="value" if kind == "joshua-search" else "terminal",
+            dump=kind == "joshua-dump",
             seed=seed,
         )
     if kind == "llm":
@@ -112,7 +114,7 @@ def build_player(
             resume=resume,
         )
     raise ValueError(
-        f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm/joshua/joshua-search/joshua-veto)"
+        f"unknown player kind: {kind!r} (expected human/first/random/greedy/llm/joshua/joshua-search/joshua-veto/joshua-dump)"
     )
 
 

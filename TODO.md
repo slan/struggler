@@ -1,3 +1,43 @@
+# THE GIFT AUDIT CLOSES THE GIFT LINE; THE DUMP RIDER RUNS; THE TRAINING LINE TURNS TO THE US SEAT'S OPENING (2026-09-09)
+
+- **The gift audit** (docs/JOSHUA.md 2026-09-09, first entry;
+  `runs/playdek/gift_audit.py` re-runs it on any easy batch): kick8's 19
+  USSR-seat DEFCON deaths replayed to the fatal decision. Detection is not
+  the gap: the switch's `kill_options` proves the kill from the AI's side in
+  18/19 at budget 80 (the training mask from the bot's side 0/19 at 80, 7/19
+  at 4000). Distribution is not the gap: kick8's own self-play holds DEFCON 2
+  by turn 1 in 70% of games (board 73%), 62% of the USSR's AR decisions are
+  at DEFCON 2, the death shape occurs in 38/40 games, and the policy dumps a
+  killer in a DEFCON-3 window 24% of the time (board 15%). Credit is: every
+  death had 1-20 window decisions and 12/19 had the space race open for the
+  card; the killer is carried 3-52 decisions and dies at a forced last AR.
+  The bank cannot hold the lesson (predicate at DEFCON 2, the lesson at 3;
+  8/19 fatal cards outside it; entries at turns 1-3 with a non-gift option in
+  892/896). Ceiling: the class cured outright is worth ~0.03 pooled (0.258 ->
+  ~0.29, bar 0.308). **The proposed arm (the switch over kick3's scenario
+  starts) is not run; the gift line closes as a training target**; kick8's
+  fourth reading stands, the entry's second reading corrected in the audit.
+- **The dump** (docs/JOSHUA.md 2026-09-09, second entry, pre-registered):
+  `SearchPlayer(dump=True)` = the veto plus a turn-horizon rider over
+  `GIFT_CARDS` (bots/joshua/search.py; policy spec `dump=`; `--us
+  joshua-dump`; tests/test_dump.py; suite 563). An unspaceable gift leaves
+  in the first DEFCON-3 window; a gift that the turn's arithmetic says
+  cannot be held is spaced (or UN-Intervened) at DEFCON 2. Batch RUNNING:
+  `runs/playdek/kick2-dump-easy` (120 easy games, seeds 300+, bid 2, on
+  kick2), read with `runs/playdek/decider_summary.py` against kick2+veto's
+  seeds-300 batch (0.268, gift 0.188). Readings in the entry: (1) gift share
+  <= 0.05 and mean >= 0.268 -> confirmation on seeds 500+, the standing
+  player on a pooled win; (2) share down, mean not -> the class was worth
+  less, kick2+veto stands; (3) share > 0.10 -> autopsy through gift_audit.py.
+- **The US seat's opening** is the training line's target (US 45/58 losses
+  on VP, 18 at turn 3, -11.9 VP by the end of turn 3; Europe and Middle
+  East scoring). Diagnosis in `runs/playdek/us-opening-diagnosis-2026-09-09.md`
+  (`us_opening_diagnosis.py`); the arm's entry follows it. The user's policy
+  call: a scenario bank from the AI's logged games (the corpus as a state
+  prior) or an opening-weighted kickstart (within policy).
+- The brief: `runs/article/joshua-brief.html` (evening edition 2026-09-09b,
+  FACTS.md updated); publishing needs a session with the Artifact tool.
+
 # KICK8 (THE KILL SWITCH) NEGATIVE ON BOTH READS AT 0.138 / 0.422; THE SWITCH WORKS IN THE ARENA, NOT ON THE BOARD; RULES 9 -> 10; ATTRITION 4/120 (2026-09-03)
 
 - **kick8** (docs/JOSHUA.md 2026-09-03, "the kill switch"): kick2's

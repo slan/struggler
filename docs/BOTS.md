@@ -55,8 +55,8 @@ directly (`HumanPlayer`, `FirstLegalPlayer`/`RandomPlayer` from
 `plan_turns` from `--no-turn-plan` — and `JoshuaPlayer` from
 `bots/joshua/player.py`, loading the checkpoint named by
 `--joshua-checkpoint`; see [WOPR.md](WOPR.md)). `"joshua-search"` /
-`"joshua-veto"` build `SearchPlayer` from `bots/joshua/search.py` over
-the same checkpoint — the one `Player` that needs more than
+`"joshua-veto"` / `"joshua-dump"` build `SearchPlayer` from
+`bots/joshua/search.py` over the same checkpoint — the one `Player` that needs more than
 `Observation`: the runner that owns the engine calls its
 `bind(engine)` before play (`main.py`'s `_bind_search_players`, or
 `wopr.playdek.operator.play_match`), used solely for

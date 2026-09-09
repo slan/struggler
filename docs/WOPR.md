@@ -303,6 +303,26 @@ Two evaluators, one harness:
   tens per point and cannot itself end the game); anything unprovable
   is not a veto. Every option provably lost → the policy argmax stands.
   ~2 min a game against Greedy on one core.
+- **`dump=True` (the dump — the veto's rider, docs/JOSHUA.md
+  2026-09-09).** The veto's horizon is the play; the dump's is the
+  turn. `GIFT_CARDS` names, per seat, the opponent-event cards whose
+  event — fired by the Ops play, unavoidably — hands the opponent a coup
+  or degrades DEFCON: a provable death at DEFCON 2 (the shape of every
+  one of kick8's 19 board deaths), carried in hand until a last action
+  round forces it. At each action-round card decision the rider reads
+  its own hand on a determinized copy and does the turn's arithmetic:
+  the plays left (`_remaining_action_rounds`, an extra round excluded
+  since it may be passed), the cards carried past them, the gifts that
+  therefore cannot all be held. At DEFCON 3 or more (the window: no
+  single event reaches DEFCON 1) a gift with no disposal route — below
+  the Space Race's Ops requirement at the mover's box, no UN
+  Intervention in hand — is played now, forced or not; a disposable one
+  only when it must leave this turn; the mode is the policy's, under
+  the veto. At DEFCON 2 a gift that must leave is played under UN
+  Intervention or into the Space Race now, the rider insisting on that
+  mode at the card's `PLAY_MODE`. Otherwise the veto's choice stands.
+  Rules arithmetic on the mover's own hand, no search; tests
+  `tests/test_dump.py`.
 
 **Training under the veto (`train.py --veto-train`, docs/JOSHUA.md
 kick7).** The veto's shapes -- the DEFCON self-kill, the granted-coup
@@ -346,14 +366,14 @@ first learner row takes its count with it. Both flags may be set: the
 veto strikes first, and a kill never contradicts it. A checkpoint
 trained this way is a player raw.
 
-Wiring: `wopr.playdek.eval --policy search=ckpt.pt | veto=ckpt.pt`
-(easy/hard evals; the AI's 15 s per decision dwarfs the search),
-`python -m wopr.search_eval --policy search=ckpt.pt --opponent
+Wiring: `wopr.playdek.eval --policy search=ckpt.pt | veto=ckpt.pt |
+dump=ckpt.pt` (easy/hard evals; the AI's 15 s per decision dwarfs the
+search), `python -m wopr.search_eval --policy search=ckpt.pt --opponent
 greedy|joshua=ckpt.pt [--bid N]` (the in-repo sanity eval: full engine
 games through `runner.play_game`, since the search needs the live
 engine — hundreds of games, not the arena's tens of thousands), and
-`src/main.py --us joshua-search|joshua-veto`. Tests:
-`tests/test_search.py`.
+`src/main.py --us joshua-search|joshua-veto|joshua-dump`. Tests:
+`tests/test_search.py`, `tests/test_dump.py`.
 
 ## The arena (`wopr/arena.py`, `wopr/backend.py`, `wopr/vec_env.py`)
 
