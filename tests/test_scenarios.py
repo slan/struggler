@@ -8,7 +8,7 @@ import pytest
 from struggler.engine import Engine, Side
 from struggler.engine.types import DecisionKind
 from wopr.arena import Arena
-from wopr.scenarios import GIFT_CARDS, ScenarioBank, harvest, save
+from wopr.scenarios import GIFT_CARDS, ScenarioBank, harvest, harvest_logs, log_paths, save
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
 
@@ -92,3 +92,42 @@ def test_arena_without_scenarios_is_unchanged(bank: ScenarioBank):
     with_bank_off = Arena(3, seed=5, scenario_bank=bank, scenario_frac=0.0)
     for slot in range(3):
         assert plain.engine(slot).serialize() == with_bank_off.engine(slot).serialize()
+
+
+def test_us_opening_states_from_a_replay_log(tmp_path):
+    # A log the engine's own runner wrote is a source like a batch's: the
+    # US's first card pick of turns 1-3, three states from one game, each
+    # a game the arena can start (the hidden seat resampled) and play on.
+    from struggler.bots.naive import FirstLegalPlayer, RandomPlayer
+    from struggler.runner import play_game
+
+    engine = Engine.new_game(seed=3, events=True, us_bid=2)
+    play_game(engine, {Side.US: FirstLegalPlayer(), Side.USSR: RandomPlayer(seed=4)}, log_path=str(tmp_path / "g.json"))
+    bank = harvest_logs(log_paths([tmp_path]), predicate="us_opening")
+    assert bank.header["source"] == "logs" and bank.header["us_bid"] == 2 and bank.header["games"] == 1
+    assert [(e["mover"], e["turn"], e["action_round"]) for e in bank.entries] == [("US", t, 1) for t in range(1, len(bank) + 1)]
+    assert 1 <= len(bank) <= 3
+    for index, entry in enumerate(bank.entries):
+        state = Engine.deserialize(entry["state"])
+        assert state.pending_decision.actor is Side.US and state.pending_decision.kind is DecisionKind.ACTION_ROUND_PLAY
+        started = bank.start(index, seed=index)
+        assert started.observe(Side.US) == state.observe(Side.US)
+    # The deck is the log's: a spec check does not hold it against the arena's.
+    bank.validate(us_bid=2, starting_vp=0, events=True, include_optional=not bank.header["include_optional"])
+    with pytest.raises(ValueError, match="us_bid"):
+        bank.validate(us_bid=0, starting_vp=0, events=True, include_optional=True)
+
+
+def test_arena_seats_the_given_policy_at_the_scenario_mover(bank: ScenarioBank):
+    def ussr_learner(slot, episode, rng):
+        return {Side.US: "pool", Side.USSR: "learner"}
+
+    arena = Arena(6, seed=3, seat_assigner=ussr_learner, scenario_bank=bank, scenario_frac=1.0, scenario_mover_id="learner")
+    for slot in range(6):
+        mover = arena.engine(slot).pending_decision.actor
+        assert arena.seats(slot)[mover] == "learner" and arena.seats(slot)[mover.opponent] == "pool"
+    plain = Arena(6, seed=3, seat_assigner=ussr_learner, scenario_bank=bank, scenario_frac=0.0, scenario_mover_id="learner")
+    for slot in range(6):
+        assert dict(plain.seats(slot)) == {Side.US: "pool", Side.USSR: "learner"}
+    with pytest.raises(ValueError, match="exclusive"):
+        Arena(2, seed=3, scenario_bank=bank, scenario_frac=1.0, scenario_mover_id="learner", scenario_seats=("learner", "pool"))

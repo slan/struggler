@@ -373,6 +373,7 @@ class ArenaSpec:
     scenario_path: str | None = None  # a scenario bank (wopr.scenarios); each worker loads it
     scenario_frac: float = 0.0  # fraction of games started from the bank
     scenario_seats: tuple[str, str] | None = None  # (mover id, opponent id): scenario games seated by the arena itself
+    scenario_mover_id: str | None = None  # this policy at the bank entry's mover, the assigner's other seat kept
     veto_train: bool = False  # strike provable DEFCON deaths from the learner's rows (InProcessBackend veto_train)
     kill_switch: bool = False  # every seat takes a provable win within the play (InProcessBackend kill_switch)
 
@@ -455,6 +456,7 @@ def worker_main(
         include_optional=spec.include_optional, slot_offset=lo, total_slots=spec.n_games,
         starting_vp=spec.starting_vp, us_bid=spec.us_bid,
         scenario_bank=bank, scenario_frac=spec.scenario_frac, scenario_seats=spec.scenario_seats,
+        scenario_mover_id=spec.scenario_mover_id,
     )
     backend = InProcessBackend(
         arena, opponents, buffers={name: shared[name][lo:hi] for name in F.LAYOUT}, learner=learner, margin=spec.margin,

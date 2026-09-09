@@ -2985,7 +2985,7 @@ CIA Created 8, Tear Down This Wall 3, Grain Sales to Soviets 3, Five
 Year Plan firing CIA Created 3, Star Wars 1, Soviets Shoot Down KAL-007
 1 (a DEFCON event, not a coup — the kick8 entry's "14 event-granted
 coups" counted KAL-007 and Star Wars); 4 were forced (one card in hand),
-15 had a probe-safe alternative card, 15 came at action round 6 or 7.
+15 had a probe-safe alternative card, 16 came at action round 6 or 7.
 From the AI's side — `kill_options` at the first US decision inside the
 play, the switch's own call at its default budget of 80 — the kill is
 provable in **18 of 19** (KAL-007 has no US decision: the event itself
@@ -3127,6 +3127,151 @@ and We Will Bury You), as are the dumps per game once the log is read.
 **Budget.** The wiring and its tests (suite 563). One batch (~3 h DLL);
 the confirmation batch on reading (1) only. Nothing else without a new
 entry.
+
+### 2026-09-09 — kick9: the board's opening as the prior — the US seat at its first pick, the AI's line on the board, the switch aboard (pre-registered)
+
+**The decision** (user, 2026-09-09: the training line turns to the US
+seat's opening, the arm to follow the diagnosis; the source of the
+prior is a policy call the user has not yet made and is stated below
+as the assumption the arm runs under).
+
+**The diagnosis** (`runs/playdek/us-opening-diagnosis-2026-09-09.md`,
+`us_opening_diagnosis.py`: the 120 kick8-easy logs replayed, kick2-easy
+as the second sample, 40 arena games a checkpoint). The opening is lost
+in Europe in turns 1–3, by the bot's own hand. Its argmax setup is
+sound — West Germany 4, Italy 3, the bid into Iran and Panama — and at
+the end of turn 1 it holds 1.6 European battlegrounds to the AI's 2.4;
+by turn 3, 1.2 to 3.0, West Germany controlled in 6 of 42 games (34 of
+60 at turn 1), France Soviet in 31. Of the 213 US points removed from
+West Germany through turn 3, **150 are the bot's own Blockade plays**
+(36 plays, 35 with 4+ points there, event first, the discard refused 21
+times in 22); of the 97 from Italy, 71 its own Socialist Governments
+(44 plays); of the 171 Soviet points arriving in France, 57 its own De
+Gaulle and De-Stalinization, 98 the AI's Ops. Its turn-1 Ops go
+elsewhere (1.95 coups a game, 0.8 points into Europe against the AI's
+2.2) and the AI walks in: 4.7 Ops points a game into Western Europe
+(France and West Germany 2.9), the China Card on turn 1 in 56 of 60,
+scoring cards only from in front (Europe Scoring 37 plays, never
+behind, −3.6). The bot's scoring timing is the symptom: Europe Scoring
+played behind in 39 of 46 plays at −5.1 (mean action round 3.7), Middle
+East Scoring behind in 21 of 43 at −7.0; its own scoring plays cost
+−6.1 VP a game through turn 3 against −4.4 from the AI's, of −12.1;
+the 18 turn-3 losses read −5.6 at turn 1 and −10.8 at turn 2, 37 of
+their 62 scoring plays the bot's. The Middle East is even (1.8 against
+1.9 battlegrounds at turn 3) and the Iran coup is not the difference:
+the arena's USSR coups Iran on turn 1 as often as the AI (49 in 40
+games against 50 in 60). What the arena's USSR does not do is press
+Western Europe — 2.3 Ops points a game against 4.7, France and West
+Germany 1.0 against 2.9, the China Card on turn 1 in 6 of 40 — and the
+arena's *sampled* US setup leaves West Germany at 0.7 points against
+the argmax's 4, so **Blockade costs 0.5 a play in the arena and 4.1 on
+the board** (the arena's US pays the discard 8 times in 13). kick2
+reads the same (Blockade 147 of 244 West German points, Socialist
+Governments 61 of 96 Italian, Europe Scoring behind 27 of 42). The
+gift's structure again, one class over: the board's positions — the
+argmax setup under the AI's pressure — are ones the arena's sampling
+never builds, and a habit that costs half a point there costs four
+here.
+
+**Question.** With a quarter of training games opened from the board's
+own opening positions — the bot's argmax setup after the AI's line, the
+US to move at its first pick of turns 1–3, the learner in the US seat,
+the opponent mix as drawn — and the kill switch aboard, does kick2's
+construction produce a raw checkpoint whose US seat holds Europe: the
+US seat's decider above kick2's 0.089 and kick8's 0.052, the mean at
+or above 0.140, the turn-3 VP as US up from −11.9?
+
+**Setup.** The prior: `scenarios/us-opening-board.jsonl`, harvested by
+`wopr.scenarios --from-logs` (new: `harvest_logs`, the `us_opening`
+predicate — the US at its first action-round pick of turns 1–3, three
+states a game, the mover a seat whose hand the log knows) over the 620
+bid-2 US-seat logs of the kick-era batches — kick1 to kick8 and their
+veto batches, falken1-easy; the v3-era batches play a different setup
+(West Germany 0) and are left out. 1,820 states, split by source game
+into the run's 1,637 (turns 1/2/3: 558/557/522) and a held-out 183
+(62/62/59, `us-opening-board-heldout.jsonl`) the run never draws. Turn
+1: West Germany at 4+ US in 613 of 620, Italy at 3+ in 597, France
+Soviet-free in 602; turn 2: West Germany already 0 in 148 (Blockade
+fired), France Soviet 3+ in 182, mean VP −2.7; turn 3: West Germany 0
+in 321, mean VP −5.3. The states carry the board's deck (no optional
+cards; `source: "logs"`, the arena's spec check waives the deck field
+for a log bank), the hidden USSR hand resampled at every start. Seating,
+new: `Arena(scenario_mover_id=)` / `--scenario-learner-mover` puts the
+learner at the bank entry's mover and keeps the seat mix's draw for the
+other seat — self-play, the pool and falken1 at their shares — where
+kick4's `--scenario-vs-anchor` forced the anchor; tests in
+`tests/test_scenarios.py`. The run, kick8's flags plus the prior:
+`--run kick9 --init baselines/r3-bid2/v3/joshua.pt --games 8000
+--recipe v11 --bid 2 --vs-pool 0.4 --anchor
+falken1=runs/falken1/joshua.pt --kickstart runs/falken1/corpus
+--kickstart-coef 1.0 --kickstart-batches 4 --kickstart-batch-size 512
+--kill-switch --scenarios scenarios/us-opening-board.jsonl
+--scenario-frac 0.25 --scenario-learner-mover`. Rules version 10,
+layout v1.
+
+**The policy assumption.** The bank is the AI's logged games as a
+state prior. The 2026-08-30 amendment admitted the easy AI's *policy*
+through a clone distilled from the bridge's logged games and kept live
+DLL games evaluation-only; this arm takes the same logged games as
+*positions* — the AI's line up to the US's first pick, the AI's hand
+resampled, no live DLL game touched — and reads the amendment as
+covering it. Named as the assumption the user's call may overturn; the
+run is then discarded, not reported.
+
+**Design choices, and their risks.** (1) The learner in the US seat of
+every scenario game: the scenario quarter is US-seat rows for the
+learner, the ordinary three quarters stay balanced; the opponent in
+those games is the mix's draw. (2) A quarter, not more: kick3's quarter
+cost nothing on strength, kick4's third against a weak opponent did.
+(3) The prior's setup is the kick family's argmax setup, not the
+learner's own sampled one: the learner may learn to hold West Germany
+from a position its ordinary games do not build — the decider plays
+argmax and does build it; the bank re-measure and the arena setup
+read (below) tell the two apart. (4) The switch stays aboard: the gift
+is priced everywhere as in kick8; the raw checkpoint is a player. (5)
+The lesson may land as the value of West Germany rather than as
+Blockade's discard: the re-measure reads both.
+
+**Metrics and decision rule** (written before the run starts).
+
+- *Gates before DLL spend* (kick8's, on the raw checkpoint): absorption
+  on falken1's corpus (expect ≈ 0.50); `wopr.diagnose` vs Greedy at
+  bid 2 ≥ **0.9**, no seat collapse; the anchor curve and kills per
+  game reported; the probe as gifter reported, not gating (the gift
+  line is closed).
+- *The arm's own reads, before the decider*: (a) the bank re-measure
+  (`runs/playdek/opening_remeasure.py`) — the checkpoint as US, argmax,
+  from the held-out turn-1 and turn-2 states against kick2's raw
+  checkpoint as USSR: Blockade plays with West Germany at 3+ and the
+  discard refused, Europe Scoring plays from behind, West Germany
+  control and the VP at the end of turn 3, read against kick8 on the
+  same states; (b) the arena's sampled US setup
+  (`us_opening_diagnosis.py`, the arena part): West Germany at the
+  argmax setup's 4 or still at 0.7.
+- *Decider*: the standing easy eval, 120 games, seeds 300+, bid 2, the
+  **raw** checkpoint, desyncs mined first, `decider_summary.py`; then
+  `us_opening_diagnosis.py` on the batch. Success = **US seat ≥ 0.15**
+  (kick2 0.089, kick8 0.052; kick7+veto's 0.281 the best under a rider)
+  **and mean ≥ 0.140**; the US seat's turn-3 VP and West Germany
+  control reported against −11.9 and 6 of 42.
+- *Compose*: only on a double clear — the dump over kick9 (`dump=`) on
+  seeds 300+ against the bar **0.308**, re-measured on 500+ if it
+  clears; the pooled number then stands.
+- *Readings*: both reads → the prior is the lever, and the board's
+  positions as a prior become the construction. US seat up, mean short
+  → the US seat bought at the USSR seat's price: reported, the compose
+  still run. US seat unmoved with the re-measure moved → the lesson is
+  position-bound again (the prior's setup against the learner's own);
+  the next lever is the learner's setup itself. Neither moved → the
+  prior does not reach the habit at 8k games; the review returns to
+  the loss classes with the opening diagnosis in hand.
+
+**Budget.** The wiring and its tests (suite 565); the bank; a 40-game
+smoke on two collectors; 8k games (kick8 ran 4.3 h; the scenario
+quarter starts later in the game and ends no sooner, so 4–5 h); the
+gates (~30 min); one decider batch (~3 h DLL) once the dump batch
+releases the DLL; the compose only on the clears named. Nothing else
+without a new entry.
 
 ## Road map
 

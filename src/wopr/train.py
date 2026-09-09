@@ -131,6 +131,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--scenarios", default=None, help="a scenario bank (wopr.scenarios): start --scenario-frac of training games from its states; evaluation stays at the printed game")
     p.add_argument("--scenario-frac", type=float, default=0.25, help="fraction of training games started from --scenarios (ignored without it)")
     p.add_argument("--scenario-vs-anchor", action="store_true", help="seat every scenario-started game as the bank entry's mover (the learner) against the --anchor opponent, overriding the seat mix for those games (needs --scenarios and a single fixed --anchor)")
+    p.add_argument("--scenario-learner-mover", action="store_true", help="seat the learner at the bank entry's mover in every scenario-started game, keeping the seat mix's draw for the other seat (needs --scenarios; exclusive with --scenario-vs-anchor)")
     p.add_argument("--veto-train", action="store_true", help="train under the veto: options of the learner's rows that are provable DEFCON deaths within the play are struck from its mask before the policy samples (the self-kill coup, the granted-coup gift; docs/JOSHUA.md kick7); opponent seats untouched, `vetoes_per_game` counts the strikes")
     p.add_argument("--kill-switch", action="store_true", help="the kill switch: whenever any seat has a provable win within the current play, the arena resolves it -- a learner row is masked to its killing options (PPO samples from and stores the narrowed distribution), a pool or anchor seat's choice is overridden with the kill (docs/JOSHUA.md kick8); `kills_per_game` counts the decisions resolved")
     p.add_argument("--kickstart", default=None, help="a harvested corpus (wopr.distill): after every PPO update, pull the policy toward the teacher's choices with --kickstart-batches cross-entropy minibatches (kickstarting, docs/JOSHUA.md)")
@@ -220,13 +221,20 @@ def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSche
         if len(anchor.anchors) != 1:
             raise ValueError("--scenario-vs-anchor needs a single fixed --anchor, not a schedule")
         scenario_seats = (LEARNER, anchor.current)
+    scenario_mover_id = None
+    if getattr(args, "scenario_learner_mover", False):
+        if not scenario_path:
+            raise ValueError("--scenario-learner-mover needs --scenarios")
+        if scenario_seats is not None:
+            raise ValueError("--scenario-learner-mover and --scenario-vs-anchor are exclusive")
+        scenario_mover_id = LEARNER
     veto_train = bool(getattr(args, "veto_train", False))
     kill_switch = bool(getattr(args, "kill_switch", False))
     if args.workers > 1:
         spec = ArenaSpec(args.n_envs, args.seed, events=not args.no_events, starting_vp=args.handicap,
                          us_bid=args.bid, margin=args.margin,
                          scenario_path=scenario_path, scenario_frac=scenario_frac, scenario_seats=scenario_seats,
-                         veto_train=veto_train, kill_switch=kill_switch)
+                         scenario_mover_id=scenario_mover_id, veto_train=veto_train, kill_switch=kill_switch)
         backend: Backend = SharedMemoryBackend(spec, seats, opponents, workers=args.workers, worker_threads=args.worker_threads)
     else:
         bank = None
@@ -237,7 +245,8 @@ def build_env(args: argparse.Namespace, pool: CheckpointPool, anchor: AnchorSche
         backend = InProcessBackend(
             Arena(args.n_envs, seed=args.seed, seat_assigner=seats, events=not args.no_events,
                   starting_vp=args.handicap, us_bid=args.bid,
-                  scenario_bank=bank, scenario_frac=scenario_frac, scenario_seats=scenario_seats),
+                  scenario_bank=bank, scenario_frac=scenario_frac, scenario_seats=scenario_seats,
+                  scenario_mover_id=scenario_mover_id),
             opponents,
             margin=args.margin,
             veto_train=veto_train,

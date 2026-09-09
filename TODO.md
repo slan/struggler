@@ -30,11 +30,34 @@
   player on a pooled win; (2) share down, mean not -> the class was worth
   less, kick2+veto stands; (3) share > 0.10 -> autopsy through gift_audit.py.
 - **The US seat's opening** is the training line's target (US 45/58 losses
-  on VP, 18 at turn 3, -11.9 VP by the end of turn 3; Europe and Middle
-  East scoring). Diagnosis in `runs/playdek/us-opening-diagnosis-2026-09-09.md`
-  (`us_opening_diagnosis.py`); the arm's entry follows it. The user's policy
-  call: a scenario bank from the AI's logged games (the corpus as a state
-  prior) or an opening-weighted kickstart (within policy).
+  on VP, 18 at turn 3, -11.9 VP by the end of turn 3). The diagnosis
+  (`runs/playdek/us-opening-diagnosis-2026-09-09.md`, `us_opening_diagnosis.py`):
+  Europe is lost in turns 1-3 by the bot's own hand -- 150 of the 213 US
+  points lost from West Germany are its own Blockade plays (36, the discard
+  refused 21/22), 71 of 97 Italian points its own Socialist Governments,
+  Europe Scoring played from behind 39/46 at -5.1; the AI presses Western
+  Europe (4.7 Ops points a game vs the arena USSR's 2.3) and the arena's
+  sampled US setup leaves West Germany at 0.7 vs the argmax 4, so Blockade
+  costs 0.5 a play in the arena and 4.1 on the board.
+- **kick9** (docs/JOSHUA.md 2026-09-09, third entry, pre-registered; RUNNING
+  from 15:10, `runs/kick9`, ~4-5 h): kick8's construction plus the board's
+  opening as the prior -- `scenarios/us-opening-board.jsonl` (1,637 states,
+  US to move at its first pick of turns 1-3, harvested by `wopr.scenarios
+  --from-logs` from the 620 kick-era US-seat logs; 183 held out in
+  `us-opening-board-heldout.jsonl`), `--scenario-frac 0.25
+  --scenario-learner-mover` (new: the learner at the bank entry's mover, the
+  seat mix's other draw kept), `--kill-switch`. Policy assumption stated in
+  the entry: logged games as a state prior fall under the 2026-08-30
+  amendment -- the user's call; the run is discarded if it goes the other
+  way. Gates: kick8's (absorption, diagnose >= 0.9, no seat collapse; probe
+  reported not gating) plus the arm's own reads --
+  `runs/playdek/opening_remeasure.py` on the held-out states vs kick2 as
+  USSR (baseline reading for kick8/kick2 in
+  `runs/playdek/opening-remeasure-baseline.txt`) and the arena's sampled
+  setup (`us_opening_diagnosis.py`). Decider: 120 easy games seeds 300+ bid
+  2 on the raw checkpoint, success = US seat >= 0.15 AND mean >= 0.140;
+  compose = the dump over kick9 (`dump=`) against the bar 0.308 only on a
+  double clear. Suite 565.
 - The brief: `runs/article/joshua-brief.html` (evening edition 2026-09-09b,
   FACTS.md updated); publishing needs a session with the Artifact tool.
 

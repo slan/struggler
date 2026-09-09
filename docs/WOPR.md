@@ -504,7 +504,23 @@ its own) and the generator, then one `Engine.serialize()` state per
 line. Predicates: `defcon2_gift` — an `ACTION_ROUND_PLAY` decision at
 DEFCON 2 with a granted-op gift in the mover's hand (CIA Created for
 the USSR seat, Lone Gunman for the US: the forced-endgame shape the
-search arc closed on).
+search arc closed on); `us_opening` — the US at its first action-round
+card pick of turns 1–3 (the opening the board loses, JOSHUA.md
+2026-09-09).
+
+A bank can also be harvested from played games' replay logs
+(`--from-logs`: eval batch directories or log files; `harvest_logs`):
+each log is replayed through the engine and snapshotted where the
+predicate matches, the mover restricted to a seat whose hand the log
+knows (the bridge's hidden seat never movers), at most `--per-game`
+states per log; a log whose line the current engine no longer accepts
+keeps what came before the failing step. Such states carry the deck
+they were played with, so the header's `include_optional` is the log's
+and the arena does not hold it against its own (`source: "logs"`); the
+other spec fields must still match. This is the board's own position
+distribution as a prior — the AI's line against the bot's argmax setup
+— under the 2026-08-30 amendment (logged games as a teacher, live DLL
+games evaluation-only).
 
 Starting from an entry never replays its game:
 `ScenarioBank.start(index, seed)` deserializes and re-hides the state
@@ -538,6 +554,14 @@ the learner in the at-risk seat against the punisher — the
 punisher-in-the-scenario-games construction (docs/JOSHUA.md, kick4).
 Note the mix shift: the scenario fraction all goes to the anchor
 opponent, on top of the remainder's anchor slot.
+`Arena(..., scenario_mover_id=)` / `wopr.train --scenario-learner-mover`
+is the lighter seating: the seat assigner's draw stands, and the named
+policy (the learner) is moved to the bank entry's mover when it drew the
+other seat — the two seats swapped, a draw without it or with it on both
+seats untouched — so every scenario game has the learner in the seat the
+lesson is about and the opponent mix keeps its shares
+(`ArenaSpec.scenario_mover_id`; exclusive with `scenario_seats`;
+docs/JOSHUA.md kick9).
 
 ### The pool (`wopr/pool.py`)
 

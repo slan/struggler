@@ -83,6 +83,7 @@ class Arena:
         scenario_bank: "ScenarioBank | None" = None,
         scenario_frac: float = 0.0,
         scenario_seats: tuple[str, str] | None = None,
+        scenario_mover_id: str | None = None,
     ) -> None:
         """`starting_vp` opens every game at that VP (US-positive): a handicap
         for the USSR seat, as a tournament bid. 0 is the printed game.
@@ -99,6 +100,11 @@ class Arena:
         gets `mover_id`, the other seat `opponent_id` — overriding the
         seat assigner for those games (the punisher-in-the-scenario-games
         wiring, docs/JOSHUA.md kick4); ordinary games are unaffected.
+        `scenario_mover_id` keeps the seat assigner's draw but puts that
+        policy at the bank entry's mover when it drew the other seat (the
+        two seats swapped; a draw without it, or with it on both seats,
+        stands) -- the learner in the seat the lesson is about, the
+        opponent mix untouched (docs/JOSHUA.md 2026-09-09, kick9).
 
         `slot_offset`/`total_slots` make this arena a slice of a larger
         one: its slots are numbered from `slot_offset` for seeding and for
@@ -121,9 +127,14 @@ class Arena:
                                    events=events, include_optional=include_optional)
         if scenario_seats is not None and scenario_bank is None:
             raise ValueError("scenario_seats needs a scenario_bank")
+        if scenario_mover_id is not None and scenario_bank is None:
+            raise ValueError("scenario_mover_id needs a scenario_bank")
+        if scenario_mover_id is not None and scenario_seats is not None:
+            raise ValueError("scenario_mover_id and scenario_seats are exclusive")
         self._scenario_bank = scenario_bank
         self._scenario_frac = scenario_frac
         self._scenario_seats = scenario_seats
+        self._scenario_mover_id = scenario_mover_id
         self._slot_offset = slot_offset
         self._total_slots = n_games if total_slots is None else total_slots
         if slot_offset < 0 or slot_offset + n_games > self._total_slots:
@@ -144,6 +155,10 @@ class Arena:
             seats = {scenario_mover: mover_id, scenario_mover.opponent: opponent_id}
         else:
             seats = dict(self._seat_assigner(global_slot, episode, self._rng))
+            if (scenario_mover is not None and self._scenario_mover_id is not None
+                    and seats.get(scenario_mover) != self._scenario_mover_id
+                    and seats.get(scenario_mover.opponent) == self._scenario_mover_id):
+                seats = {scenario_mover: seats[scenario_mover.opponent], scenario_mover.opponent: seats[scenario_mover]}
         if set(seats) != {Side.US, Side.USSR}:
             raise ValueError(f"seat assigner must assign exactly US and USSR, got {sorted(s.value for s in seats)}")
         return _Slot(engine=engine, seats=seats, episode=episode, seed=game_seed)
