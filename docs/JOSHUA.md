@@ -3128,6 +3128,48 @@ and We Will Bury You), as are the dumps per game once the log is read.
 the confirmation batch on reading (1) only. Nothing else without a new
 entry.
 
+**Result** (2026-09-09, `runs/playdek/kick2-dump-easy`, 14:41–18:29,
+alongside kick9's training on the same machine). USSR 23/54 =
+**0.426** [0.30, 0.56], US 10/58 = **0.172** [0.10, 0.29], mean 33/112
+= **0.295** [0.22, 0.38] — against kick2+veto's 0.333 / 0.204 / 0.268 on
+the same seeds. The USSR-seat gift share **0/31 = 0.000** (the veto's
+0.188), the US seat's 1/48 = 0.021 (0.051): the class is gone. The
+USSR seat's losses 21 VP, 4 Wargames, 3 Europe control, 2 final
+scoring, 1 held card, at a mean final turn of 7.5 (the veto's 7.0); the
+US seat's 31 VP, 12 Europe control, 2 final scoring, 1 each DEFCON,
+Wargames, held card, at 5.6. The rider on the board
+(`gift_audit.py` over the batch, `runs/playdek/gift-audit-2026-09-09-dump.txt`):
+a killer dumped in a DEFCON-3 window 69 of 232 windows (kick8 raw 51 of
+332), 72 killers into space (25), and the forced position — the hand
+nothing but killers — **2** times in 60 games against kick8's 22; 41
+spaceable killers were still played for Ops at DEFCON 2 under the veto
+and none of them died. **Attrition 7 desyncs, void 1** (the trapped
+seat's held scoring card, the known void), effective 112 — the veto
+batch's 20 under the old judge, its confirmation's 8; the fatals
+(`runs/playdek/desync-mining-2026-09-09-dump.txt`): decision mismatch ×3
+(the granted-Ops attribution face: the engine asks the USSR's placement
+or ops type while the DLL asks the US to play, 59/67; an Asia-bonus
+placement, 28), illegal-in-Playdek ×2 (310 the bot's action-round play
+vs its queued action, 418 the event-use prompt vs a placement in
+Poland), game over ×1 (408: the DLL's Europe-control end at turn 10 AR
+7 while the engine asks a held-card discard), Chernobyl's carried choice
+×1 (348) — known families, pass 24's input.
+
+**Decision.** Reading (1) fires: gift share ≤ 0.05 and mean ≥ 0.268
+both met, the arithmetic's ~0.29 landing at 0.295 (the USSR seat above
+the ~0.38 predicted, the US seat under the ~0.20, both inside their
+intervals). Per the rule, **kick2+dump goes to the fresh-seed
+confirmation** — 120 games, seeds 500+, bid 2, `dump=runs/kick2/joshua.pt`,
+`runs/playdek/kick2-dump-easy-s500`, launched 18:30 — and stands as the
+standing player only if its pooled number over the two blocks beats
+kick2+veto's 0.258, the next training arm's bar then re-set to the
+pooled mean + 0.05. Until then the standing player is kick2+veto at
+0.258 (bar 0.308), kick2 the raw checkpoint at 0.140. What the batch
+settles either way: the gift class is closed on both sides — in
+training by the audit, at inference by the dump — and the US seat's
+losses are the VP class and Europe control, the opening diagnosis's
+territory, kick9's.
+
 ### 2026-09-09 — kick9: the board's opening as the prior — the US seat at its first pick, the AI's line on the board, the switch aboard (pre-registered)
 
 **The decision** (user, 2026-09-09: the training line turns to the US

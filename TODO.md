@@ -22,13 +22,17 @@
   `GIFT_CARDS` (bots/joshua/search.py; policy spec `dump=`; `--us
   joshua-dump`; tests/test_dump.py; suite 563). An unspaceable gift leaves
   in the first DEFCON-3 window; a gift that the turn's arithmetic says
-  cannot be held is spaced (or UN-Intervened) at DEFCON 2. Batch RUNNING:
-  `runs/playdek/kick2-dump-easy` (120 easy games, seeds 300+, bid 2, on
-  kick2), read with `runs/playdek/decider_summary.py` against kick2+veto's
-  seeds-300 batch (0.268, gift 0.188). Readings in the entry: (1) gift share
-  <= 0.05 and mean >= 0.268 -> confirmation on seeds 500+, the standing
-  player on a pooled win; (2) share down, mean not -> the class was worth
-  less, kick2+veto stands; (3) share > 0.10 -> autopsy through gift_audit.py.
+  cannot be held is spaced (or UN-Intervened) at DEFCON 2. **Batch closed
+  positive on reading (1)** (`runs/playdek/kick2-dump-easy`, 14:41-18:29):
+  USSR 0.426 / US 0.172 / mean **0.295** [0.22, 0.38] vs kick2+veto's
+  0.333 / 0.204 / 0.268 on the same seeds; USSR gift share **0/31**, US
+  1/48; forced positions 2 in 60 games (kick8 22); attrition 7 desyncs +
+  1 void (`desync-mining-2026-09-09-dump.txt`, known families). **The
+  confirmation RUNS** (`runs/playdek/kick2-dump-easy-s500`, seeds 500+,
+  launched 18:30, ~4 h): kick2+dump becomes the standing player iff its
+  pooled number over the two blocks beats 0.258; the bar then re-sets to
+  pooled + 0.05. Until then kick2+veto 0.258 stands. kick9's decider
+  follows on the DLL after it.
 - **The US seat's opening** is the training line's target (US 45/58 losses
   on VP, 18 at turn 3, -11.9 VP by the end of turn 3). The diagnosis
   (`runs/playdek/us-opening-diagnosis-2026-09-09.md`, `us_opening_diagnosis.py`):
