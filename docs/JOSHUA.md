@@ -3170,6 +3170,56 @@ training by the audit, at inference by the dump — and the US seat's
 losses are the VP class and Europe control, the opening diagnosis's
 territory, kick9's.
 
+**The confirmation** (2026-09-09, `runs/playdek/kick2-dump-easy-s500`,
+fresh seeds 500+, 18:30–22:07). USSR 15/54 = **0.278** [0.18, 0.41], US
+11/58 = **0.190** [0.11, 0.31], mean 26/112 = **0.232** [0.16, 0.32] —
+under the first block's 0.295 and on kick2+veto's own fresh-seed 0.250;
+the USSR-seat gift share 3/39 = 0.077, the US seat's 2/47 = 0.043.
+Attrition 7 desyncs, void 1 (`desync-mining-2026-09-09-dump-s500.txt`:
+decision mismatch ×2, game over ×2, illegal in engine ×2, a rules
+fatal ×1 — the known families). **Pooled over the two blocks: 59/224 =
+0.263** [0.21, 0.32], USSR 38/108 = 0.352, US 21/116 = 0.181, gift
+shares USSR 3/70 = 0.043 and US 3/95 = 0.032 — against kick2+veto's
+54/209 = 0.258 (0.330 / 0.189; 0.188 and 0.081 / 0.051 and 0.021).
+
+The three USSR-seat DEFCON deaths, through `gift_audit.py`: none is the
+shape the rider was built for. Two (seeds 514 and 564, turn 8) are
+**headline deaths**: the bot headlined a gift — Duck and Cover, Tear
+Down This Wall — at the turn's DEFCON 3, and the AI's hidden headline
+(Tear Down This Wall's coup on Italy; KAL-007 then the coup on France)
+finished the drop to 1 with the USSR the phasing side; two events
+resolving back to back with the opponent's unknown, provable by no
+probe, and untouched by a rider that reads action rounds. The third
+(seed 560, turn 2) is the rider deferring: at the turn's one window CIA
+Created shared the hand with UN Intervention, which `_disposable`
+counted as a route out, so the gift was held; the policy then spent UN
+Intervention on Marshall Plan, the hand ran short, and the last action
+round was CIA Created alone. Both are closed in **the dump's second
+form**, the same evening: UN Intervention is no disposal route at a
+window (the space race alone is), and at the headline with DEFCON at 3
+or below a gift is never headlined — the policy's best non-gift
+headline stands, the gift waits for the action rounds where the window
+rule plays it alone (`tests/test_dump.py`, eight; suite 567). The
+standing measurement is of the first form; the second differs in the
+two headline games and the one deferral of these 224, and every later
+batch under `dump=` measures the second.
+
+**Decision.** By the pre-registered rule, kick2+dump's pooled 0.263
+beats kick2+veto's 0.258, so **kick2+dump is the standing reported
+player at 59/224 = 0.263** (USSR 0.352, US 0.181), confirmed on two
+seed blocks, and the next training arm's bar re-sets by the standing
+construction to pooled mean + 0.05 = **0.313**. Said plainly: the
+0.005 between the two riders is far inside either interval, the two
+blocks disagree by 0.06 in the same direction as kick2+veto's own
+(0.268 then 0.250), and what the confirmation establishes is not that
+the dump plays better than the veto but that it plays no worse with
+the gift class gone — the USSR seat's gift share from 0.19 to 0.04 at
+an unchanged mean is the finding, the ceiling arithmetic's ~0.29
+landing at 0.263 pooled because the first block ran high. The gift
+class is closed on both sides. kick2 stays the raw checkpoint at
+0.140; kick9's compose, if it is run, is the dump (second form) over
+kick9 against the bar 0.313.
+
 ### 2026-09-09 — kick9: the board's opening as the prior — the US seat at its first pick, the AI's line on the board, the switch aboard (pre-registered)
 
 **The decision** (user, 2026-09-09: the training line turns to the US

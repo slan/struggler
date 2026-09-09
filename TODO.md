@@ -28,11 +28,18 @@
   0.333 / 0.204 / 0.268 on the same seeds; USSR gift share **0/31**, US
   1/48; forced positions 2 in 60 games (kick8 22); attrition 7 desyncs +
   1 void (`desync-mining-2026-09-09-dump.txt`, known families). **The
-  confirmation RUNS** (`runs/playdek/kick2-dump-easy-s500`, seeds 500+,
-  launched 18:30, ~4 h): kick2+dump becomes the standing player iff its
-  pooled number over the two blocks beats 0.258; the bar then re-sets to
-  pooled + 0.05. Until then kick2+veto 0.258 stands. kick9's decider
-  follows on the DLL after it.
+  confirmation** (`runs/playdek/kick2-dump-easy-s500`, seeds 500+,
+  18:30-22:07): USSR 0.278 / US 0.190 / mean 0.232 [0.16, 0.32], gift share
+  3/39; attrition 7 + 1 void (`desync-mining-2026-09-09-dump-s500.txt`).
+  **Pooled 59/224 = 0.263** [0.21, 0.32] (USSR 0.352, US 0.181; gift shares
+  0.043 / 0.032) beats kick2+veto's 0.258 by the letter of the rule ->
+  **kick2+dump is the standing player at 0.263; the bar re-sets to 0.313.**
+  Inside the noise; the finding is the gift class gone at an unchanged mean.
+  The three s500 deaths: two headline gifts (the AI's hidden headline
+  finishes the drop), one deferral behind UN Intervention -> **the dump's
+  second form** (no headline of a gift at DEFCON <= 3; UN Intervention no
+  route at a window), tests 8, suite 567; the standing number is the first
+  form's, every later `dump=` batch measures the second.
 - **The US seat's opening** is the training line's target (US 45/58 losses
   on VP, 18 at turn 3, -11.9 VP by the end of turn 3). The diagnosis
   (`runs/playdek/us-opening-diagnosis-2026-09-09.md`, `us_opening_diagnosis.py`):

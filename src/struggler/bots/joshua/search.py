@@ -21,8 +21,10 @@ docs/JOSHUA.md (2026-08-25), mechanics in docs/WOPR.md:
   action round forces it) is played while DEFCON is 3 or more if it can
   never be spaced, and is spaced (or put under UN Intervention) at
   DEFCON 2 as soon as the turn's arithmetic -- the plays left, the cards
-  held past them, the space attempts -- says it can no longer be held.
-  Rules arithmetic on the mover's own hand, no search.
+  held past them, the space attempts -- says it can no longer be held;
+  and it is never headlined at DEFCON 3 or below, where the opponent's
+  hidden headline finishes what the gift's event starts. Rules
+  arithmetic on the mover's own hand, no search.
 
 The simulation state comes from `Engine.determinize(side, seed)`, never
 the live engine: unseen cards are reshuffled, the RNG reseeded, and d6
@@ -156,6 +158,15 @@ class SearchPlayer:
                 index, mode = dumped
                 self._dump_intent = (options[index].payload["card"], mode) if mode else None
                 return options[index]
+        if self._dump and decision.kind is DecisionKind.HEADLINE_PLAY and self._engine.defcon <= KILL_MASK_DEFCON:
+            # The headline rule: two events resolve back to back and the
+            # opponent's is hidden, so a gift headlined at DEFCON 3 is a coin
+            # flip on their card. The gift waits for the action rounds, where
+            # the window rule plays it alone.
+            gifts = GIFT_CARDS[observation.side]
+            kept = [i for i, a in enumerate(options) if a.payload.get("card") not in gifts]
+            if kept and len(kept) < len(options):
+                logits = [logit if i in kept else float("-inf") for i, logit in enumerate(logits)]
         if self._evaluator == "terminal":
             index = self._choose_veto(observation, decision, logits)
         else:
@@ -202,9 +213,9 @@ class SearchPlayer:
     def _disposable(sim: Engine, side: Side, cid: str) -> bool:
         """Whether `cid` has a route out of the hand that never fires its
         event: the Space Race at the mover's current box (this turn's
-        attempts aside), or UN Intervention in hand."""
-        if RULES["un_intervention_id"] in sim.hands[side.value]:
-            return True
+        attempts aside). UN Intervention in hand is not one -- the policy
+        spends it on another card (the confirmation batch's seed 560) --
+        though at DEFCON 2 it is the first safe door for a forced gift."""
         pos = sim.space_race[side.value]
         if pos >= RULES["space_race_max_box"]:
             return False

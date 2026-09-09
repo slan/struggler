@@ -122,3 +122,42 @@ def test_dump_intent_is_dropped_when_the_next_decision_is_not_the_gifts_mode(net
     action = player.choose_action(engine.observe(Side.USSR), [])
     assert action in engine.pending_decision.options
     assert player._dump_intent is None
+
+
+def test_dump_ignores_un_intervention_as_a_way_out_at_the_window(net):
+    # UN Intervention in hand does not hold the gift back: the policy may
+    # spend it on another card (the confirmation batch's seed 560 did), so
+    # the 1-Op gift still leaves at the window.
+    engine = action_round(Side.USSR, ["CIA_Created", "UN_Intervention", *USSR_FILLERS[:3]], defcon=3, plays_left=4)
+    assert dump_of(net, engine, Side.USSR) == ("CIA_Created", None)
+
+
+def test_dump_never_headlines_a_gift_at_defcon_3(net):
+    # Two headlines resolve back to back and the opponent's is hidden: a
+    # gift headlined at DEFCON 3 is a coin flip on their card. At DEFCON 4
+    # the policy's own choice stands.
+    for defcon, gift_allowed in ((3, False), (4, True)):
+        engine = bare_engine()
+        engine.defcon = defcon
+        engine.phase = "headline"
+        engine.hands = {"USSR": ["Duck_and_Cover", "Tear_Down_This_Wall"], "US": list(US_FILLERS[:2])}
+        engine._advance()  # the USSR's headline choice
+        decision = engine.pending_decision
+        assert decision.kind is DecisionKind.HEADLINE_PLAY and decision.actor is Side.USSR
+        # Only gifts in hand: the rule cannot exclude every option and stands aside.
+        player = SearchPlayer(net, evaluator="terminal", dump=True, seed=0)
+        player.bind(engine)
+        assert player.choose_action(engine.observe(Side.USSR), []) in decision.options
+        engine = bare_engine()
+        engine.defcon = defcon
+        engine.phase = "headline"
+        engine.hands = {"USSR": ["Duck_and_Cover", "Nasser", "Fidel"], "US": list(US_FILLERS[:2])}
+        engine._advance()
+        picks = set()
+        for seed in range(4):
+            torch.manual_seed(seed)
+            player = SearchPlayer(JoshuaNet(JoshuaConfig()), evaluator="terminal", dump=True, seed=seed)
+            player.bind(engine)
+            picks.add(player.choose_action(engine.observe(Side.USSR), []).payload["card"])
+        if not gift_allowed:
+            assert "Duck_and_Cover" not in picks

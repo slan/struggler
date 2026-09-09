@@ -320,9 +320,16 @@ Two evaluators, one harness:
   only when it must leave this turn; the mode is the policy's, under
   the veto. At DEFCON 2 a gift that must leave is played under UN
   Intervention or into the Space Race now, the rider insisting on that
-  mode at the card's `PLAY_MODE`. Otherwise the veto's choice stands.
-  Rules arithmetic on the mover's own hand, no search; tests
-  `tests/test_dump.py`.
+  mode at the card's `PLAY_MODE`. At the headline, at DEFCON 3 or below,
+  a gift is never headlined (two events resolve back to back and the
+  opponent's is hidden: a coin flip on their card, provable by no
+  probe); it waits for the action rounds. UN Intervention in hand is
+  not a disposal route at a window — the policy spends it elsewhere.
+  Otherwise the veto's choice stands. Rules arithmetic on the mover's
+  own hand, no search; tests `tests/test_dump.py`. (The second form,
+  2026-09-09 evening: the standing player's two batches measured the
+  first, without the headline rule and with UN Intervention counted as
+  a route; docs/JOSHUA.md, the dump's confirmation.)
 
 **Training under the veto (`train.py --veto-train`, docs/JOSHUA.md
 kick7).** The veto's shapes -- the DEFCON self-kill, the granted-coup
