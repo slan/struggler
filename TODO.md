@@ -1,3 +1,37 @@
+# KICK9 READ: THE BOARD'S OPENING MOVED WITH THE RE-MEASURE, THE US SEAT 0.138 ONE WIN UNDER ITS 0.15 LINE, THE MEAN 0.154 OVER; NO COMPOSE; STANDING UNCHANGED (2026-09-10)
+
+- **kick9's decider** (docs/JOSHUA.md 2026-09-09, kick9 entry, "Result --
+  the decider" and "Decision"; `runs/playdek/kick9-easy`, 120 easy games
+  seeds 300+ bid 2, the raw checkpoint): **USSR 10/59 = 0.169, US 8/58 =
+  0.138 [0.07, 0.25], mean 18/117 = 0.154 [0.10, 0.23]** (kick8 0.224 /
+  0.052 / 0.138, kick2 0.190 / 0.089 / 0.140); attrition **3 desyncs, 0
+  void** (all "illegal in Playdek", `desync-mining-2026-09-10-kick9.txt`,
+  the dump batches' family). The batch was cut at 110/120 by a Windows
+  reboot at 02:29; the ten missing games re-run 09:36-09:57 by
+  `runs/playdek/resume_batch.py` (finishes any interrupted eval batch from
+  its own config.json; summary.json carries `"resumed": true`). **By the
+  letter: negative on the US read (one win short: 9/58 = 0.155), positive
+  on the mean; no double clear -> no compose, no confirmation.** Standing
+  unchanged: kick2+dump 0.263 (bar 0.313), kick2 raw 0.140. What it
+  settles: the prior reaches the board's opening -- every opening read
+  moved as the held-out re-measure predicted (`us_opening_diagnosis.py` on
+  the batch vs kick8-easy, `us-opening-diagnosis-kick9-2026-09-10.md`:
+  turn-3 VP **-8.1** vs -12.1, West Germany held at the end of turn 3 in
+  **21/49** vs 6/42, at turn 1 47/60 vs 34/60, Blockade **26** plays vs 36,
+  turn-3 losses **6** vs 18, alive at turn 3 49 vs 42) and the US seat's
+  losses moved down the game (20/50 by turn 4 vs kick8's 30/55; 21 of the
+  rest at turns 5-7, on VP, Europe Scoring still behind 36/45 at AR 4.6
+  vs 3.7). The opening was worth ~0.09 on the US seat; the class did not
+  close, it moved one turn block. The "position-bound" reading does not
+  apply (the arena's sampled setup reached West Germany in 11/40 and the
+  habit transferred). USSR seat 0.169 with DEFCON share 0.306 (the lowest
+  raw), reported. **Open, the user's call (each a new entry):** (a) the
+  compose over kick9 (dump second form, `dump=runs/kick9/joshua.pt`,
+  seeds 300+ vs 0.313) -- not run by the rule; (b) the evidence-pointed
+  follow-on, **the same prior extended down the game**: a `--from-logs`
+  predicate at the US's first pick of turns 4-6, the learner at the mover,
+  a mid-game diagnosis of the opening's shape run first.
+
 # THE GIFT AUDIT CLOSES THE GIFT LINE; THE DUMP RIDER RUNS; THE TRAINING LINE TURNS TO THE US SEAT'S OPENING (2026-09-09)
 
 - **The gift audit** (docs/JOSHUA.md 2026-09-09, first entry;
@@ -57,9 +91,7 @@
   held 76/124 (kick8 45), Blockade plays 46 (65), turn-3 VP -7.8 (-8.7),
   the discard still refused 21/22; the sampled arena setup West Germany 1.2
   (kick2 0.7); probe as gifter 10/100 and 19/100, reported. **Decider
-  queued** behind the confirmation batch: `runs/kick9-decider-chain.sh`
-  launches `runs/playdek/kick9-easy` on the GO in `runs/kick9/verdict.txt`
-  the moment `kick2-dump-easy-s500/summary.json` appears; success = US seat
+  read 2026-09-10** (the section above; `runs/playdek/kick9-easy`); success = US seat
   >= 0.15 AND mean >= 0.140; the in-run evals were off this run (config
   `eval_every` 0), a protocol slip): kick8's construction plus the board's
   opening as the prior -- `scenarios/us-opening-board.jsonl` (1,637 states,
@@ -78,8 +110,9 @@
   2 on the raw checkpoint, success = US seat >= 0.15 AND mean >= 0.140;
   compose = the dump over kick9 (`dump=`) against the bar 0.308 only on a
   double clear. Suite 565.
-- The brief: `runs/article/joshua-brief.html` (evening edition 2026-09-09b,
-  FACTS.md updated); publishing needs a session with the Artifact tool.
+- The brief: `runs/article/joshua-brief.html` (morning edition 2026-09-10,
+  dated copy `-2026-09-10.html`, FACTS.md updated); publishing needs a
+  session with the Artifact tool.
 
 # KICK8 (THE KILL SWITCH) NEGATIVE ON BOTH READS AT 0.138 / 0.422; THE SWITCH WORKS IN THE ARENA, NOT ON THE BOARD; RULES 9 -> 10; ATTRITION 4/120 (2026-09-03)
 

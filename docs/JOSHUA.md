@@ -3398,6 +3398,105 @@ not to it. Every gate passes; the decider is queued on the DLL behind
 the dump's confirmation batch (`runs/kick9-decider-chain.sh`, the GO
 verdict in `runs/kick9/verdict.txt`).
 
+**Result — the decider** (`runs/playdek/kick9-easy`, 120 easy games,
+seeds 300+, bid 2, the raw checkpoint; launched 22:11 on 2026-09-09
+when the dump's confirmation released the DLL, relaunched 23:39 after
+the first launch's workers stalled through a system sleep and the
+300 s watchdog fired on wake; the machine rebooted for a Windows
+update at 02:29 with 110 of 120 games written, and the ten missing
+games — indices 102, 109, 110, 112, 113 and 115–119, their own seeds
+and seats — were re-run 09:36–09:57 on 2026-09-10 by
+`runs/playdek/resume_batch.py`, which finishes an interrupted batch
+from its own `config.json` and writes `summary.json` over the whole;
+the summary carries `"resumed": true`). **USSR 10/59 = 0.169** [0.09,
+0.28], **US 8/58 = 0.138** [0.07, 0.25], **mean 18/117 = 0.154**
+[0.10, 0.23] (kick2 0.190 / 0.089 / 0.140, kick8 0.224 / 0.052 /
+0.138). **Attrition 3 desyncs in 120, void 0**, effective 117 — the
+family's lowest; all three "illegal in Playdek"
+(`desync-mining-2026-09-10-kick9.txt`): two at the bot's US seat
+where the DLL is back at its action-round prompt while the engine
+still asks the US's choice under a Soviet-played event (seed 303 at
+turn 5, an Asia placement; seed 323 at turn 4, Independent Reds'
+country), one at the USSR seat at turn 10, the DLL asking one more
+removal in Iran after Marine Barracks Bombing where the engine had
+moved to the next action round — the dump batches' family, pass 24's
+input. The US seat's losses: 37 VP, 6 Europe control, 6 DEFCON, 1
+final scoring (DEFCON share 0.120; kick8 0.073); its 8 wins four
+final scorings and one VP win at turn 10, two DEFCON deaths of the
+AI's own at turn 2, one held card. **The losses moved down the
+game**: 2 / 7 / 11 at turns 2 / 3 / 4, **20 of 50 by the end of turn
+4** against kick8's 30 of 55 and kick2's 27 of 51, 9 at turn 3 or
+earlier against 20 and 12; the remaining 30 at turns 5–10, 21 of
+them at 5–7, on VP; the US seat's games run to turn 5.8 (kick8 5.1).
+The USSR seat's: 33 VP, 15 DEFCON, 1 final scoring — DEFCON share
+**0.306**, the raw family's lowest board share (kick8 0.422, kick2
+0.489), inside kick8's interval on 49 losses; reported. The board's
+opening, `us_opening_diagnosis.py` on the batch with kick8-easy as
+the second sample
+(`runs/playdek/us-opening-diagnosis-kick9-2026-09-10.md`; the script's
+section headings are fixed at "kick8" and "kick2", the batch paths
+under them are the ones read), bot as US, kick8's batch in brackets:
+**VP at the end of turn 3 −8.1** over all 60 games (−12.1 on the same
+table; the question's −11.9 was the earlier report's reading), games
+alive at the end of turn 3 **49 of 60** (42), **turn-3 losses 6**
+(18); **West Germany US-controlled at the end of turn 1 in 47 of 60**
+(34) and **at the end of turn 3 in 21 of the 49 alive** (6 of 42),
+Soviet in 4, uncontrolled in 24; Europe battlegrounds at turn 3's end
+1.4 to 2.9 (1.2 to 3.0), Europe influence 13.6 to 20.4 (12.8 to
+20.6); **Blockade through turn 3 26 plays** (36), every one with West
+Germany at 4+, the discard offered twice and refused twice (22, 21),
+98 US points lost in Europe at 3.8 a play (149, 4.1); Europe Scoring
+by the bot 45 plays at −3.5, behind in 36 of 45 (46, −4.3, 39 of 46)
+— at mean action round **4.6** against 3.7: later, still not from in
+front; the AI as USSR into Western Europe 4.0 Ops points a game
+(4.7), the China Card on turn 1 in 52 of 60 (56). The arena's sampled
+setup, 40 kick9 self-play games: West Germany US-controlled at the
+end of turn 1 in 11 of 40 (kick8 3 of 40).
+
+**Decision.** By the letter: **negative on the US-seat read** — 0.138
+against the 0.15 line, one win short (9 of 58 reads 0.155) — and
+**positive on the mean**, 0.154 against 0.140, the raw family's best
+with kick3's 0.153, every raw mean since kick2 inside one interval.
+No double clear, so **no compose and no confirmation** (the
+pre-registered "US seat up, mean short" reading, the only one that
+runs the compose on a single clear, is the other single clear; a
+compose over kick9 needs a new entry, the user's call). Standing
+unchanged: kick2+dump 0.263 pooled (bar 0.313), kick2 the raw
+checkpoint at 0.140. Of the four pre-registered readings none names
+this case exactly, and the entry says so; what the arm settles, in
+three parts. (1) *The prior reaches the board's opening.* Every
+opening read moved on the board in the direction and about the size
+the held-out re-measure predicted: West Germany held at the end of
+turn 3 in 21 of 49 against 6 of 42, Blockade 26 plays against 36,
+turn-3 VP −8.1 against −12.1, turn-3 losses 6 against 18. The
+"position-bound" reading — the prior's argmax setup against the
+learner's own sampled one — does not apply: the arena's sampled setup
+reached the board's West Germany in 11 of 40 games and the habit
+transferred to the board's positions in full; a quarter of games
+opened from the board's own states was enough. (2) *The opening was
+worth what it moved, and no more.* The US seat went from kick8's
+0.052 to 0.138 and its losses moved from turns 3–4 into turns 5–7,
+where they are lost on VP with the same scoring cards played the same
+way one action round later (Europe Scoring behind in 36 of 45 at
+action round 4.6 against 3.7). The class the bar lives in moved one
+turn block down the game; it did not close. The Blockade lesson
+landed as the value of West Germany, not as the discard (design
+choice 5): 26 plays where 36, the discard still refused when offered.
+(3) *The board's states are a usable prior for any phase the logs
+cover.* The from-logs harvest, the mover seating and the quarter
+share are now a measured construction: an opening prior moved the
+opening. The evidence-pointed follow-on, a new entry on the user's
+call: **the same prior extended down the game** — the harvest
+predicate at the US's first pick of turns 4–6 (the bank's states the
+board's mid-game positions the arena's opening does not build, the
+learner at the mover as here), read by a mid-game diagnosis of the
+same shape as the opening's before the run. The USSR seat's 0.169
+(kick8 0.224, kick2 0.190) is inside the family's interval and the
+seat's DEFCON share the lowest raw reading yet; neither gates. Budget
+spent: 8k games (5.2 h alongside the DLL batches), the gates, one
+decider batch (3.5 h DLL plus the 20-minute re-run of the ten
+interrupted games).
+
 ## Road map
 
 Rewritten 2026-08-25 at the close of the bootstrap/bid/bridge arc
