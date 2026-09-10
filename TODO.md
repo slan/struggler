@@ -111,8 +111,10 @@
   compose = the dump over kick9 (`dump=`) against the bar 0.308 only on a
   double clear. Suite 565.
 - The brief: `runs/article/joshua-brief.html` (morning edition 2026-09-10,
-  dated copy `-2026-09-10.html`, FACTS.md updated); publishing needs a
-  session with the Artifact tool.
+  dated copy `-2026-09-10.html`, FACTS.md updated), **published 2026-09-10
+  10:52**: https://claude.ai/code/artifact/a88f07d8-9893-40bc-8e09-5d661d7090de
+  (the first published edition since 2026-09-09a; the 09-09 b and c cuts
+  were never published).
 
 # KICK8 (THE KILL SWITCH) NEGATIVE ON BOTH READS AT 0.138 / 0.422; THE SWITCH WORKS IN THE ARENA, NOT ON THE BOARD; RULES 9 -> 10; ATTRITION 4/120 (2026-09-03)
 
